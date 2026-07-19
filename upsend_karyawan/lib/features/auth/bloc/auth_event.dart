@@ -1,4 +1,4 @@
-part of 'bloc_bloc.dart';
+part of 'auth_bloc.dart';
 
 @immutable
-sealed class BlocEvent {}
+sealed class AuthEvent {}

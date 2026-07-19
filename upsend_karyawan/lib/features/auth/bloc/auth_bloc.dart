@@ -1,12 +1,12 @@
 import 'package:bloc/bloc.dart';
 import 'package:meta/meta.dart';
 
-part 'bloc_event.dart';
-part 'bloc_state.dart';
+part 'auth_event.dart';
+part 'auth_state.dart';
 
-class BlocBloc extends Bloc<BlocEvent, BlocState> {
+class BlocBloc extends Bloc<AuthEvent, BlocState> {
   BlocBloc() : super(BlocInitial()) {
-    on<BlocEvent>((event, emit) {
+    on<AuthEvent>((event, emit) {
       // TODO: implement event handler
     });
   }
