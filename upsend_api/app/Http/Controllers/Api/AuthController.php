@@ -9,6 +9,31 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+public function register(Request $request)
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email',
+        'no_hp' => 'required|unique:users,no_hp',
+        'password' => 'required|min:6',
+        'home_location_id' => 'nullable',
+    ]);
+
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'no_hp' => $request->no_hp,
+        'password' => Hash::make($request->password),
+        'role' => 'karyawan',
+        'home_location_id' => $request->home_location_id,
+        'is_active' => true,
+    ]);
+
+    return response()->json([
+        'message' => 'Registrasi berhasil.',
+        'user' => $user,
+    ], 201);
+}
     public function login(Request $request)
 {
     $request->validate([
