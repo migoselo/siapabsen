@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:upsend_karyawan/core/api/api.dart';
+import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
+import 'package:upsend_karyawan/features/auth/pages/register_page.dart';
+import 'package:upsend_karyawan/features/splashscreen/pages/splash_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,44 +20,16 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'UpSend',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006847)),
+        // 2. Ganti textTheme menggunakan Google Fonts Inter
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
       ),
-      home: const MyHomePage(title: 'UpSend'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int counter = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Center(
-        child: Text('Counter: $counter', style: const TextStyle(fontSize: 24)),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            counter++;
-          });
-        },
-        child: const Icon(Icons.add),
-      ),
+      home: const SplashPage(),
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/register_page': (context) => const RegisterPage(),
+      },
     );
   }
 }
