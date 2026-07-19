@@ -1,4 +1,4 @@
-part of 'bloc_bloc.dart';
+part of 'splash_bloc.dart';
 
 @immutable
 sealed class BlocState {}
