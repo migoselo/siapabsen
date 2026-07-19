@@ -51,9 +51,16 @@ class MyApp extends StatelessWidget {
             fontFamily: 'PlusJakartaSans',
             scaffoldBackgroundColor: Colors.white,
           ),
-          home: const HomePage(),
-          // 2. TAMBAHKAN REGISTER ROUTE DI SINI
-          routes: {'/checkin': (context) => const CheckinLocationPage()},
+          // 1. Ubah initialRoute menjadi splash page agar dibuka pertama kali
+          initialRoute: '/splash',
+          routes: {
+            // 2. Daftarkan SplashPage di sini
+            '/splash': (context) => const SplashPage(),
+            '/login': (context) => const LoginPage(),
+            '/register_page': (context) => const RegisterPage(),
+            '/home': (context) => const HomePage(),
+            '/checkin': (context) => const CheckinLocationPage(),
+          },
         ),
       ),
     );
