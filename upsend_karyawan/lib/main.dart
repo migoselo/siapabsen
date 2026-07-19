@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:upsend_karyawan/core/api/api.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../features/home/bloc/home_bloc.dart';
+import '../features/home/repository/home_repository.dart';
+import '../features/attendance/repository/attendance_repository.dart'; // path ke file punya temen kamu
+import '../features/home/pages/home_page.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  Api.init();
   runApp(const MyApp());
 }
 
@@ -12,47 +14,40 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'UpSend',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'UpSend'),
-    );
-  }
-}
+    // Satu instance AttendanceRepository dipakai bareng-bareng
+    // (HomeBloc lewat HomeRepository, dan AttendanceBloc punya temen kamu)
+    // — supaya gak ada dua instance terpisah yang manggil API sendiri-sendiri.
+    final attendanceRepository = AttendanceRepository();
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int counter = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Center(
-        child: Text('Counter: $counter', style: const TextStyle(fontSize: 24)),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            counter++;
-          });
-        },
-        child: const Icon(Icons.add),
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<AttendanceRepository>.value(value: attendanceRepository),
+        RepositoryProvider<HomeRepository>(
+          create: (_) => HomeRepository(attendanceRepository: attendanceRepository),
+        ),
+      ],
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<HomeBloc>(
+            create: (context) => HomeBloc(
+              homeRepository: context.read<HomeRepository>(),
+            ),
+          ),
+          // TODO: tambahkan BlocProvider<AttendanceBloc> punya temen kamu
+          // di sini juga, pakai attendanceRepository yang sama:
+          // BlocProvider<AttendanceBloc>(
+          //   create: (_) => AttendanceBloc(repository: attendanceRepository),
+          // ),
+        ],
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Attendance App',
+          theme: ThemeData(
+            fontFamily: 'PlusJakartaSans',
+            scaffoldBackgroundColor: Colors.white,
+          ),
+          home: const HomePage(),
+        ),
       ),
     );
   }
