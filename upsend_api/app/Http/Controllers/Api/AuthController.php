@@ -10,29 +10,29 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     public function login(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
+{
+    $request->validate([
+        'no_hp' => 'required',
+        'password' => 'required',
+    ]);
 
-        $user = User::where('email', $request->email)->first();
+    $user = User::where('no_hp', $request->no_hp)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Email atau password salah.'], 401);
-        }
-
-        if (! $user->is_active) {
-            return response()->json(['message' => 'Akun sudah dinonaktifkan.'], 403);
-        }
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'user' => $user->load('homeLocation'),
-            'token' => $token,
-        ]);
+    if (! $user || ! Hash::check($request->password, $user->password)) {
+        return response()->json(['message' => 'Nomor HP atau password salah.'], 401);
     }
+
+    if (! $user->is_active) {
+        return response()->json(['message' => 'Akun sudah dinonaktifkan.'], 403);
+    }
+
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    return response()->json([
+        'user' => $user->load('homeLocation'),
+        'token' => $token,
+    ]);
+}
 
     public function logout(Request $request)
     {
