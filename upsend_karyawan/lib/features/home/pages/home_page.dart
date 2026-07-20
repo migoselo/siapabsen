@@ -9,9 +9,7 @@ import '../widgets/gps_status_chip.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../auth/bloc/auth_bloc.dart';
-
-// TODO: ganti ke widget asli halaman check-in punya temen kamu
-// import 'package:nama_project_kamu/features/attendance/ui/check_in_flow_page.dart';
+import '../../attendance/pages/checkin_location_page.dart';
 
 const Color kPrimary = Color(0xFF006948);
 const Color kBackground = Color(0xFFFFFFFF);
@@ -182,6 +180,12 @@ class _ActionButton extends StatelessWidget {
     if (state.isCheckedIn) {
       context.read<HomeBloc>().add(const HomeCheckOutRequested());
     } else {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CheckinLocationPage(),
+        ), // Sesuaikan nama class halamanmu
+      );
       // TODO: aktifkan setelah ganti import ke widget asli temen kamu
       // await Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckInFlowPage()));
       if (context.mounted) context.read<HomeBloc>().add(const HomeStarted());
