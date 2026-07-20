@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 // Sesuaikan dengan path core API milikmu
 import 'package:upsend_karyawan/core/api/api.dart';
 import '../widgets/profile_header.dart';
+import '../../../core/widgets/custom_bottom_navbar.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -110,6 +111,19 @@ class ProfilePage extends StatelessWidget {
         centerTitle: true,
       ),
       // FutureBuilder sekarang menunggu respons pengecekan dari API Backend
+      bottomNavigationBar: BottomNav(
+        items: const [
+          BottomNavItem(icon: Icons.home_filled, label: 'Beranda'),
+          BottomNavItem(icon: Icons.person, label: 'Profil'),
+        ],
+        activeIndex: 1, // selalu 1, karena ini halaman Profil
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+          // index == 1 (Profil) gak perlu ngapa-ngapain, udah di halaman ini
+        },
+      ),
       body: FutureBuilder<String>(
         future: _fetchUserProfile(context),
         builder: (context, snapshot) {

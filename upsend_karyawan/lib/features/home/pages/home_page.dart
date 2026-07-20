@@ -47,10 +47,15 @@ class _HomePageState extends State<HomePage> {
           // (misal "Riwayat" seperti desain awal kamu).
         ],
         activeIndex: _activeNavIndex,
-        onTap: (index) {
-          setState(() => _activeNavIndex = index);
-          // TODO: tambahkan navigasi ke halaman terkait di sini,
-          // misal Navigator.pushReplacement(...) sesuai routing project kamu.
+        onTap: (index) async {
+          if (index == 1) {
+            // Push ke ProfilePage, tunggu sampai balik
+            await Navigator.pushNamed(context, '/profile');
+            // Setelah balik dari Profile, reset highlight ke Beranda
+            if (context.mounted) setState(() => _activeNavIndex = 0);
+          } else {
+            setState(() => _activeNavIndex = index);
+          }
         },
       ),
       body: SafeArea(
