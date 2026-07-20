@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart'; // Ditambahkan untuk menghandle DioException
 // Sesuaikan dengan path core API milikmu
 import 'package:upsend_karyawan/core/api/api.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:upsend_karyawan/features/auth/bloc/auth_bloc.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -62,6 +64,7 @@ class _LoginPageState extends State<LoginPage> {
           _showSnackBar('Login Berhasil!');
 
           if (mounted) {
+            context.read<AuthBloc>().add(const AuthCheckRequested()); 
             // Pindah ke halaman Dashboard / Main App dan hapus tumpukan stack navigasi
             Navigator.pushReplacementNamed(context, '/home');
           }
