@@ -28,27 +28,37 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     context.read<HomeBloc>().add(const HomeStarted());
+
+    // Refresh data user (nama + otomatis identicon ikut) dari backend
+    // setiap kali Home dibuka, pakai AuthRepository.getCurrentUser()
+    // yang sekarang sudah handle bentuk respons /me dengan benar.
+    // Ini SUMBER YANG SAMA dipakai ProfilePage, jadi nama & avatar
+    // di Home & Profile dijamin selalu identik.
+    context.read<AuthBloc>().add(const AuthCheckRequested());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackground,
-      // Bottom nav ditaruh di Scaffold.bottomNavigationBar (pola standar
-      // Flutter), bukan di dalam body Column, biar nempel di bawah layar
-      // konsisten walau konten di atasnya pendek.
       bottomNavigationBar: BottomNav(
         items: const [
           BottomNavItem(icon: Icons.home_filled, label: 'Beranda'),
           BottomNavItem(icon: Icons.person, label: 'Profil'),
-          // TODO: tambah item lain di sini kalau memang ada lebih dari 2
-          // (misal "Riwayat" seperti desain awal kamu).
         ],
         activeIndex: _activeNavIndex,
-        onTap: (index) {
-          setState(() => _activeNavIndex = index);
-          // TODO: tambahkan navigasi ke halaman terkait di sini,
-          // misal Navigator.pushReplacement(...) sesuai routing project kamu.
+        onTap: (index) async {
+          if (index == 1) {
+            await Navigator.pushNamed(context, '/profile');
+            if (context.mounted) {
+              setState(() => _activeNavIndex = 0);
+              // Balik dari Profile → refresh AuthBloc juga, jaga-jaga
+              // kalau ada perubahan data user.
+              context.read<AuthBloc>().add(const AuthCheckRequested());
+            }
+          } else {
+            setState(() => _activeNavIndex = index);
+          }
         },
       ),
       body: SafeArea(
@@ -76,24 +86,16 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Builder(
                     builder: (context) {
-                      // Ambil nama dari AuthBloc — context.watch biar rebuild otomatis
-                      // kalau AuthState berubah (misal abis login).
+                      // context.watch biar rebuild otomatis kalau
+                      // AuthState berubah (misal AuthCheckRequested
+                      // barusan selesai fetch dari /me).
                       final authState = context.watch<AuthBloc>().state;
                       final userName = authState.user?.name ?? '-';
 
-                      return GreetingHeader(
-                        userName: userName,
-                        avatarUrl: null, // backend belum ada field foto
-                      );
+                      return GreetingHeader(userName: userName);
                     },
                   ),
-                  // GpsStatusCard posisinya independen dari greeting,
-                  // ditaruh di sini sementara — sesuaikan Positioned-nya
-                  // ke tempat yang benar sesuai desain kamu.
-                  const SizedBox(
-                    height: 44,
-                  ), // <- placeholder, GreetingHeader & GpsStatusCard dimatiin dulu
-                  //const Positioned(top: 29, right: 30, child: GpsStatusCard()),
+                  const SizedBox(height: 44),
                   const SizedBox(height: 24),
 
                   Padding(

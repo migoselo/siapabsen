@@ -13,11 +13,12 @@ import '../features/profile/pages/profile_page.dart';
 import 'package:upsend_karyawan/features/profile/widgets/minidenticon_generator.dart';
 import '../features/attendance/pages/checkin_location_page.dart';
 import '../features/attendance/bloc/attendance_bloc.dart';
-import '../features/auth/bloc/auth_bloc.dart'; // <-- TAMBAHAN import AuthBloc
+import '../features/auth/bloc/auth_bloc.dart';
+import '../features/auth/repository/auth_repository.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized(); // <-- TAMBAHAN: wajib sebelum pakai plugin async (SharedPreferences) di luar widget tree
-  Api.init(); // <-- TAMBAHAN: pasang interceptor token & logging
+  WidgetsFlutterBinding.ensureInitialized();
+  Api.init();
   runApp(const MyApp());
 }
 
@@ -27,11 +28,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final attendanceRepository = AttendanceRepository();
+    final authRepository = AuthRepository();
 
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<AttendanceRepository>.value(
           value: attendanceRepository,
+        ),
+        RepositoryProvider<AuthRepository>.value(
+          value: authRepository,
         ),
         RepositoryProvider<HomeRepository>(
           create: (_) =>
@@ -44,13 +49,14 @@ class MyApp extends StatelessWidget {
             create: (context) =>
                 HomeBloc(homeRepository: context.read<HomeRepository>()),
           ),
-
           BlocProvider<AttendanceBloc>(
             create: (_) => AttendanceBloc(repository: attendanceRepository),
           ),
-
-          // --- TAMBAHAN: AuthBloc didaftarkan di sini ---
-          BlocProvider<AuthBloc>(create: (_) => AuthBloc()),
+          BlocProvider<AuthBloc>(
+            create: (context) =>
+                AuthBloc(authRepository: context.read<AuthRepository>())
+                  ..add(const AuthCheckRequested()),
+          ),
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -59,10 +65,8 @@ class MyApp extends StatelessWidget {
             fontFamily: 'PlusJakartaSans',
             scaffoldBackgroundColor: Colors.white,
           ),
-          // 1. Ubah initialRoute menjadi splash page agar dibuka pertama kali
           initialRoute: '/splash',
           routes: {
-            // 2. Daftarkan SplashPage di sini
             '/splash': (context) => const SplashPage(),
             '/login': (context) => const LoginPage(),
             '/profile': (context) => const ProfilePage(),
