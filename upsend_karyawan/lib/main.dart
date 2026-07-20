@@ -9,6 +9,8 @@ import '../features/home/bloc/home_bloc.dart';
 import '../features/home/repository/home_repository.dart';
 import '../features/attendance/repository/attendance_repository.dart';
 import '../features/home/pages/home_page.dart';
+import '../features/profile/pages/profile_page.dart';
+import 'package:upsend_karyawan/features/profile/widgets/minidenticon_generator.dart';
 import '../features/attendance/pages/checkin_location_page.dart';
 import '../features/attendance/bloc/attendance_bloc.dart';
 
@@ -57,6 +59,7 @@ class MyApp extends StatelessWidget {
             // 2. Daftarkan SplashPage di sini
             '/splash': (context) => const SplashPage(),
             '/login': (context) => const LoginPage(),
+            '/profile': (context) => const ProfilePage(),
             '/register_page': (context) => const RegisterPage(),
             '/home': (context) => const HomePage(),
             '/checkin': (context) => const CheckinLocationPage(),

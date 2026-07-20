@@ -53,11 +53,23 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         // Ambil token dari response data backend
         final token = response.data['token'] ?? response.data['access_token'];
+        final userData = response.data['user'];
 
         if (token != null) {
           // Simpan token ke SharedPreferences agar terbaca oleh Interceptor di api.dart
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('auth_token', token);
+
+          // --- SIMPAN NAMA USER KE LOCAL STORAGE ---
+          if (userData != null && userData['name'] != null) {
+            await prefs.setString('user_name', userData['name'].toString());
+          } else {
+            // Fallback jika backend mengembalikan nama di tingkat utama root response
+            final fallbackName = response.data['name'];
+            if (fallbackName != null) {
+              await prefs.setString('user_name', fallbackName.toString());
+            }
+          }
 
           _showSnackBar('Login Berhasil!');
 
