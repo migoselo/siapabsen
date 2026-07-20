@@ -15,6 +15,8 @@ class PhotoCaptured extends AttendanceEvent {
   PhotoCaptured(this.photo);
 }
 
+class GoToCamera extends AttendanceEvent {}
+
 class SubmitCheckIn extends AttendanceEvent {}
 
 class PreviousStep extends AttendanceEvent {}
