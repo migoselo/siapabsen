@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repository/attendance_repository.dart';
 import 'attendance_event.dart';
 import 'attendance_state.dart';
+import 'package:geolocator/geolocator.dart';
 
 class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   final AttendanceRepository repository;
@@ -21,13 +22,32 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   ) async {
     emit(state.copyWith(status: AttendanceStatus.loading));
     try {
-      // Mock Koordinat Asli (Ganti dengan LocationService bawaan jika sudah siap)
-      double currentLat = -7.5841;
-      double currentLng = 112.0628;
+      // Cek service GPS aktif
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('GPS tidak aktif, mohon nyalakan lokasi.');
+      }
+
+      // Cek & minta permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Izin lokasi ditolak.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Izin lokasi ditolak permanen, ubah di Settings.');
+      }
+
+      // Ambil posisi asli device
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
       final locations = await repository.getNearbyLocations(
-        lat: currentLat,
-        lng: currentLng,
+        lat: position.latitude,
+        lng: position.longitude,
       );
 
       emit(
@@ -35,8 +55,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           status: AttendanceStatus.success,
           nearbyLocations: locations,
           selectedLocation: locations.isNotEmpty ? locations.first : null,
-          latitude: currentLat,
-          longitude: currentLng,
+          latitude: position.latitude,
+          longitude: position.longitude,
           currentStep: 1,
         ),
       );
