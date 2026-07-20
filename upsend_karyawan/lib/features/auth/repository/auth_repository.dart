@@ -5,17 +5,34 @@ import '../models/user_model.dart';
 class AuthRepository {
   static const _tokenKey = 'auth_token';
 
-  Future<UserModel> login({required String noHp, required String password}) async {
-    final response = await Api.dio.post('/login', data: {
-      'no_hp': noHp,
-      'password': password,
-    });
+  Future<UserModel> login({
+    required String noHp,
+    required String password,
+  }) async {
+    final response = await Api.dio.post(
+      '/login',
+      data: {'no_hp': noHp, 'password': password},
+    );
 
-    final token = response.data['token'] as String;
-    final user = UserModel.fromJson(response.data['user']);
+    // Backend bisa balikin key 'token' ATAU 'access_token'.
+    final token = response.data['token'] ?? response.data['access_token'];
+    if (token == null) {
+      throw Exception('Token tidak ditemukan dari respon server.');
+    }
 
-    await _saveToken(token);
+    final rawUser = response.data['user'];
+    if (rawUser == null) {
+      throw Exception('Data user tidak ditemukan dari respon server.');
+    }
+
+    final user = UserModel.fromJson(Map<String, dynamic>.from(rawUser));
+
+    await _saveToken(token.toString());
     Api.dio.options.headers['Authorization'] = 'Bearer $token';
+
+    // Simpan juga nama ke cache lokal biar konsisten dengan getCurrentUser().
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', user.name);
 
     return user;
   }
@@ -28,7 +45,19 @@ class AuthRepository {
     Api.dio.options.headers['Authorization'] = 'Bearer $token';
     try {
       final response = await Api.dio.get('/me');
-      return UserModel.fromJson(response.data);
+
+      final rawData = response.data;
+      final Map<String, dynamic> userJson =
+          (rawData is Map && rawData['data'] is Map)
+          ? Map<String, dynamic>.from(rawData['data'])
+          : Map<String, dynamic>.from(rawData);
+
+      final user = UserModel.fromJson(userJson);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_name', user.name);
+
+      return user;
     } catch (e) {
       await _clearToken();
       return null;

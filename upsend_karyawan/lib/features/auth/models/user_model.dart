@@ -19,13 +19,22 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] ?? 0,
+      id: _parseInt(json['id']) ?? 0,
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       noHp: json['no_hp'] ?? '',
       role: json['role'] ?? '',
-      homeLocationId: json['home_location_id'],
+      homeLocationId: _parseInt(json['home_location_id']),
       isActive: json['is_active'] ?? false,
     );
+  }
+
+  // Backend kadang ngirim angka sebagai String (misal "1" bukan 1),
+  // fungsi ini handle baik format int maupun String.
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 }
