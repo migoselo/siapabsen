@@ -35,9 +35,7 @@ class MyApp extends StatelessWidget {
         RepositoryProvider<AttendanceRepository>.value(
           value: attendanceRepository,
         ),
-        RepositoryProvider<AuthRepository>.value(
-          value: authRepository,
-        ),
+        RepositoryProvider<AuthRepository>.value(value: authRepository),
         RepositoryProvider<HomeRepository>(
           create: (_) =>
               HomeRepository(attendanceRepository: attendanceRepository),

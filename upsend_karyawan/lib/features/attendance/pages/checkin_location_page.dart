@@ -9,12 +9,24 @@ import '../widgets/location_card.dart';
 import 'checkin_camera_page.dart';
 import 'checkin_success_page.dart';
 
-class CheckinLocationPage extends StatelessWidget {
+class CheckinLocationPage extends StatefulWidget {
   const CheckinLocationPage({super.key});
 
   @override
+  State<CheckinLocationPage> createState() => _CheckinLocationPageState();
+}
+
+class _CheckinLocationPageState extends State<CheckinLocationPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AttendanceBloc>().add(FetchNearbyLocations());
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Kita bungkus dengan BlocListener di tingkat teratas Scaffold body
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -38,13 +50,7 @@ class CheckinLocationPage extends StatelessWidget {
         listenWhen: (previous, current) =>
             previous.currentStep != current.currentStep,
         listener: (context, state) {
-          // Navigasi dikontrol penuh dari state BLoC di sini
-          if (state.currentStep == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
-            );
-          } else if (state.currentStep == 2) {
+          if (state.currentStep == 2) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const CheckinCameraPage()),
@@ -73,32 +79,50 @@ class CheckinLocationPage extends StatelessWidget {
                   children: [
                     const SizedBox(height: 24),
                     Text(
-                      "Lokasi Anda telah ditemukan",
+                      _buildSubtitle(state),
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.grey.shade500,
                         fontSize: 15,
                       ),
                     ),
                     const SizedBox(height: 16),
+
                     if (state.selectedLocation != null)
                       LocationCard(location: state.selectedLocation!),
+
+                    if (state.status == AttendanceStatus.failure)
+                      _ErrorBox(message: state.errorMessage),
+
+                    if (state.status == AttendanceStatus.success &&
+                        state.nearbyLocations.isEmpty)
+                      const _EmptyLocationBox(),
+
                     const Spacer(),
+
+                    // Tombol "Lanjut ke kamera" -> memicu PhotoCaptured
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF006D4C),
+                        backgroundColor:
+                            (state.selectedLocation != null &&
+                                state.status != AttendanceStatus.loading)
+                            ? const Color(0xFF006D4C)
+                            : Colors.grey.shade300,
                         minimumSize: const Size.fromHeight(54),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 0,
                       ),
-                      onPressed: () {
-                        // Memicu event foto terambil, BLoC akan mengubah currentStep menjadi 2
-                        // dan BlocListener di atas akan otomatis memindahkan halaman ke kamera
-                        context.read<AttendanceBloc>().add(
-                          PhotoCaptured(File('dummy_photo_path.jpg')),
-                        );
-                      },
+                      onPressed:
+                          (state.selectedLocation == null ||
+                              state.status == AttendanceStatus.loading)
+                          ? null
+                          : () {
+                              context.read<AttendanceBloc>().add(
+                                PhotoCaptured(File('dummy_photo_path.jpg')),
+                              );
+                            },
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -119,6 +143,8 @@ class CheckinLocationPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    // Tombol "Coba lagi" -> memicu FetchNearbyLocations
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.black, width: 1.2),
@@ -127,26 +153,41 @@ class CheckinLocationPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () {
-                        context.read<AttendanceBloc>().add(
-                          FetchNearbyLocations(),
-                        );
-                      },
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.refresh, color: Colors.black, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            "Coba lagi",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                      onPressed: state.status == AttendanceStatus.loading
+                          ? null
+                          : () {
+                              context.read<AttendanceBloc>().add(
+                                FetchNearbyLocations(), // <-- DIPERBAIKI
+                              );
+                            },
+                      child: state.status == AttendanceStatus.loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF006D4C),
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.refresh,
+                                  color: Colors.black,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  "Coba lagi",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
                     ),
                     const SizedBox(height: 32),
                   ],
@@ -155,6 +196,75 @@ class CheckinLocationPage extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+
+  String _buildSubtitle(AttendanceState state) {
+    if (state.status == AttendanceStatus.failure) {
+      return "Gagal mendeteksi lokasi";
+    }
+    if (state.selectedLocation != null) {
+      return "Lokasi Anda telah ditemukan";
+    }
+    return "Mencari lokasi Anda...";
+  }
+}
+
+class _ErrorBox extends StatelessWidget {
+  final String? message;
+  const _ErrorBox({this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFDC2626)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message ?? "Terjadi kesalahan saat mengambil lokasi.",
+              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyLocationBox extends StatelessWidget {
+  const _EmptyLocationBox();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.location_off_outlined, color: Color(0xFFB45309)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Tidak ada lokasi kantor yang terdeteksi di sekitar Anda.",
+              style: TextStyle(color: Color(0xFFB45309), fontSize: 13),
+            ),
+          ),
+        ],
       ),
     );
   }
