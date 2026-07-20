@@ -48,22 +48,15 @@ class _RegisterPageState extends State<RegisterPage> {
 
     try {
       final response = await Api.dio.post(
-        '/users',
+        '/register',
         data: {
           'name': nama,
           'email': email,
           'password': password,
           'no_hp': nomorHp,
-          'role':
-              'karyawan', // 1. DIUBAH: dari 'employee' menjadi 'karyawan' sesuai isi Laravel
           'home_location_id': '1',
         },
-        options: Options(
-          headers: {
-            'Accept':
-                'application/json', // Memaksa Laravel merespons dengan JSON error jika validasi gagal
-          },
-        ),
+        options: Options(headers: {'Accept': 'application/json'}),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {

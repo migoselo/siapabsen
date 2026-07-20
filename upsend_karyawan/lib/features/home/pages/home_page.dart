@@ -7,6 +7,8 @@ import '../widgets/greeting_header.dart';
 import '../widgets/attendance_status_card.dart';
 import '../widgets/gps_status_chip.dart';
 import '../../attendance/pages/checkin_location_page.dart';
+import '../../../core/widgets/custom_bottom_navbar.dart';
+import '../../auth/bloc/auth_bloc.dart';
 
 // TODO: ganti ke widget asli halaman check-in punya temen kamu
 // import 'package:nama_project_kamu/features/attendance/ui/check_in_flow_page.dart';
@@ -22,16 +24,35 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  int _activeNavIndex = 0; // 0 = Beranda
+
   @override
   void initState() {
     super.initState();
-    // context.read<HomeBloc>().add(const HomeStarted());
+    context.read<HomeBloc>().add(const HomeStarted());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackground,
+      // Bottom nav ditaruh di Scaffold.bottomNavigationBar (pola standar
+      // Flutter), bukan di dalam body Column, biar nempel di bawah layar
+      // konsisten walau konten di atasnya pendek.
+      bottomNavigationBar: BottomNav(
+        items: const [
+          BottomNavItem(icon: Icons.home_filled, label: 'Beranda'),
+          BottomNavItem(icon: Icons.person, label: 'Profil'),
+          // TODO: tambah item lain di sini kalau memang ada lebih dari 2
+          // (misal "Riwayat" seperti desain awal kamu).
+        ],
+        activeIndex: _activeNavIndex,
+        onTap: (index) {
+          setState(() => _activeNavIndex = index);
+          // TODO: tambahkan navigasi ke halaman terkait di sini,
+          // misal Navigator.pushReplacement(...) sesuai routing project kamu.
+        },
+      ),
       body: SafeArea(
         child: BlocConsumer<HomeBloc, HomeState>(
           listener: (context, state) {
@@ -43,7 +64,8 @@ class _HomePageState extends State<HomePage> {
             }
           },
           builder: (context, state) {
-            if (state.status == HomeStatus.loading) {
+            if (state.status == HomeStatus.initial ||
+                state.status == HomeStatus.loading) {
               return const Center(
                 child: CircularProgressIndicator(color: kPrimary),
               );
@@ -54,24 +76,26 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Stack(
-                    children: [
-                      const GreetingHeader(
-                        userName:
-                            '-', // TODO: sambungkan ke Auth/User state kamu
-                        avatarUrl: null,
-                      ),
-                      // GpsStatusCard posisinya independen dari greeting,
-                      // ditaruh di sini sementara — sesuaikan Positioned-nya
-                      // ke tempat yang benar sesuai desain kamu.
-                      const Positioned(
-                        top: 29,
-                        right: 30,
-                        child: GpsStatusCard(),
-                      ),
-                    ],
-                  ),
+                  Builder(
+                    builder: (context) {
+                      // Ambil nama dari AuthBloc — context.watch biar rebuild otomatis
+                      // kalau AuthState berubah (misal abis login).
+                      final authState = context.watch<AuthBloc>().state;
+                      final userName = authState.user?.name ?? '-';
 
+                      return GreetingHeader(
+                        userName: userName,
+                        avatarUrl: null, // backend belum ada field foto
+                      );
+                    },
+                  ),
+                  // GpsStatusCard posisinya independen dari greeting,
+                  // ditaruh di sini sementara — sesuaikan Positioned-nya
+                  // ke tempat yang benar sesuai desain kamu.
+                  const SizedBox(
+                    height: 44,
+                  ), // <- placeholder, GreetingHeader & GpsStatusCard dimatiin dulu
+                  //const Positioned(top: 29, right: 30, child: GpsStatusCard()),
                   const SizedBox(height: 24),
 
                   Padding(
@@ -156,12 +180,6 @@ class _ActionButton extends StatelessWidget {
     if (state.isCheckedIn) {
       context.read<HomeBloc>().add(const HomeCheckOutRequested());
     } else {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const CheckinLocationPage(),
-        ), // Sesuaikan nama class halamanmu
-      );
       // TODO: aktifkan setelah ganti import ke widget asli temen kamu
       // await Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckInFlowPage()));
       if (context.mounted) context.read<HomeBloc>().add(const HomeStarted());
