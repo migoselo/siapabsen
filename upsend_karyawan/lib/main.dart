@@ -13,8 +13,11 @@ import '../features/profile/pages/profile_page.dart';
 import 'package:upsend_karyawan/features/profile/widgets/minidenticon_generator.dart';
 import '../features/attendance/pages/checkin_location_page.dart';
 import '../features/attendance/bloc/attendance_bloc.dart';
+import '../features/auth/bloc/auth_bloc.dart'; // <-- TAMBAHAN import AuthBloc
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized(); // <-- TAMBAHAN: wajib sebelum pakai plugin async (SharedPreferences) di luar widget tree
+  Api.init(); // <-- TAMBAHAN: pasang interceptor token & logging
   runApp(const MyApp());
 }
 
@@ -45,6 +48,9 @@ class MyApp extends StatelessWidget {
           BlocProvider<AttendanceBloc>(
             create: (_) => AttendanceBloc(repository: attendanceRepository),
           ),
+
+          // --- TAMBAHAN: AuthBloc didaftarkan di sini ---
+          BlocProvider<AuthBloc>(create: (_) => AuthBloc()),
         ],
         child: MaterialApp(
           debugShowCheckedModeBanner: false,

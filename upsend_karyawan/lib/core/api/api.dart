@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Api {
   static final Dio dio = Dio(
     BaseOptions(
+      // baseUrl: 'http://192.168.44.8:8010/api',
       baseUrl: 'http://26.214.138.24:8010/api',
       headers: {
         'Accept': 'application/json',
@@ -36,5 +38,20 @@ class Api {
         },
       ),
     );
+
+    // Logging cuma jalan pas debug build, biar keliatan
+    // request/response/error persis apa yang dikirim & diterima.
+    // Berguna buat ngecek kasus 404 kayak /my-open-session kemarin.
+    if (kDebugMode) {
+      dio.interceptors.add(
+        LogInterceptor(
+          requestHeader: true,
+          requestBody: true,
+          responseHeader: false,
+          responseBody: true,
+          error: true,
+        ),
+      );
+    }
   }
 }
