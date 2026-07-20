@@ -32,6 +32,7 @@ class AttendanceState {
     int? currentStep,
     List<LocationModel>? nearbyLocations,
     LocationModel? selectedLocation,
+    bool clearSelectedLocation = false, // <-- baru
     double? latitude,
     double? longitude,
     File? capturedPhoto,
@@ -42,7 +43,9 @@ class AttendanceState {
       status: status ?? this.status,
       currentStep: currentStep ?? this.currentStep,
       nearbyLocations: nearbyLocations ?? this.nearbyLocations,
-      selectedLocation: selectedLocation ?? this.selectedLocation,
+      selectedLocation: clearSelectedLocation
+          ? null
+          : (selectedLocation ?? this.selectedLocation), // <-- diubah
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       capturedPhoto: capturedPhoto ?? this.capturedPhoto,

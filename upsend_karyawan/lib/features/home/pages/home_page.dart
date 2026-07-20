@@ -5,11 +5,10 @@ import '../bloc/home_event.dart';
 import '../bloc/home_state.dart';
 import '../widgets/greeting_header.dart';
 import '../widgets/attendance_status_card.dart';
-import '../widgets/gps_status_chip.dart';
+// import '../widgets/gps_status_chip.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../auth/bloc/auth_bloc.dart';
-import '../../attendance/pages/checkin_location_page.dart';
 
 const Color kPrimary = Color(0xFF006948);
 const Color kBackground = Color(0xFFFFFFFF);

@@ -10,9 +10,9 @@ class AttendanceRepository {
     required double lng,
   }) async {
     try {
-      final response = await Api.dio.post(
+      final response = await Api.dio.get(
         '/attendances/nearby-locations',
-        data: {'lat': lat, 'lng': lng},
+        queryParameters: {'lat': lat, 'lng': lng},
       );
       return (response.data as List)
           .map((json) => LocationModel.fromJson(json))

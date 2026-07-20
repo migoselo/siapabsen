@@ -55,6 +55,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           status: AttendanceStatus.success,
           nearbyLocations: locations,
           selectedLocation: locations.isNotEmpty ? locations.first : null,
+          clearSelectedLocation: locations.isEmpty,
           latitude: position.latitude,
           longitude: position.longitude,
           currentStep: 1,
@@ -65,6 +66,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         state.copyWith(
           status: AttendanceStatus.failure,
           errorMessage: e.toString(),
+          clearSelectedLocation: true,
         ),
       );
     }
