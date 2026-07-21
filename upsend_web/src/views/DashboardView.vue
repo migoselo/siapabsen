@@ -754,7 +754,7 @@ onMounted(() => {
 .table-tools {
   display: flex;
   gap: 10px;
-  align-items: left;
+  align-items: center;
 }
 .search {
   display: flex;
@@ -817,29 +817,8 @@ thead th {
   letter-spacing: 0.06em;
   padding: 13px 24px;
   text-transform: uppercase;
-  text-align: left; /* default semua ke kiri */
-}
-/* Nama Karyawan */
-thead th:nth-child(1) {
   text-align: left;
 }
-
-/* Lokasi Cabang */
-thead th:nth-child(2) {
-  text-align: left;
-}
-
-/* Jam Check In */
-thead th:nth-child(3) {
-  text-align: left;
-}
-
-/* Jam Check Out */
-thead th:nth-child(4) {
-  text-align: left;
-}
-
-/* Status */
 thead th:nth-child(5) {
   text-align: center;
 }
@@ -849,6 +828,10 @@ tbody td {
   border-bottom: 2px solid var(--line);
   vertical-align: middle;
   color: var(--ink);
+  text-align: left;
+}
+tbody td:nth-child(5) {
+  text-align: center;
 }
 tbody tr:last-child td {
   border-bottom: none;
