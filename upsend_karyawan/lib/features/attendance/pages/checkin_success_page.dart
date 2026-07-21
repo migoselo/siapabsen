@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import '../../home/bloc/home_bloc.dart';
+import '../../home/bloc/home_event.dart';
 import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
@@ -28,6 +31,16 @@ class CheckinSuccessPage extends StatelessWidget {
       ),
       body: BlocBuilder<AttendanceBloc, AttendanceState>(
         builder: (context, state) {
+          final checkInTime = state.attendanceResult?.checkInTime.toLocal();
+
+          final timeText = checkInTime != null
+              ? DateFormat('HH:mm').format(checkInTime)
+              : '--:--';
+
+          final dateText = checkInTime != null
+              ? DateFormat('d MMMM yyyy', 'id_ID').format(checkInTime)
+              : '-';
+
           return AttendanceStepper(
             currentStep: 3,
             child: Padding(
@@ -36,7 +49,6 @@ class CheckinSuccessPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Spacer(),
-                  // Ilustrasi Utama (Diambil dari kemiripan mockup asset)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -88,18 +100,18 @@ class CheckinSuccessPage extends StatelessWidget {
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    "07:58",
-                    style: TextStyle(
+                  Text(
+                    timeText,
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 62,
                       color: Color(0xFF006D4C),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    "Berhasil absen pada tanggal 22 Juni 2022",
-                    style: TextStyle(
+                  Text(
+                    "Berhasil absen pada tanggal $dateText",
+                    style: const TextStyle(
                       color: Color(0xFF006D4C),
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -117,10 +129,8 @@ class CheckinSuccessPage extends StatelessWidget {
                     ),
                     onPressed: () {
                       context.read<AttendanceBloc>().add(ResetAttendance());
-                      Navigator.popUntil(
-                        context,
-                        (route) => route.isFirst,
-                      ); // Bersihkan stack & kembali ke Home
+                      context.read<HomeBloc>().add(const HomeStarted());
+                      Navigator.popUntil(context, (route) => route.isFirst);
                     },
                     child: const Text(
                       "Kembali ke beranda",

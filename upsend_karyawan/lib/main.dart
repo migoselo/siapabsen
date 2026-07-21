@@ -15,10 +15,11 @@ import '../features/attendance/pages/checkin_location_page.dart';
 import '../features/attendance/bloc/attendance_bloc.dart';
 import '../features/auth/bloc/auth_bloc.dart';
 import '../features/auth/repository/auth_repository.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Api.init();
+  await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
 

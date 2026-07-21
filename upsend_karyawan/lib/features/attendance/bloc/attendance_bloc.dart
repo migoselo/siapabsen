@@ -23,13 +23,11 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   ) async {
     emit(state.copyWith(status: AttendanceStatus.loading));
     try {
-      // Cek service GPS aktif
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         throw Exception('GPS tidak aktif, mohon nyalakan lokasi.');
       }
 
-      // Cek & minta permission
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -41,7 +39,6 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         throw Exception('Izin lokasi ditolak permanen, ubah di Settings.');
       }
 
-      // Ambil posisi asli device
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -74,7 +71,6 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   }
 
   void _onGoToCamera(GoToCamera event, Emitter<AttendanceState> emit) {
-    // advance to camera step without a photo
     emit(state.copyWith(currentStep: 2));
   }
 
@@ -83,7 +79,13 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   }
 
   void _onPhotoCaptured(PhotoCaptured event, Emitter<AttendanceState> emit) {
-    emit(state.copyWith(capturedPhoto: event.photo, currentStep: 2));
+    emit(
+      state.copyWith(
+        capturedPhoto: event.photo,
+        currentStep: 2,
+        status: AttendanceStatus.success,
+      ),
+    );
   }
 
   Future<void> _onSubmitCheckIn(
