@@ -72,12 +72,17 @@ const searchQuery = ref('')
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return employees.value
-  return employees.value.filter(e => e.name.toLowerCase().includes(q))
+  return employees.value.filter((e) => e.name.toLowerCase().includes(q))
 })
 
 function initials(name) {
   if (!name) return ''
-  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 }
 
 function formatCurrentDate() {
@@ -174,7 +179,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="dashboard">
-
     <div class="filterbar">
       <div class="filterbar-left">
         <div class="select" @click.stop="toggleLocationMenu">
@@ -200,7 +204,9 @@ onBeforeUnmount(() => {
             :key="p.key"
             :class="{ active: activePeriod === p.key }"
             @click="selectPeriod(p.key)"
-          >{{ p.label }}</button>
+          >
+            {{ p.label }}
+          </button>
         </div>
       </div>
       <div class="date-pill">
@@ -212,7 +218,9 @@ onBeforeUnmount(() => {
     <section class="stats">
       <div class="stat-card">
         <div class="stat-top">
-          <div class="stat-icon"><Icon icon="material-symbols:groups-outline" width="20" height="20" /></div>
+          <div class="stat-icon">
+            <Icon icon="material-symbols:groups-outline" width="20" height="20" />
+          </div>
           <span class="tag">TOTAL</span>
         </div>
         <div class="stat-label">Total Karyawan</div>
@@ -222,7 +230,9 @@ onBeforeUnmount(() => {
 
       <div class="stat-card">
         <div class="stat-top">
-          <div class="stat-icon"><Icon icon="material-symbols:login-rounded" width="20" height="20" /></div>
+          <div class="stat-icon">
+            <Icon icon="material-symbols:login-rounded" width="20" height="20" />
+          </div>
           <span class="tag">STATUS</span>
         </div>
         <div class="stat-label">Sudah Check In</div>
@@ -233,7 +243,9 @@ onBeforeUnmount(() => {
 
       <div class="stat-card alert">
         <div class="stat-top">
-          <div class="stat-icon"><Icon icon="material-symbols:person-cancel-outline" width="20" height="20" /></div>
+          <div class="stat-icon">
+            <Icon icon="material-symbols:person-cancel-outline" width="20" height="20" />
+          </div>
           <span class="tag alert">ALERT</span>
         </div>
         <div class="stat-label">Belum Check In</div>
@@ -243,7 +255,9 @@ onBeforeUnmount(() => {
 
       <div class="stat-card">
         <div class="stat-top">
-          <div class="stat-icon"><Icon icon="material-symbols:logout-rounded" width="20" height="20" /></div>
+          <div class="stat-icon">
+            <Icon icon="material-symbols:logout-rounded" width="20" height="20" />
+          </div>
           <span class="tag">SHIFT</span>
         </div>
         <div class="stat-label">Sudah Check Out</div>
@@ -256,7 +270,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="middle-row">
-      <div class="panel">
+      <div class="panel trend-panel">
         <div class="panel-head">
           <div>
             <h2>Tren Kehadiran 7 Hari Terakhir</h2>
@@ -271,7 +285,8 @@ onBeforeUnmount(() => {
               class="tick-col"
             >
               <div v-if="idx === highlightIndex" class="tick-tooltip">
-                <span>Hari</span><span>Ini</span>
+                <span>Hari</span>
+                <span>Ini</span>
               </div>
               <div class="tick-value">{{ item.count ?? 0 }}</div>
               <div class="tick" :class="{ active: idx === highlightIndex }" :style="{ height: ((item.count ?? 0) / chartMax * 100 || 10) + '%' }"></div>
@@ -294,7 +309,9 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="insight-item">
-          <div class="ic"><Icon icon="material-symbols:warning-outline-rounded" width="18" height="18" /></div>
+          <div class="ic">
+            <Icon icon="material-symbols:warning-outline-rounded" width="18" height="18" />
+          </div>
           <div>
             <div class="lbl">NEED ATTENTION</div>
             <div class="val">{{ insight.needAttentionLabel }}</div>
@@ -331,10 +348,14 @@ onBeforeUnmount(() => {
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="5" style="text-align:center;color:var(--ink-soft);padding:32px;">Memuat data...</td>
+            <td colspan="5" style="text-align: center; color: var(--ink-soft); padding: 32px">
+              Memuat data...
+            </td>
           </tr>
           <tr v-else-if="filteredEmployees.length === 0">
-            <td colspan="5" style="text-align:center;color:var(--ink-soft);padding:32px;">Tidak ada karyawan ditemukan.</td>
+            <td colspan="5" style="text-align: center; color: var(--ink-soft); padding: 32px">
+              Tidak ada karyawan ditemukan.
+            </td>
           </tr>
           <tr v-for="emp in filteredEmployees" :key="emp.id">
             <td>
@@ -357,14 +378,18 @@ onBeforeUnmount(() => {
               <span v-else class="dash">--:--</span>
             </td>
             <td>
-              <span class="badge" :class="statusMeta[emp.status]?.cls">{{ statusMeta[emp.status]?.label }}</span>
+              <span class="badge" :class="statusMeta[emp.status]?.cls">{{
+                statusMeta[emp.status]?.label
+              }}</span>
             </td>
           </tr>
         </tbody>
       </table>
 
       <div class="table-footer">
-        <span>Menampilkan {{ filteredEmployees.length }} dari {{ stats.totalEmployees }} karyawan</span>
+        <span
+          >Menampilkan {{ filteredEmployees.length }} dari {{ stats.totalEmployees }} karyawan</span
+        >
         <div class="pager">
           <button disabled>
             <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
@@ -375,7 +400,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </section>
-
   </div>
 </template>
 
