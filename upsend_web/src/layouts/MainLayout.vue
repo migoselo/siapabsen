@@ -15,16 +15,48 @@ import logoUrl from '../assets/Logo Container.svg'
 const profile = ref({ name: 'Adelia Adnan', role: 'HR', avatarUrl: '' })
 
 const navigation = [
-  { id: 'dashboard', text: 'Dashboard', icon: 'material-symbols:dashboard-outline', path: '/' },
-  { id: 'lokasi', text: 'Lokasi Kerja', icon: 'material-symbols:location-on-outline', path: '/lokasi-kerja' },
-  { id: 'karyawan', text: 'Data Karyawan', icon: 'material-symbols:group-outline', path: '/karyawan' },
-  { id: 'absensi', text: 'Data Absensi', icon: 'material-symbols:history', path: '/absensi' },
+  {
+    id: 'dashboard',
+    text: 'Dashboard',
+    icon: 'material-symbols:dashboard-outline',
+    activeIcon: 'material-symbols:dashboard',
+    path: '/',
+  },
+  {
+    id: 'lokasi',
+    text: 'Lokasi Kerja',
+    icon: 'material-symbols:location-on-outline',
+    activeIcon: 'material-symbols:location-on',
+    path: '/lokasi-kerja',
+  },
+  {
+    id: 'karyawan',
+    text: 'Data Karyawan',
+    icon: 'material-symbols:group-outline',
+    activeIcon: 'material-symbols:group',
+    path: '/karyawan',
+  },
+  {
+    id: 'absensi',
+    text: 'Data Absensi',
+    icon: 'material-symbols:history',
+    activeIcon: 'material-symbols:history',
+    path: '/absensi',
+  },
 ]
 
+// satu fungsi dipakai di semua tempat (sidebar, bottom-nav) biar konsisten
+function isActive(item) {
+  return route.path === item.path || (route.path.startsWith(item.path) && item.path !== '/')
+}
+
+// ikon berubah ke versi "filled" pas item lagi aktif
+function iconFor(item) {
+  return isActive(item) ? item.activeIcon : item.icon
+}
+
 const currentRouteName = computed(() => {
-  const current = navigation.find(
-    (n) => route.path === n.path || (route.path.startsWith(n.path) && n.path !== '/'),
-  )
+  const current = navigation.find((n) => isActive(n))
   return current ? current.text : 'Dashboard'
 })
 
@@ -73,18 +105,16 @@ onUnmounted(() => {
           v-for="item in navigation"
           :key="item.id"
           class="nav-item"
-          :class="{
-            active: route.path === item.path || (route.path.startsWith(item.path) && item.path !== '/'),
-          }"
+          :class="{ active: isActive(item) }"
           @click="handleItemClick(item.path)"
         >
-          <Icon :icon="item.icon" width="22" height="22" />
+          <Icon :icon="iconFor(item)" class="menu-icon" />
           {{ item.text }}
         </button>
       </nav>
 
       <button class="logout" @click="handleLogout">
-        <Icon icon="material-symbols:logout" width="20" height="20" />
+        <Icon icon="material-symbols:logout" class="menu-icon" />
         Logout
       </button>
     </aside>
@@ -114,12 +144,10 @@ onUnmounted(() => {
         v-for="item in navigation"
         :key="item.id"
         class="bottom-nav-item"
-        :class="{
-          active: route.path === item.path || (route.path.startsWith(item.path) && item.path !== '/'),
-        }"
+        :class="{ active: isActive(item) }"
         @click="handleItemClick(item.path)"
       >
-        <Icon :icon="item.icon" width="22" height="22" />
+        <Icon :icon="iconFor(item)" class="menu-icon" />
         <span>{{ item.text.split(' ')[0] }}</span>
       </div>
     </nav>
@@ -139,7 +167,7 @@ onUnmounted(() => {
   --ink: #1c2521;
   --ink-soft: #5b6864;
   --line: #e7e7e2;
-  --bg: #f6f5f1;
+  --bg: #ffffff;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--ink);
@@ -154,7 +182,7 @@ onUnmounted(() => {
   width: 230px;
   flex-shrink: 0;
   background: #fff;
-  border-right: 1px solid var(--line);
+  border-right: 2px solid var(--line);
   display: flex;
   flex-direction: column;
   padding: 20px 16px;
@@ -220,13 +248,6 @@ onUnmounted(() => {
   color: #4f5b58;
   transition: all 0.2s ease;
 }
-.nav-item svg,
-.nav-item .iconify {
-  width: 22px;
-  height: 22px;
-  color: #66706c;
-  flex-shrink: 0;
-}
 .nav-item:hover {
   background: var(--green-50);
 }
@@ -234,10 +255,6 @@ onUnmounted(() => {
   background: #ecefe8;
   color: #173d31;
   font-weight: 700;
-}
-.nav-item.active svg,
-.nav-item.active .iconify {
-  color: var(--green-900);
 }
 .nav-item.active::after {
   content: '';
@@ -248,6 +265,17 @@ onUnmounted(() => {
   height: 100%;
   background: #173d31;
   border-radius: 0 12px 12px 0;
+}
+
+.menu-icon {
+  width: 22px;
+  height: 22px;
+  color: #66706c;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+.nav-item.active .menu-icon {
+  color: #173d31;
 }
 
 .logout {
@@ -263,12 +291,11 @@ onUnmounted(() => {
   background: none;
   width: 100%;
   text-align: left;
-  border-top: 1px solid var(--line);
+  border-top: 2px solid var(--line);
   margin-top: 8px;
   padding-top: 18px;
 }
-.logout svg,
-.logout .iconify {
+.logout .menu-icon {
   width: 19px;
   height: 19px;
   color: #5b6864;
@@ -284,8 +311,10 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 28px 36px 0;
+  padding: 28px 36px 20px;
   margin-bottom: 26px;
+
+  border-bottom: 2px solid #E7E7E2;
 }
 .topbar h1 {
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -301,6 +330,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   cursor: pointer;
+
+  border-left: 2px solid #E7E7E2;
+  padding-left: 24px;
+  margin-left: 24px;
 }
 .profile-text {
   text-align: right;
@@ -344,7 +377,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-around;
   background: #fff;
-  border-top: 1px solid var(--line);
+  border-top: 2px solid var(--line);
   padding: 10px 0;
   flex-shrink: 0;
 }
@@ -360,6 +393,12 @@ onUnmounted(() => {
 .bottom-nav-item.active {
   color: var(--green-900);
   font-weight: 700;
+}
+.bottom-nav-item .menu-icon {
+  color: var(--ink-soft);
+}
+.bottom-nav-item.active .menu-icon {
+  color: var(--green-900);
 }
 
 @media (max-width: 600px) {
