@@ -10,8 +10,12 @@ const routes = [
         name: 'Dashboard',
         component: () => import('../views/DashboardView.vue'),
       },
+      {
+        path: 'lokasi-kerja',
+        name: 'LokasiKerja',
+        component: () => import('../views/LokasiKerjaView.vue'),
+      },
       // Tambahkan halaman lain di sini nanti, contoh:
-      // { path: 'lokasi-kerja', name: 'LokasiKerja', component: () => import('../views/LokasiKerjaView.vue') },
       // { path: 'karyawan', name: 'DataKaryawan', component: () => import('../views/DataKaryawanView.vue') },
       // { path: 'absensi', name: 'DataAbsensiView', component: () => import('../views/DataAbsensiView.vue') },
     ],
