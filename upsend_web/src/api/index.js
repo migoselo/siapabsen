@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import router from '../router'
 
 const api = axios.create({
-      baseURL: 'https://26.214.138.24/api',
+  baseURL: 'http://26.214.138.24:8010/api',
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
@@ -16,16 +16,6 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-
-    const outletId = 1
-    if (config.method === 'get') {
-      config.params = { ...config.params, outlet_id: outletId }
-    } else if (config.method === 'post' || config.method === 'put') {
-      if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
-        config.data.outlet_id = outletId
-      }
-    }
-
     return config
   },
   (error) => Promise.reject(error),

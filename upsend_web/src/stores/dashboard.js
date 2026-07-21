@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import api from '../api/axios'
+import api from '../api'
 
 /*
   Store ini yang nanti diisi oleh tim yang mengurus database/API.

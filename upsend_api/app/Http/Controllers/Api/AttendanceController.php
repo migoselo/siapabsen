@@ -81,11 +81,10 @@ class AttendanceController extends Controller
     }
 
     public function checkOut(Request $request, Attendance $attendance)
-    {
-        if ($attendance->employee_id !== $request->user()->id) {
-            return response()->json(['message' => 'Bukan sesi absen kamu.'], 403);
-        }
-
+{
+    if ((int) $attendance->employee_id !== (int) $request->user()->id) {
+        return response()->json(['message' => 'Bukan sesi absen kamu.'], 403);
+    }
         if ($attendance->check_out_time) {
             return response()->json(['message' => 'Sesi ini sudah check-out.'], 422);
         }

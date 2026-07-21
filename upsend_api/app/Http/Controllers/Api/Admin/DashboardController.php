@@ -11,15 +11,100 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function summary()
+    public function summary(Request $request)
     {
         $today = now()->toDateString();
 
+        $usersQuery = User::where('role', 'karyawan')->where('is_active', true);
+        $attendanceQuery = Attendance::whereDate('check_in_time', $today);
+
+        if ($request->filled('location_id')) {
+            $usersQuery->where('home_location_id', $request->location_id);
+            $attendanceQuery->where('location_id', $request->location_id);
+        }
+
         return response()->json([
-            'total_karyawan_aktif' => User::where('role', 'karyawan')->where('is_active', true)->count(),
+            'total_karyawan_aktif' => $usersQuery->count(),
             'total_lokasi' => Location::count(),
-            'hadir_hari_ini' => Attendance::whereDate('check_in_time', $today)->distinct('employee_id')->count('employee_id'),
-            'pending_review' => Attendance::where('status', 'pending')->count(),
+            'hadir_hari_ini' => $attendanceQuery->distinct('employee_id')->count('employee_id'),
+            'pending_review' => $attendanceQuery->where('status', 'pending')->count(),
+        ]);
+    }
+
+    public function weeklyTrend(Request $request)
+    {
+        $startDate = now()->subDays(6)->toDateString();
+
+        $attendanceQuery = Attendance::whereDate('check_in_time', '>=', $startDate);
+        if ($request->filled('location_id')) {
+            $attendanceQuery->where('location_id', $request->location_id);
+        }
+
+        $attendances = $attendanceQuery->get()->groupBy(fn ($attendance) => $attendance->check_in_time->format('Y-m-d'));
+
+        $chartData = [];
+        $totalCount = 0;
+
+        for ($i = 6; $i >= 0; $i--) {
+            $day = now()->subDays($i);
+            $dayKey = $day->format('Y-m-d');
+            $count = $attendances->get($dayKey)?->unique('employee_id')->count() ?? 0;
+            $totalCount += $count;
+
+            $chartData[] = [
+                'date' => $dayKey,
+                'label' => $day->translatedFormat('D'),
+                'count' => $count,
+            ];
+        }
+
+        $weeklyAverage = $totalCount > 0 ? round($totalCount / 7) : 0;
+
+        return response()->json([
+            'weeklyAverageLabel' => "Rata-rata $weeklyAverage hadir per hari",
+            'chartData' => $chartData,
+        ]);
+    }
+
+    public function todayAttendance(Request $request)
+    {
+        $date = $request->filled('date') ? $request->date : now()->toDateString();
+
+        $employees = User::where('role', 'karyawan')
+            ->where('is_active', true)
+            ->with('homeLocation:id,name')
+            ->orderBy('name')
+            ->get();
+
+        $attendanceQuery = Attendance::whereDate('check_in_time', $date);
+
+        if ($request->filled('location_id')) {
+            $attendanceQuery->where('location_id', $request->location_id);
+        }
+
+        $attendances = $attendanceQuery->get()->keyBy('employee_id');
+
+        $data = $employees->map(function ($emp) use ($attendances) {
+            $att = $attendances->get($emp->id);
+            $status = 'absent';
+
+            if ($att) {
+                $status = $att->check_out_time ? 'checkout' : 'working';
+            }
+
+            return [
+                'id' => $emp->id,
+                'name' => $emp->name,
+                'location' => $emp->homeLocation->name ?? '-',
+                'checkIn' => optional($att?->check_in_time)->format('H:i'),
+                'checkOut' => optional($att?->check_out_time)->format('H:i'),
+                'status' => $status,
+            ];
+        });
+
+        return response()->json([
+            'date' => $date,
+            'employees' => $data,
         ]);
     }
 
@@ -47,7 +132,6 @@ class DashboardController extends Controller
 
     public function anomalies(Request $request)
     {
-        // Absen di luar radius (pending) atau yang udah ditolak -> indikasi kecurangan / kesalahan GPS
         $query = Attendance::whereIn('status', ['pending', 'rejected'])
             ->with(['employee:id,name', 'location:id,name']);
 

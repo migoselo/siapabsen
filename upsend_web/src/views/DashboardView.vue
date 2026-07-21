@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
@@ -10,7 +10,16 @@ import api from '../api'
   (lihat layouts/MainLayout.vue di sana).
 */
 
-const locationLabel = ref('Semua Lokasi')
+const locations = ref([])
+const selectedLocationId = ref('')
+const showLocationMenu = ref(false)
+const locationLabel = computed(() => {
+  if (!selectedLocationId.value) {
+    return 'Semua Lokasi'
+  }
+  const location = locations.value.find((loc) => loc.id === Number(selectedLocationId.value))
+  return location?.name ?? 'Semua Lokasi'
+})
 
 const stats = ref({
   totalEmployees: 0,
@@ -24,8 +33,15 @@ const stats = ref({
 })
 
 const currentDate = ref('')
-const weeklyAverageLabel = ref('')
-const insight = ref({ summary: '', topPerformerLabel: '', needAttentionLabel: '' })
+// TODO: belum ada endpoint tren 7 hari & insight operasional di backend,
+// jadi dua bagian ini masih statis sampai endpointnya dibikin
+const weeklyAverageLabel = ref('Data tren belum tersedia')
+const chartData = ref([])
+const insight = ref({
+  summary: 'Data insight belum tersedia dari server.',
+  topPerformerLabel: '-',
+  needAttentionLabel: '-',
+})
 const employees = ref([])
 const loading = ref(false)
 
@@ -37,7 +53,11 @@ const statusMeta = {
 }
 
 const chartDayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
-const highlightIndex = computed(() => chartDayLabels.length - 1) // default: hari terakhir
+const highlightIndex = computed(() => chartData.value.length - 1) // default: hari terakhir
+const chartMax = computed(() => {
+  const values = chartData.value.map((item) => item.count ?? 0)
+  return values.length ? Math.max(...values, 1) : 1
+})
 
 const periods = [
   { key: 'hari', label: 'Hari Ini' },
@@ -48,6 +68,7 @@ const activePeriod = ref('hari')
 
 const searchQuery = ref('')
 
+// Search dilakukan di client karena belum ada endpoint search terpisah di backend
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return employees.value
@@ -64,18 +85,53 @@ function initials(name) {
     .toUpperCase()
 }
 
-async function fetchDashboard(period = 'hari') {
+function formatCurrentDate() {
+  currentDate.value = new Date().toLocaleDateString('id-ID', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+async function fetchLocations() {
+  try {
+    const res = await api.get('/locations')
+    locations.value = res.data
+  } catch (err) {
+    console.error('Gagal mengambil daftar lokasi:', err)
+  }
+}
+
+async function fetchDashboard() {
   loading.value = true
   try {
-    // TODO: sesuaikan endpoint dengan API yang disediakan tim backend
-    const res = await api.get('/dashboard', { params: { period } })
-    const data = res.data
-    currentDate.value = data.currentDate
-    locationLabel.value = data.locationLabel
-    stats.value = data.stats
-    weeklyAverageLabel.value = data.weeklyAverageLabel
-    insight.value = data.insight
-    employees.value = data.employees
+    const params = selectedLocationId.value ? { location_id: selectedLocationId.value } : {}
+    const [summaryRes, attendanceRes, trendRes] = await Promise.all([
+      api.get('/dashboard/summary', { params }),
+      api.get('/dashboard/today-attendance', { params }),
+      api.get('/dashboard/weekly-trend', { params }),
+    ])
+
+    const summary = summaryRes.data
+    const emps = attendanceRes.data.employees
+    const trend = trendRes.data
+
+    const total = summary.total_karyawan_aktif
+    const checkedIn = summary.hadir_hari_ini
+    const checkedOutList = emps.filter(e => e.status === 'checkout')
+
+    stats.value = {
+      totalEmployees: total,
+      totalGrowthLabel: `${summary.total_lokasi} lokasi aktif`,
+      checkedIn,
+      checkedInPercent: total > 0 ? Math.round((checkedIn / total) * 100) : 0,
+      notCheckedIn: Math.max(total - checkedIn, 0),
+      notCheckedInNote: `${summary.pending_review} menunggu review`,
+      checkedOut: checkedOutList.length,
+      checkedOutExtraCount: Math.max(checkedOutList.length - 3, 0),
+    }
+
+    weeklyAverageLabel.value = trend.weeklyAverageLabel
+    chartData.value = trend.chartData
+    employees.value = emps
   } catch (err) {
     console.error('Gagal mengambil data dashboard:', err)
   } finally {
@@ -83,32 +139,41 @@ async function fetchDashboard(period = 'hari') {
   }
 }
 
-async function searchEmployees(query) {
-  try {
-    // TODO: kalau pencarian dilakukan di server, panggil endpoint terpisah di sini
-    const res = await api.get('/dashboard/employees', { params: { q: query } })
-    employees.value = res.data.employees
-  } catch (err) {
-    console.error('Gagal mencari karyawan:', err)
-  }
+function toggleLocationMenu() {
+  showLocationMenu.value = !showLocationMenu.value
 }
 
-function onSearchInput() {
-  searchEmployees(searchQuery.value)
+function closeLocationMenu() {
+  showLocationMenu.value = false
+}
+
+function selectLocation(id) {
+  selectedLocationId.value = id
+  showLocationMenu.value = false
+  fetchDashboard()
 }
 
 function selectPeriod(key) {
   activePeriod.value = key
-  fetchDashboard(key)
+  // TODO: backend today-attendance/summary baru dukung "hari ini" (tanggal tunggal).
+  // Filter minggu/bulan belum ada di controller, jadi belum berefek ke data.
+  fetchDashboard()
 }
 
 function handleDownloadPdf() {
-  // TODO: panggil endpoint generate laporan PDF
-  alert('Mengunduh Laporan PDF...')
+  // TODO: endpoint /dashboard/export masih return JSON mentah, belum generate PDF/Excel beneran
+  alert('Fitur unduh laporan belum tersedia di backend.')
 }
 
 onMounted(() => {
-  fetchDashboard('hari')
+  formatCurrentDate()
+  fetchLocations()
+  fetchDashboard()
+  document.addEventListener('click', closeLocationMenu)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeLocationMenu)
 })
 </script>
 
@@ -116,10 +181,23 @@ onMounted(() => {
   <div class="dashboard">
     <div class="filterbar">
       <div class="filterbar-left">
-        <div class="select">
-          <span>{{ locationLabel }}</span>
-          <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+        <div class="select" @click.stop="toggleLocationMenu">
+        <span>{{ locationLabel }}</span>
+        <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+        <div v-if="showLocationMenu" class="select-menu">
+          <button type="button" class="select-item" @click.stop="selectLocation('')">Semua Lokasi</button>
+          <button
+            v-for="loc in locations"
+            :key="loc.id"
+            type="button"
+            class="select-item"
+            @click.stop="selectLocation(String(loc.id))"
+          >
+            {{ loc.name }}
+          </button>
         </div>
+      </div>
         <div class="segmented">
           <button
             v-for="p in periods"
@@ -198,21 +276,23 @@ onMounted(() => {
             <h2>Tren Kehadiran 7 Hari Terakhir</h2>
             <p>{{ weeklyAverageLabel }}</p>
           </div>
-          <a class="link">Lihat Detail ›</a>
         </div>
         <div class="chart-wrap">
           <div class="chart-ticks">
-            <div v-for="(d, idx) in chartDayLabels" :key="idx" class="tick-col">
+            <div
+              v-for="(item, idx) in chartData"
+              :key="item.date"
+              class="tick-col"
+            >
               <div v-if="idx === highlightIndex" class="tick-tooltip">
                 <span>Hari</span>
                 <span>Ini</span>
               </div>
-              <div class="tick" :class="{ active: idx === highlightIndex }"></div>
+              <div class="tick-value">{{ item.count ?? 0 }}</div>
+              <div class="tick" :class="{ active: idx === highlightIndex }" :style="{ height: ((item.count ?? 0) / chartMax * 100 || 10) + '%' }"></div>
+              <div class="tick-label">{{ item.label }}</div>
             </div>
           </div>
-        </div>
-        <div class="chart-days">
-          <span v-for="(d, idx) in chartDayLabels" :key="idx">{{ d }}</span>
         </div>
       </div>
 
@@ -248,12 +328,7 @@ onMounted(() => {
         <div class="table-tools">
           <div class="search">
             <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-            <input
-              type="text"
-              v-model="searchQuery"
-              @input="onSearchInput"
-              placeholder="Cari nama karyawan..."
-            />
+            <input type="text" v-model="searchQuery" placeholder="Cari nama karyawan...">
           </div>
           <div class="icon-btn">
             <Icon icon="material-symbols:filter-list-rounded" width="18" height="18" />
@@ -329,624 +404,169 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.dashboard {
-  --green-900: #173d31;
-  --green-50: #f2f7f4;
-  --gold: #eaa93d;
-  --gold-dark: #d99524;
-  --red: #dc4646;
-  --red-bg: #fdeaea;
-  --amber-bg: #fdf1d6;
-  --amber-text: #a9721a;
-  --mint-bg: #e1f3ea;
-  --mint-text: #1c7a52;
-  --ink: #1c2521;
-  --ink-soft: #5b6864;
-  --line: #e7e7e2;
-  --bg: #ffffff;
-  --card: #ffffff;
+.dashboard{
+  --green-900:#173d31;
+  --green-50:#f2f7f4;
+  --gold:#eaa93d;
+  --gold-dark:#d99524;
+  --red:#dc4646;
+  --red-bg:#fdeaea;
+  --amber-bg:#fdf1d6;
+  --amber-text:#a9721a;
+  --mint-bg:#e1f3ea;
+  --mint-text:#1c7a52;
+  --ink:#1c2521;
+  --ink-soft:#5b6864;
+  --line:#e7e7e2;
+  --bg:#f6f5f1;
+  --card:#ffffff;
 }
-.dashboard * {
-  box-sizing: border-box;
-}
+.dashboard *{box-sizing:border-box;}
 
-.filterbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
+.filterbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+.filterbar-left{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.select{
+  position:relative;
+  display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);
+  padding:10px 14px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;
+  min-width:150px;justify-content:space-between;
 }
-.filterbar-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+.select-menu{
+  position:absolute;
+  z-index:20;
+  top:calc(100% + 8px);
+  left:0;
+  width:100%;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:0 16px 30px rgba(0,0,0,0.08);
+  padding:6px 0;
 }
-.select {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #fff;
-  border: 2px solid var(--line);
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  min-width: 150px;
-  justify-content: space-between;
+.select-item{
+  width:100%;
+  border:none;
+  background:transparent;
+  text-align:left;
+  padding:10px 14px;
+  font-size:14px;
+  color:var(--ink);
+  cursor:pointer;
 }
-.select svg,
-.select .iconify {
-  width: 14px;
-  height: 14px;
-  stroke: var(--ink-soft);
-  color: var(--ink-soft);
+.select-item:hover{
+  background:var(--green-50);
 }
-.segmented {
-  display: flex;
-  background: #fff;
-  border: 2px solid var(--line);
-  border-radius: 10px;
-  padding: 4px;
-  gap: 2px;
-}
-.segmented button {
-  border: none;
-  background: none;
-  padding: 9px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #5b6864;
-  cursor: pointer;
-}
-.segmented button.active {
-  background: var(--green-900);
-  color: #fff;
-}
-.date-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-}
-.date-pill svg,
-.date-pill .iconify {
-  width: 16px;
-  height: 16px;
-  stroke: var(--ink-soft);
-  color: var(--ink-soft);
-}
+.select svg,.select .iconify{width:14px;height:14px;stroke:var(--ink-soft);color:var(--ink-soft);}
+.segmented{display:flex;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px;gap:2px;}
+.segmented button{border:none;background:none;padding:9px 16px;border-radius:8px;font-size:14px;font-weight:600;color:#5b6864;cursor:pointer;}
+.segmented button.active{background:var(--green-900);color:#fff;}
+.date-pill{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink);}
+.date-pill svg,.date-pill .iconify{width:16px;height:16px;stroke:var(--ink-soft);color:var(--ink-soft);}
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-  margin-bottom: 20px;
-}
-.stat-card {
-  background: var(--card);
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  padding: 20px 20px 18px;
-}
-.stat-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 22px;
-}
-.stat-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--green-50);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.stat-icon svg,
-.stat-icon .iconify {
-  width: 19px;
-  height: 19px;
-  stroke: var(--green-900);
-  color: var(--green-900);
-}
-.stat-card.alert .stat-icon {
-  background: var(--red-bg);
-}
-.stat-card.alert .stat-icon svg,
-.stat-card.alert .stat-icon .iconify {
-  stroke: var(--red);
-  color: var(--red);
-}
-.tag {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--ink-soft);
-  background: var(--bg);
-  padding: 4px 9px;
-  border-radius: 6px;
-}
-.tag.alert {
-  color: var(--red);
-  background: var(--red-bg);
-}
-.stat-label {
-  font-size: 13.5px;
-  color: var(--ink-soft);
-  margin-bottom: 6px;
-  font-weight: 500;
-}
-.stat-value {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin-bottom: 10px;
-}
-.stat-value.danger {
-  color: var(--red);
-}
-.stat-sub {
-  font-size: 12.5px;
-  color: var(--ink-soft);
-  font-weight: 500;
-}
-.stat-sub.up {
-  color: #1c7a52;
-}
-.progress {
-  height: 6px;
-  background: var(--bg);
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-.progress > span {
-  display: block;
-  height: 100%;
-  background: var(--green-900);
-}
-.mini-avatars {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.mini-avatars .dots {
-  display: flex;
-}
-.mini-avatars .dots span {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  margin-left: -7px;
-}
-.mini-avatars .dots span:first-child {
-  margin-left: 0;
-  background: #f0c98a;
-}
-.mini-avatars .dots span:nth-child(2) {
-  background: #8ad0c4;
-}
-.mini-avatars .dots span:nth-child(3) {
-  background: #c9c9c9;
-}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:20px;}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 20px 18px;}
+.stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;}
+.stat-icon{width:38px;height:38px;border-radius:10px;background:var(--green-50);display:flex;align-items:center;justify-content:center;}
+.stat-icon svg,.stat-icon .iconify{width:19px;height:19px;stroke:var(--green-900);color:var(--green-900);}
+.stat-card.alert .stat-icon{background:var(--red-bg);}
+.stat-card.alert .stat-icon svg,.stat-card.alert .stat-icon .iconify{stroke:var(--red);color:var(--red);}
+.tag{font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--ink-soft);background:var(--bg);padding:4px 9px;border-radius:6px;}
+.tag.alert{color:var(--red);background:var(--red-bg);}
+.stat-label{font-size:13.5px;color:var(--ink-soft);margin-bottom:6px;font-weight:500;}
+.stat-value{font-size:30px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;}
+.stat-value.danger{color:var(--red);}
+.stat-sub{font-size:12.5px;color:var(--ink-soft);font-weight:500;}
+.stat-sub.up{color:#1c7a52;}
+.progress{height:6px;background:var(--bg);border-radius:6px;overflow:hidden;margin-bottom:8px;}
+.progress > span{display:block;height:100%;background:var(--green-900);}
+.mini-avatars{display:flex;align-items:center;gap:6px;}
+.mini-avatars .dots{display:flex;}
+.mini-avatars .dots span{width:20px;height:20px;border-radius:50%;border:2px solid #fff;margin-left:-7px;}
+.mini-avatars .dots span:first-child{margin-left:0;background:#f0c98a;}
+.mini-avatars .dots span:nth-child(2){background:#8ad0c4;}
+.mini-avatars .dots span:nth-child(3){background:#c9c9c9;}
 
-.middle-row {
-  display: grid;
-  grid-template-columns: 1.65fr 1fr;
-  gap: 18px;
-  margin-bottom: 20px;
-  align-items: stretch;
+.middle-row{display:grid;grid-template-columns:1.65fr 1fr;gap:18px;margin-bottom:20px;align-items:stretch;}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.panel-head h2{font-size:16px;font-weight:700;margin:0 0 4px;}
+.panel-head p{font-size:13px;color:var(--ink-soft);margin:0;}
+.link{font-size:13px;font-weight:600;color:var(--green-900);cursor:pointer;text-decoration:none;white-space:nowrap;}
+.chart-wrap{margin-top:22px;height:190px;}
+.chart-ticks{display:flex;width:100%;height:100%;}
+.tick-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;}
+.tick-value{font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
+.tick{width:72%;max-width:92px;border-radius:4px;background:#ececE6;position:relative;}
+.tick.active{background:var(--green-900);}
+.tick-label{margin-top:10px;font-size:12px;color:var(--ink-soft);}
+.tick-tooltip{
+  position:relative;
+  background:#1c2521;color:#fff;border-radius:9px;
+  padding:8px 12px;margin-bottom:12px;
+  font-size:11px;font-weight:600;line-height:1.35;text-align:center;
 }
-.panel {
-  background: var(--card);
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  padding: 22px 24px;
+.tick-tooltip::after{
+  content:"";position:absolute;left:50%;bottom:-14px;width:1px;height:14px;
+  background:#d8d6cf;transform:translateX(-50%);
 }
-.panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 6px;
-}
-.panel-head h2 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 4px;
-}
-.panel-head p {
-  font-size: 13px;
-  color: var(--ink-soft);
-  margin: 0;
-}
-.link {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--green-900);
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.trend-panel {
-  display: flex;
-  flex-direction: column;
-}
-.chart-wrap {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  margin-top: 22px;
-  min-height: 40px;
-}
-.chart-ticks {
-  display: flex;
-  width: 100%;
-  align-items: flex-end;
-}
-.tick-col {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  position: relative;
-}
-.tick-tooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 12px;
-  background: #1c2521;
-  color: #fff;
-  border-radius: 9px;
-  padding: 8px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.35;
-  text-align: center;
-  white-space: nowrap;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.tick-tooltip::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -14px;
-  width: 1px;
-  height: 14px;
-  background: #d8d6cf;
-  transform: translateX(-50%);
-}
-.tick {
-  width: 72%;
-  max-width: 92px;
-  height: 6px;
-  border-radius: 4px;
-  background: #ecece6;
-}
-.tick.active {
-  background: var(--green-900);
-}
-.chart-days {
-  display: flex;
-  margin-top: 8px;
-  font-size: 12.5px;
-  color: var(--ink-soft);
-  font-weight: 500;
-}
-.chart-days span {
-  flex: 1;
-  text-align: center;
-}
+.chart-days{display:flex;justify-content:space-between;margin-top:14px;font-size:12.5px;color:var(--ink-soft);font-weight:500;}
 
-.insight {
-  background: linear-gradient(165deg, var(--green-900), #0f2b22);
-  color: #fff;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: hidden;
+.insight{
+  background:linear-gradient(165deg,var(--green-900),#0f2b22);color:#fff;border:none;
+  display:flex;flex-direction:column;position:relative;overflow:hidden;
 }
-.insight::after {
-  content: '';
-  position: absolute;
-  right: -40px;
-  bottom: -40px;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.12);
-  pointer-events: none;
+.insight::after{
+  content:"";position:absolute;right:-40px;bottom:-40px;width:140px;height:140px;
+  border-radius:50%;border:1px solid rgba(255,255,255,.12);pointer-events:none;
 }
-.insight h2 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 12px;
-  color: #fff;
-}
-.insight p.desc {
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: #cfe0d7;
-  margin: 0 0 18px;
-}
-.insight-item {
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 12px;
-  padding: 12px 14px;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-.insight-item .ic {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.insight-item .ic svg,
-.insight-item .ic .iconify {
-  width: 16px;
-  height: 16px;
-  stroke: #eaa93d;
-  color: #eaa93d;
-}
-.insight-item .lbl {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #a9c2b6;
-  margin-bottom: 2px;
-}
-.insight-item .val {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #fff;
-}
-.insight-cta {
-  margin-top: auto;
-  background: var(--gold);
-  color: #3b2a05;
-  border: none;
-  padding: 13px;
-  border-radius: 11px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.insight-cta:hover {
-  background: var(--gold-dark);
-}
+.insight h2{font-size:16px;font-weight:700;margin:0 0 12px;color:#fff;}
+.insight p.desc{font-size:13.5px;line-height:1.55;color:#cfe0d7;margin:0 0 18px;}
+.insight-item{background:rgba(255,255,255,.07);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;}
+.insight-item .ic{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.insight-item .ic svg,.insight-item .ic .iconify{width:16px;height:16px;stroke:#eaa93d;color:#eaa93d;}
+.insight-item .lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em;color:#a9c2b6;margin-bottom:2px;}
+.insight-item .val{font-size:13.5px;font-weight:600;color:#fff;}
+.insight-cta{margin-top:auto;background:var(--gold);color:#3b2a05;border:none;padding:13px;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s ease;}
+.insight-cta:hover{background:var(--gold-dark);}
 
-.table-panel {
-  padding: 22px 0 0;
-}
-.table-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px 18px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.table-head h2 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-}
-.table-tools {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg);
-  border: 2px solid var(--line);
-  padding: 9px 14px;
-  border-radius: 10px;
-  min-width: 230px;
-}
-.search svg,
-.search .iconify {
-  width: 15px;
-  height: 15px;
-  stroke: var(--ink-soft);
-  color: var(--ink-soft);
-  flex-shrink: 0;
-}
-.search input {
-  border: none;
-  background: none;
-  outline: none;
-  font-size: 13.5px;
-  width: 100%;
-  font-family: inherit;
-  color: var(--ink);
-}
-.icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 2px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.icon-btn svg,
-.icon-btn .iconify {
-  width: 16px;
-  height: 16px;
-  stroke: var(--ink-soft);
-  color: var(--ink-soft);
-}
+.table-panel{padding:22px 0 0;}
+.table-head{display:flex;justify-content:space-between;align-items:center;padding:0 24px 18px;flex-wrap:wrap;gap:12px;}
+.table-head h2{font-size:16px;font-weight:700;margin:0;}
+.table-tools{display:flex;gap:10px;align-items:center;}
+.search{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);padding:9px 14px;border-radius:10px;min-width:230px;}
+.search svg,.search .iconify{width:15px;height:15px;stroke:var(--ink-soft);color:var(--ink-soft);flex-shrink:0;}
+.search input{border:none;background:none;outline:none;font-size:13.5px;width:100%;font-family:inherit;color:var(--ink);}
+.icon-btn{width:38px;height:38px;border-radius:10px;background:var(--bg);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.icon-btn svg,.icon-btn .iconify{width:16px;height:16px;stroke:var(--ink-soft);color:var(--ink-soft);}
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-thead tr {
-  background: var(--green-900);
-}
-thead th {
-  color: #dfe9e3;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 13px 24px;
-  text-transform: uppercase;
-  text-align: left;
-}
-thead th:nth-child(5) {
-  text-align: center;
-}
-tbody td {
-  padding: 16px 24px;
-  font-size: 14px;
-  border-bottom: 2px solid var(--line);
-  vertical-align: middle;
-  color: var(--ink);
-  text-align: left;
-}
-tbody td:nth-child(5) {
-  text-align: center;
-}
-tbody tr:last-child td {
-  border-bottom: none;
-}
-.emp {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.emp-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #e9e8e3;
-  color: #4b5450;
-  font-weight: 700;
-  font-size: 12.5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.emp-name {
-  font-weight: 700;
-  font-size: 14px;
-}
-.emp-id {
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-.dash {
-  color: var(--red);
-  font-weight: 600;
-}
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 20px;
-}
-.badge.dot::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--amber-text);
-}
-.badge.checkout {
-  background: var(--mint-bg);
-  color: var(--mint-text);
-}
-.badge.checkin {
-  background: var(--mint-bg);
-  color: var(--mint-text);
-}
-.badge.working {
-  background: var(--amber-bg);
-  color: var(--amber-text);
-}
-.badge.absent {
-  background: var(--red-bg);
-  color: var(--red);
-}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--green-900);}
+thead th{color:#dfe9e3;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-align:left;padding:13px 24px;text-transform:uppercase;}
+tbody td{padding:16px 24px;font-size:14px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--ink);}
+tbody tr:last-child td{border-bottom:none;}
+.emp{display:flex;align-items:center;gap:12px;}
+.emp-avatar{width:38px;height:38px;border-radius:50%;background:#e9e8e3;color:#4b5450;font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.emp-name{font-weight:700;font-size:14px;}
+.emp-id{font-size:12px;color:var(--ink-soft);}
+.dash{color:var(--red);font-weight:600;}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px;}
+.badge.dot::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber-text);}
+.badge.checkout{background:var(--mint-bg);color:var(--mint-text);}
+.badge.checkin{background:var(--mint-bg);color:var(--mint-text);}
+.badge.working{background:var(--amber-bg);color:var(--amber-text);}
+.badge.absent{background:var(--red-bg);color:var(--red);}
 
-.table-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  font-size: 13px;
-  color: var(--ink-soft);
-  border-top: 2px solid var(--line);
-  background: #f6f5f1;
-}
-.pager {
-  display: flex;
-  gap: 8px;
-}
-.pager button {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 2px solid var(--line);
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.pager button svg,
-.pager button .iconify {
-  width: 14px;
-  height: 14px;
-  stroke: var(--ink-soft);
-  color: var(--ink-soft);
-}
-.pager button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.table-footer{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;font-size:13px;color:var(--ink-soft);border-top:1px solid var(--line);}
+.pager{display:flex;gap:8px;}
+.pager button{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.pager button svg,.pager button .iconify{width:14px;height:14px;stroke:var(--ink-soft);color:var(--ink-soft);}
+.pager button:disabled{opacity:.4;cursor:not-allowed;}
 
-@media (max-width: 1100px) {
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .middle-row {
-    grid-template-columns: 1fr;
-  }
+@media (max-width:1100px){
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .middle-row{grid-template-columns:1fr;}
 }
-@media (max-width: 600px) {
-  .stats {
-    grid-template-columns: 1fr;
-  }
+@media (max-width:600px){
+  .stats{grid-template-columns:1fr;}
 }
 </style>

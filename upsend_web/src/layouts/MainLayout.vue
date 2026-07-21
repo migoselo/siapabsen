@@ -2,17 +2,20 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
-// import { useAuthStore } from '../store/auth' // aktifkan kalau auth store sudah ada
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const route = useRoute()
-// const authStore = useAuthStore()
+const authStore = useAuthStore()
 
 // sesuaikan path ini dengan lokasi asli "Logo Container.svg" di project kamu
 import logoUrl from '../assets/Logo Container.svg'
 
-// TODO: ganti dengan data user asli dari authStore, mis. authStore.user
-const profile = ref({ name: 'Adelia Adnan', role: 'HR', avatarUrl: '' })
+const profile = computed(() => ({
+  name: authStore.user?.name ?? 'Pengguna',
+  role: authStore.user?.role ?? 'Guest',
+  avatarUrl: authStore.user?.avatarUrl ?? '',
+}))
 
 const navigation = [
   {
@@ -65,7 +68,7 @@ function handleItemClick(path) {
 }
 
 function handleLogout() {
-  // TODO: hubungkan ke authStore.logout() kalau auth store sudah ada
+  authStore.logout()
   router.push('/login')
 }
 
