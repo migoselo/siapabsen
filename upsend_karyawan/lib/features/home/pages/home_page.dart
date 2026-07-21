@@ -11,6 +11,7 @@ import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../auth/bloc/auth_bloc.dart';
 
 const Color kPrimary = Color(0xFF006948);
+const Color kDanger = Color(0xFFE0224E);
 const Color kBackground = Color(0xFFFFFFFF);
 
 class HomePage extends StatefulWidget {
@@ -129,6 +130,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSubmitting = state.status == HomeStatus.submitting;
+    final buttonColor = state.isCheckedIn ? kDanger : kPrimary;
 
     return SizedBox(
       width: 346,
@@ -136,8 +138,8 @@ class _ActionButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isSubmitting ? null : () => _handlePress(context),
         style: ElevatedButton.styleFrom(
-          backgroundColor: kPrimary,
-          disabledBackgroundColor: kPrimary.withOpacity(0.6),
+          backgroundColor: buttonColor,
+          disabledBackgroundColor: buttonColor.withOpacity(0.6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

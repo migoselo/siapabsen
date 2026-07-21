@@ -9,7 +9,6 @@ import '../bloc/attendance_state.dart';
 import '../widgets/attendance_stepper.dart';
 import '../widgets/selfie_preview.dart';
 import '../../../core/services/camera_service.dart';
-import '../repository/attendance_repository.dart';
 import 'checkin_success_page.dart';
 
 class CheckinCameraPage extends StatefulWidget {
@@ -21,7 +20,6 @@ class CheckinCameraPage extends StatefulWidget {
 
 class _CheckinCameraPageState extends State<CheckinCameraPage> {
   final CameraService _cameraService = CameraService();
-  final AttendanceRepository _attendanceRepository = AttendanceRepository();
   bool _cameraInitialized = false;
   bool _cameraInitInProgress = false;
   bool _cameraPermissionDenied = false;
@@ -34,8 +32,6 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
 
   Future<void> _ensureCameraInitializedIfNeeded(AttendanceState state) async {
     if (_cameraInitialized || _cameraInitInProgress) return;
-
-    // Only initialize camera when a location has been selected / detected
     if (state.selectedLocation == null && state.latitude == null) return;
 
     _cameraInitInProgress = true;
@@ -91,9 +87,8 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
       ),
       body: BlocListener<AttendanceBloc, AttendanceState>(
         listenWhen: (previous, current) =>
-            previous.currentStep != current.currentStep ||
-            previous.status != current.status ||
-            previous.attendanceResult != current.attendanceResult,
+            previous.attendanceResult != current.attendanceResult ||
+            previous.status != current.status,
         listener: (context, state) {
           if (state.status == AttendanceStatus.success &&
               state.attendanceResult != null &&
@@ -102,6 +97,11 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
               context,
               MaterialPageRoute(builder: (_) => const CheckinSuccessPage()),
             );
+          } else if (state.status == AttendanceStatus.failure &&
+              state.errorMessage != null) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
           }
         },
         child: BlocBuilder<AttendanceBloc, AttendanceState>(
@@ -190,37 +190,8 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                                     return;
                                   }
 
-                                  try {
-                                    await _attendanceRepository.checkIn(
-                                      locationId: state.selectedLocation!.id,
-                                      lat: state.latitude!,
-                                      lng: state.longitude!,
-                                      photo: state.capturedPhoto!,
-                                    );
-                                  } catch (e) {
-                                    if (!mounted) return;
-                                    final message = e is Exception
-                                        ? e.toString()
-                                        : 'Gagal mengirim check-in.';
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          message.replaceFirst(
-                                            'Exception: ',
-                                            '',
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-
-                                  if (!mounted) return;
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const CheckinSuccessPage(),
-                                    ),
+                                  context.read<AttendanceBloc>().add(
+                                    SubmitCheckIn(),
                                   );
                                   return;
                                 }
