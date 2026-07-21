@@ -192,7 +192,7 @@ onMounted(() => {
     </section>
 
     <section class="middle-row">
-      <div class="panel">
+      <div class="panel trend-panel">
         <div class="panel-head">
           <div>
             <h2>Tren Kehadiran 7 Hari Terakhir</h2>
@@ -204,7 +204,8 @@ onMounted(() => {
           <div class="chart-ticks">
             <div v-for="(d, idx) in chartDayLabels" :key="idx" class="tick-col">
               <div v-if="idx === highlightIndex" class="tick-tooltip">
-                <span>Hari</span><span>Ini</span>
+                <span>Hari</span>
+                <span>Ini</span>
               </div>
               <div class="tick" :class="{ active: idx === highlightIndex }"></div>
             </div>
@@ -342,7 +343,7 @@ onMounted(() => {
   --ink: #1c2521;
   --ink-soft: #5b6864;
   --line: #e7e7e2;
-  --bg: #f6f5f1;
+  --bg: #ffffff;
   --card: #ffffff;
 }
 .dashboard * {
@@ -575,42 +576,46 @@ onMounted(() => {
   text-decoration: none;
   white-space: nowrap;
 }
+.trend-panel {
+  display: flex;
+  flex-direction: column;
+}
 .chart-wrap {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
   margin-top: 22px;
-  height: 190px;
+  min-height: 40px;
 }
 .chart-ticks {
   display: flex;
   width: 100%;
+  align-items: flex-end;
 }
 .tick-col {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  justify-content: center;
   position: relative;
-}
-.tick {
-  width: 72%;
-  max-width: 92px;
-  height: 6px;
-  border-radius: 4px;
-  background: #ecece6;
-}
-.tick.active {
-  background: var(--green-900);
 }
 .tick-tooltip {
-  position: relative;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 12px;
   background: #1c2521;
   color: #fff;
   border-radius: 9px;
   padding: 8px 12px;
-  margin-bottom: 12px;
   font-size: 11px;
   font-weight: 600;
   line-height: 1.35;
   text-align: center;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .tick-tooltip::after {
   content: '';
@@ -622,13 +627,26 @@ onMounted(() => {
   background: #d8d6cf;
   transform: translateX(-50%);
 }
+.tick {
+  width: 72%;
+  max-width: 92px;
+  height: 6px;
+  border-radius: 4px;
+  background: #ecece6;
+}
+.tick.active {
+  background: var(--green-900);
+}
 .chart-days {
   display: flex;
-  justify-content: space-between;
-  margin-top: 14px;
+  margin-top: 8px;
   font-size: 12.5px;
   color: var(--ink-soft);
   font-weight: 500;
+}
+.chart-days span {
+  flex: 1;
+  text-align: center;
 }
 
 .insight {
@@ -736,7 +754,7 @@ onMounted(() => {
 .table-tools {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: left;
 }
 .search {
   display: flex;
@@ -797,9 +815,33 @@ thead th {
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  text-align: left;
   padding: 13px 24px;
   text-transform: uppercase;
+  text-align: left; /* default semua ke kiri */
+}
+/* Nama Karyawan */
+thead th:nth-child(1) {
+  text-align: left;
+}
+
+/* Lokasi Cabang */
+thead th:nth-child(2) {
+  text-align: left;
+}
+
+/* Jam Check In */
+thead th:nth-child(3) {
+  text-align: left;
+}
+
+/* Jam Check Out */
+thead th:nth-child(4) {
+  text-align: left;
+}
+
+/* Status */
+thead th:nth-child(5) {
+  text-align: center;
 }
 tbody td {
   padding: 16px 24px;
@@ -882,8 +924,7 @@ tbody tr:last-child td {
   font-size: 13px;
   color: var(--ink-soft);
   border-top: 2px solid var(--line);
-  background: #F6F5F1;
-
+  background: #f6f5f1;
 }
 .pager {
   display: flex;
