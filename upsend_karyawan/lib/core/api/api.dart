@@ -6,7 +6,6 @@ class Api {
   static final Dio dio = Dio(
     BaseOptions(
       // baseUrl: 'http://192.168.44.8:8010/api',
-      // baseUrl: 'http://26.214.138.24:8010/api',
       baseUrl: 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
       headers: {
         'Accept': 'application/json',
