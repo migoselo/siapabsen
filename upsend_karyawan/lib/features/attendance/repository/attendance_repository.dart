@@ -10,9 +10,9 @@ class AttendanceRepository {
     required double lng,
   }) async {
     try {
-      final response = await Api.dio.post(
-        '/nearby-locations',
-        data: {'lat': lat, 'lng': lng},
+      final response = await Api.dio.get(
+        '/attendances/nearby-locations',
+        queryParameters: {'lat': lat, 'lng': lng},
       );
       return (response.data as List)
           .map((json) => LocationModel.fromJson(json))
@@ -37,7 +37,10 @@ class AttendanceRepository {
         'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
       });
 
-      final response = await Api.dio.post('/check-in', data: formData);
+      final response = await Api.dio.post(
+        '/attendances/check-in',
+        data: formData,
+      );
       return AttendanceModel.fromJson(response.data);
     } catch (e) {
       rethrow;
@@ -59,7 +62,7 @@ class AttendanceRepository {
   /// GET /my-open-session
   Future<AttendanceModel?> getTodayAttendance() async {
     try {
-      final response = await Api.dio.get('/my-open-session');
+      final response = await Api.dio.get('/attendances/my-open-session');
       final data = response.data['open_session'];
       if (data == null) return null;
       return AttendanceModel.fromJson(data);
@@ -77,7 +80,7 @@ class AttendanceRepository {
   }) async {
     try {
       final response = await Api.dio.patch(
-        '/$attendanceId/check-out',
+        '/attendances/$attendanceId/check-out',
         data: {'lat': lat, 'lng': lng},
       );
       return AttendanceModel.fromJson(response.data);

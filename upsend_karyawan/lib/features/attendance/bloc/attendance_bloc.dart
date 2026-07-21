@@ -11,6 +11,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     on<FetchNearbyLocations>(_onFetchNearbyLocations);
     on<SelectLocation>(_onSelectLocation);
     on<PhotoCaptured>(_onPhotoCaptured);
+    on<GoToCamera>(_onGoToCamera);
     on<SubmitCheckIn>(_onSubmitCheckIn);
     on<PreviousStep>(_onPreviousStep);
     on<ResetAttendance>(_onResetAttendance);
@@ -55,6 +56,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           status: AttendanceStatus.success,
           nearbyLocations: locations,
           selectedLocation: locations.isNotEmpty ? locations.first : null,
+          clearSelectedLocation: locations.isEmpty,
           latitude: position.latitude,
           longitude: position.longitude,
           currentStep: 1,
@@ -65,9 +67,15 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         state.copyWith(
           status: AttendanceStatus.failure,
           errorMessage: e.toString(),
+          clearSelectedLocation: true,
         ),
       );
     }
+  }
+
+  void _onGoToCamera(GoToCamera event, Emitter<AttendanceState> emit) {
+    // advance to camera step without a photo
+    emit(state.copyWith(currentStep: 2));
   }
 
   void _onSelectLocation(SelectLocation event, Emitter<AttendanceState> emit) {
