@@ -119,8 +119,10 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                               state.status == AttendanceStatus.loading)
                           ? null
                           : () {
-                              context.read<AttendanceBloc>().add(
-                                PhotoCaptured(File('dummy_photo_path.jpg')),
+                              // navigate immediately to camera page
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CheckinCameraPage()),
                               );
                             },
                       child: const Row(
