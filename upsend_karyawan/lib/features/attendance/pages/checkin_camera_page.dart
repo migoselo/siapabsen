@@ -212,7 +212,6 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                                         ),
                                       ),
                                     );
-                                    return; // <-- TAMBAHKAN INI supaya tidak lanjut ke halaman sukses kalau gagal
                                   }
 
                                   if (!mounted) return;
