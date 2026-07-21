@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
-import api from '../api/axios'
+import api from '../api'
 
 /*
   View ini cuma berisi KONTEN halaman (filter, kartu statistik, chart,
@@ -10,7 +10,16 @@ import api from '../api/axios'
   (lihat layouts/MainLayout.vue di sana).
 */
 
-const locationLabel = ref('Semua Lokasi')
+const locations = ref([])
+const selectedLocationId = ref('')
+const showLocationMenu = ref(false)
+const locationLabel = computed(() => {
+  if (!selectedLocationId.value) {
+    return 'Semua Lokasi'
+  }
+  const location = locations.value.find((loc) => loc.id === Number(selectedLocationId.value))
+  return location?.name ?? 'Semua Lokasi'
+})
 
 const stats = ref({
   totalEmployees: 0,
@@ -24,8 +33,15 @@ const stats = ref({
 })
 
 const currentDate = ref('')
-const weeklyAverageLabel = ref('')
-const insight = ref({ summary: '', topPerformerLabel: '', needAttentionLabel: '' })
+// TODO: belum ada endpoint tren 7 hari & insight operasional di backend,
+// jadi dua bagian ini masih statis sampai endpointnya dibikin
+const weeklyAverageLabel = ref('Data tren belum tersedia')
+const chartData = ref([])
+const insight = ref({
+  summary: 'Data insight belum tersedia dari server.',
+  topPerformerLabel: '-',
+  needAttentionLabel: '-',
+})
 const employees = ref([])
 const loading = ref(false)
 
@@ -37,7 +53,11 @@ const statusMeta = {
 }
 
 const chartDayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
-const highlightIndex = computed(() => chartDayLabels.length - 1) // default: hari terakhir
+const highlightIndex = computed(() => chartData.value.length - 1) // default: hari terakhir
+const chartMax = computed(() => {
+  const values = chartData.value.map((item) => item.count ?? 0)
+  return values.length ? Math.max(...values, 1) : 1
+})
 
 const periods = [
   { key: 'hari', label: 'Hari Ini' },
@@ -48,6 +68,7 @@ const activePeriod = ref('hari')
 
 const searchQuery = ref('')
 
+// Search dilakukan di client karena belum ada endpoint search terpisah di backend
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return employees.value
@@ -59,18 +80,53 @@ function initials(name) {
   return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-async function fetchDashboard(period = 'hari') {
+function formatCurrentDate() {
+  currentDate.value = new Date().toLocaleDateString('id-ID', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+async function fetchLocations() {
+  try {
+    const res = await api.get('/locations')
+    locations.value = res.data
+  } catch (err) {
+    console.error('Gagal mengambil daftar lokasi:', err)
+  }
+}
+
+async function fetchDashboard() {
   loading.value = true
   try {
-    // TODO: sesuaikan endpoint dengan API yang disediakan tim backend
-    const res = await api.get('/dashboard', { params: { period } })
-    const data = res.data
-    currentDate.value = data.currentDate
-    locationLabel.value = data.locationLabel
-    stats.value = data.stats
-    weeklyAverageLabel.value = data.weeklyAverageLabel
-    insight.value = data.insight
-    employees.value = data.employees
+    const params = selectedLocationId.value ? { location_id: selectedLocationId.value } : {}
+    const [summaryRes, attendanceRes, trendRes] = await Promise.all([
+      api.get('/dashboard/summary', { params }),
+      api.get('/dashboard/today-attendance', { params }),
+      api.get('/dashboard/weekly-trend', { params }),
+    ])
+
+    const summary = summaryRes.data
+    const emps = attendanceRes.data.employees
+    const trend = trendRes.data
+
+    const total = summary.total_karyawan_aktif
+    const checkedIn = summary.hadir_hari_ini
+    const checkedOutList = emps.filter(e => e.status === 'checkout')
+
+    stats.value = {
+      totalEmployees: total,
+      totalGrowthLabel: `${summary.total_lokasi} lokasi aktif`,
+      checkedIn,
+      checkedInPercent: total > 0 ? Math.round((checkedIn / total) * 100) : 0,
+      notCheckedIn: Math.max(total - checkedIn, 0),
+      notCheckedInNote: `${summary.pending_review} menunggu review`,
+      checkedOut: checkedOutList.length,
+      checkedOutExtraCount: Math.max(checkedOutList.length - 3, 0),
+    }
+
+    weeklyAverageLabel.value = trend.weeklyAverageLabel
+    chartData.value = trend.chartData
+    employees.value = emps
   } catch (err) {
     console.error('Gagal mengambil data dashboard:', err)
   } finally {
@@ -78,32 +134,41 @@ async function fetchDashboard(period = 'hari') {
   }
 }
 
-async function searchEmployees(query) {
-  try {
-    // TODO: kalau pencarian dilakukan di server, panggil endpoint terpisah di sini
-    const res = await api.get('/dashboard/employees', { params: { q: query } })
-    employees.value = res.data.employees
-  } catch (err) {
-    console.error('Gagal mencari karyawan:', err)
-  }
+function toggleLocationMenu() {
+  showLocationMenu.value = !showLocationMenu.value
 }
 
-function onSearchInput() {
-  searchEmployees(searchQuery.value)
+function closeLocationMenu() {
+  showLocationMenu.value = false
+}
+
+function selectLocation(id) {
+  selectedLocationId.value = id
+  showLocationMenu.value = false
+  fetchDashboard()
 }
 
 function selectPeriod(key) {
   activePeriod.value = key
-  fetchDashboard(key)
+  // TODO: backend today-attendance/summary baru dukung "hari ini" (tanggal tunggal).
+  // Filter minggu/bulan belum ada di controller, jadi belum berefek ke data.
+  fetchDashboard()
 }
 
 function handleDownloadPdf() {
-  // TODO: panggil endpoint generate laporan PDF
-  alert('Mengunduh Laporan PDF...')
+  // TODO: endpoint /dashboard/export masih return JSON mentah, belum generate PDF/Excel beneran
+  alert('Fitur unduh laporan belum tersedia di backend.')
 }
 
 onMounted(() => {
-  fetchDashboard('hari')
+  formatCurrentDate()
+  fetchLocations()
+  fetchDashboard()
+  document.addEventListener('click', closeLocationMenu)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeLocationMenu)
 })
 </script>
 
@@ -112,10 +177,23 @@ onMounted(() => {
 
     <div class="filterbar">
       <div class="filterbar-left">
-        <div class="select">
-          <span>{{ locationLabel }}</span>
-          <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+        <div class="select" @click.stop="toggleLocationMenu">
+        <span>{{ locationLabel }}</span>
+        <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+        <div v-if="showLocationMenu" class="select-menu">
+          <button type="button" class="select-item" @click.stop="selectLocation('')">Semua Lokasi</button>
+          <button
+            v-for="loc in locations"
+            :key="loc.id"
+            type="button"
+            class="select-item"
+            @click.stop="selectLocation(String(loc.id))"
+          >
+            {{ loc.name }}
+          </button>
         </div>
+      </div>
         <div class="segmented">
           <button
             v-for="p in periods"
@@ -184,24 +262,22 @@ onMounted(() => {
             <h2>Tren Kehadiran 7 Hari Terakhir</h2>
             <p>{{ weeklyAverageLabel }}</p>
           </div>
-          <a class="link">Lihat Detail ›</a>
         </div>
         <div class="chart-wrap">
           <div class="chart-ticks">
             <div
-              v-for="(d, idx) in chartDayLabels"
-              :key="idx"
+              v-for="(item, idx) in chartData"
+              :key="item.date"
               class="tick-col"
             >
               <div v-if="idx === highlightIndex" class="tick-tooltip">
                 <span>Hari</span><span>Ini</span>
               </div>
-              <div class="tick" :class="{ active: idx === highlightIndex }"></div>
+              <div class="tick-value">{{ item.count ?? 0 }}</div>
+              <div class="tick" :class="{ active: idx === highlightIndex }" :style="{ height: ((item.count ?? 0) / chartMax * 100 || 10) + '%' }"></div>
+              <div class="tick-label">{{ item.label }}</div>
             </div>
           </div>
-        </div>
-        <div class="chart-days">
-          <span v-for="(d, idx) in chartDayLabels" :key="idx">{{ d }}</span>
         </div>
       </div>
 
@@ -235,7 +311,7 @@ onMounted(() => {
         <div class="table-tools">
           <div class="search">
             <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-            <input type="text" v-model="searchQuery" @input="onSearchInput" placeholder="Cari nama karyawan...">
+            <input type="text" v-model="searchQuery" placeholder="Cari nama karyawan...">
           </div>
           <div class="icon-btn">
             <Icon icon="material-symbols:filter-list-rounded" width="18" height="18" />
@@ -326,9 +402,35 @@ onMounted(() => {
 .filterbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
 .filterbar-left{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
 .select{
+  position:relative;
   display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);
   padding:10px 14px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;
   min-width:150px;justify-content:space-between;
+}
+.select-menu{
+  position:absolute;
+  z-index:20;
+  top:calc(100% + 8px);
+  left:0;
+  width:100%;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:0 16px 30px rgba(0,0,0,0.08);
+  padding:6px 0;
+}
+.select-item{
+  width:100%;
+  border:none;
+  background:transparent;
+  text-align:left;
+  padding:10px 14px;
+  font-size:14px;
+  color:var(--ink);
+  cursor:pointer;
+}
+.select-item:hover{
+  background:var(--green-50);
 }
 .select svg,.select .iconify{width:14px;height:14px;stroke:var(--ink-soft);color:var(--ink-soft);}
 .segmented{display:flex;background:#fff;border:1px solid var(--line);border-radius:10px;padding:4px;gap:2px;}
@@ -367,10 +469,12 @@ onMounted(() => {
 .panel-head p{font-size:13px;color:var(--ink-soft);margin:0;}
 .link{font-size:13px;font-weight:600;color:var(--green-900);cursor:pointer;text-decoration:none;white-space:nowrap;}
 .chart-wrap{margin-top:22px;height:190px;}
-.chart-ticks{display:flex;width:100%;}
-.tick-col{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;}
-.tick{width:72%;max-width:92px;height:6px;border-radius:4px;background:#ececE6;}
+.chart-ticks{display:flex;width:100%;height:100%;}
+.tick-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;}
+.tick-value{font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
+.tick{width:72%;max-width:92px;border-radius:4px;background:#ececE6;position:relative;}
 .tick.active{background:var(--green-900);}
+.tick-label{margin-top:10px;font-size:12px;color:var(--ink-soft);}
 .tick-tooltip{
   position:relative;
   background:#1c2521;color:#fff;border-radius:9px;
