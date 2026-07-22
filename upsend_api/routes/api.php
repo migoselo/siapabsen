@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Route;
 
 // ==== Auth ====
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);   
+Route::post('/login-web', [AuthController::class, 'loginWeb']);  // BARU, dipakai dashboard web (email)
+Route::post('/register', [AuthController::class, 'register']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -41,6 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::prefix('dashboard')->group(function () {
             Route::get('/summary', [DashboardController::class, 'summary']);
+            Route::get('/weekly-trend', [DashboardController::class, 'weeklyTrend']);
+            Route::get('/today-attendance', [DashboardController::class, 'todayAttendance']); // baru
             Route::get('/by-location', [DashboardController::class, 'byLocation']);
             Route::get('/anomalies', [DashboardController::class, 'anomalies']);
             Route::get('/export', [DashboardController::class, 'export']);
