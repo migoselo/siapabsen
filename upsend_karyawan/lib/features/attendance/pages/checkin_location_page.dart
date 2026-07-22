@@ -41,8 +41,8 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
           "Check In",
           style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
           ),
         ),
       ),
@@ -54,6 +54,10 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
               child: CircularProgressIndicator(color: Color(0xFF006D4C)),
             );
           }
+
+          final hasValidLocation =
+              state.selectedLocation != null &&
+              state.selectedLocation!.withinRadius;
 
           return AttendanceStepper(
             currentStep: 1,
@@ -79,28 +83,28 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                       state.nearbyLocations.isEmpty)
                     const _EmptyLocationBox(),
 
+                  // Box besar "di luar radius" DIHAPUS — cukup card + subtitle
                   const Spacer(),
 
-                  // Tombol "Lanjut ke kamera" -> memicu PhotoCaptured
+                  // Tombol "Lanjut ke kamera" -> DIKUNCI kalau di luar radius
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                          (state.selectedLocation != null &&
+                          (hasValidLocation &&
                               state.status != AttendanceStatus.loading)
-                          ? const Color(0xFF006D4C)
+                          ? const Color(0xFF006948)
                           : Colors.grey.shade300,
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       elevation: 0,
                     ),
                     onPressed:
-                        (state.selectedLocation == null ||
+                        (!hasValidLocation ||
                             state.status == AttendanceStatus.loading)
                         ? null
                         : () {
-                            // navigate immediately to camera page
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -115,8 +119,8 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                           "Lanjut ke kamera ",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         Icon(
@@ -127,7 +131,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 15),
 
                   // Tombol "Coba lagi" -> memicu FetchNearbyLocations
                   OutlinedButton(
@@ -135,14 +139,14 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                       side: const BorderSide(color: Colors.black, width: 1.2),
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                     ),
                     onPressed: state.status == AttendanceStatus.loading
                         ? null
                         : () {
                             context.read<AttendanceBloc>().add(
-                              FetchNearbyLocations(), // <-- DIPERBAIKI
+                              FetchNearbyLocations(),
                             );
                           },
                     child: state.status == AttendanceStatus.loading
@@ -151,7 +155,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Color(0xFF006D4C),
+                              color: Color(0xFF006948),
                             ),
                           )
                         : const Row(
@@ -167,8 +171,8 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                                 "Coba lagi",
                                 style: TextStyle(
                                   color: Colors.black,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -189,7 +193,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
       return "Gagal mendeteksi lokasi";
     }
     if (state.selectedLocation != null) {
-      return "Lokasi Anda telah ditemukan";
+      return state.selectedLocation!.withinRadius
+          ? "Lokasi Anda telah ditemukan"
+          : "Anda di luar radius, mendekatlah untuk absen";
     }
     return "Mencari lokasi Anda...";
   }

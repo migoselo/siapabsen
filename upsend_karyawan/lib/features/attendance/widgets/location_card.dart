@@ -8,24 +8,33 @@ class LocationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool inRange = location.withinRadius;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+        border: Border.all(
+          color: inRange ? const Color(0xFFE2E8F0) : const Color(0xFFFECACA),
+          width: 1.5,
+        ),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: inRange
+                  ? const Color(0xFFEFF6FF)
+                  : const Color(0xFFFEF2F2),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.map_outlined,
-              color: Color(0xFF2563EB),
+              color: inRange
+                  ? const Color(0xFF2563EB)
+                  : const Color(0xFFDC2626),
               size: 24,
             ),
           ),
@@ -37,8 +46,8 @@ class LocationCard extends StatelessWidget {
                 Text(
                   location.name,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                     color: Colors.black,
                   ),
                 ),
@@ -48,14 +57,23 @@ class LocationCard extends StatelessWidget {
                     Icon(
                       Icons.track_changes,
                       size: 14,
-                      color: Colors.grey.shade500,
+                      color: inRange
+                          ? Colors.grey.shade500
+                          : const Color(0xFFDC2626),
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      "Akurasi: Sangat Tinggi (${location.distance.toStringAsFixed(0)}m)",
+                      inRange
+                          ? "Di dalam radius ${location.distance.toStringAsFixed(0)}m"
+                          : "Di luar radius ${location.distance.toStringAsFixed(0)}m dari ${location.radiusMeter}m ",
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: inRange
+                            ? Colors.grey.shade600
+                            : const Color(0xFFDC2626),
+                        fontWeight: inRange
+                            ? FontWeight.normal
+                            : FontWeight.w600,
                       ),
                     ),
                   ],
