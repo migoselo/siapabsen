@@ -20,6 +20,18 @@ const routes = [
         path: 'dashboard',
         component: () => import('../views/DashboardView.vue'),
       },
+      {
+        path: 'lokasi-kerja',
+        component: () => import('../views/LokasiKerjaView.vue')
+      },
+      {
+        path: 'karyawan',
+        component: () => import('../views/DataKaryawanView.vue')
+      },
+      {
+        path: 'absensi',
+        component: () => import('../views/DataAbsensiView.vue')
+      }
       // Tambahkan halaman lain di sini nanti, contoh:
       // { path: 'absensi', name: 'DataAbsensiView', component: () => import('../views/DataAbsensiView.vue') },
     ],

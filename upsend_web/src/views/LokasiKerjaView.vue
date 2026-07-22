@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
@@ -41,6 +41,7 @@ function onSearchInput() {
 /* ---------------- Modal Tambah Lokasi Baru ---------------- */
 const showModal = ref(false)
 const saving = ref(false)
+const modalRef = ref(null)
 
 const form = ref({
   name: '',
@@ -58,6 +59,17 @@ function closeModal() {
   if (saving.value) return
   showModal.value = false
 }
+
+// Kunci scroll halaman di belakang saat modal terbuka, dan pastikan
+// modal selalu mulai dari posisi paling atas (bukan ke-scroll ke bawah).
+watch(showModal, (isOpen) => {
+  document.body.style.overflow = isOpen ? 'hidden' : ''
+  if (isOpen) {
+    nextTick(() => {
+      if (modalRef.value) modalRef.value.scrollTop = 0
+    })
+  }
+})
 
 async function submitLocation() {
   saving.value = true
@@ -158,7 +170,7 @@ onMounted(() => {
     <!-- ================= MODAL TAMBAH LOKASI ================= -->
     <Teleport to="body">
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-        <div class="modal">
+        <div class="modal" ref="modalRef">
           <div class="modal-head">
             <div class="modal-title">
               <Icon icon="material-symbols:add-location-alt-outline" width="22" height="22" />
@@ -459,6 +471,9 @@ tbody tr:last-child td {
   background: #f6f5f1;
   border-bottom: 1px solid #e7e7e2;
   border-radius: 18px 18px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 .modal-title {
   display: flex;
@@ -624,7 +639,7 @@ tbody tr:last-child td {
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: #2F5D4F;
+  background: #2f5d4f;
   color: #fff;
   font-size: 14px;
   font-weight: 700;
