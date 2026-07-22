@@ -12,6 +12,20 @@ import api from '../api'
 const employees = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
+const currentPage = ref(1)
+const lastPage = ref(1)
+const totalEmployees = ref(0)
+const showModal = ref(false)
+const saving = ref(false)
+const locations = ref([])
+const form = ref({
+  name: '',
+  email: '',
+  password: '',
+  no_hp: '',
+  role: 'karyawan',
+  home_location_id: '',
+})
 
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -26,12 +40,14 @@ function initials(name) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-async function fetchEmployees() {
+async function fetchEmployees(page = 1) {
   loading.value = true
   try {
-    // TODO: sesuaikan endpoint dengan API yang disediakan tim backend
-    const res = await api.get('/employees')
-    employees.value = res.data.employees
+    const res = await api.get('/users', { params: { page, per_page: 10 } })
+    employees.value = res.data.data || []
+    totalEmployees.value = res.data.total || 0
+    currentPage.value = res.data.current_page || page
+    lastPage.value = res.data.last_page || 1
   } catch (err) {
     console.error('Gagal mengambil data karyawan:', err)
   } finally {
@@ -40,12 +56,67 @@ async function fetchEmployees() {
 }
 
 function onSearchInput() {
-  // TODO: kalau pencarian dilakukan di server, panggil endpoint terpisah di sini
+  // Local search only filters current page; backend search can be added later.
 }
 
-function handleAddEmployee() {
-  // TODO: buka modal/route form tambah karyawan
-  console.log('tambah karyawan baru')
+function prevPage() {
+  if (currentPage.value > 1) {
+    fetchEmployees(currentPage.value - 1)
+  }
+}
+
+function nextPage() {
+  if (currentPage.value < lastPage.value) {
+    fetchEmployees(currentPage.value + 1)
+  }
+}
+
+function openAddModal() {
+  form.value = {
+    name: '',
+    email: '',
+    password: '',
+    no_hp: '',
+    role: 'karyawan',
+    home_location_id: '',
+  }
+  showModal.value = true
+  fetchLocations()
+}
+
+function closeModal() {
+  if (saving.value) return
+  showModal.value = false
+}
+
+async function submitNewEmployee() {
+  saving.value = true
+  try {
+    await api.post('/users', {
+      name: form.value.name,
+      email: form.value.email,
+      password: form.value.password,
+      no_hp: form.value.no_hp,
+      role: form.value.role,
+      home_location_id: form.value.home_location_id,
+    })
+    showModal.value = false
+    await fetchEmployees(currentPage.value)
+  } catch (err) {
+    console.error('Gagal menambahkan karyawan:', err)
+    window.alert('Gagal menambahkan karyawan. Silakan cek kembali data yang dimasukkan.')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function fetchLocations() {
+  try {
+    const res = await api.get('/locations')
+    locations.value = res.data || []
+  } catch (err) {
+    console.error('Gagal mengambil lokasi:', err)
+  }
 }
 
 onMounted(() => {
@@ -66,7 +137,7 @@ onMounted(() => {
             placeholder="Cari nama karyawan ..."
           />
         </div>
-        <button class="icon-btn-solid" @click="handleAddEmployee">
+        <button class="icon-btn-solid" @click="openAddModal">
           <Icon icon="material-symbols:add-rounded" width="20" height="20" />
         </button>
       </div>
@@ -104,17 +175,76 @@ onMounted(() => {
       </table>
 
       <div class="table-footer">
-        <span>Menampilkan {{ filteredEmployees.length }} dari 150 karyawan</span>
+        <span>Menampilkan {{ filteredEmployees.length }} dari {{ totalEmployees }} karyawan</span>
         <div class="pager">
-          <button disabled>
+          <button :disabled="currentPage === 1" @click="prevPage">
             <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
           </button>
-          <button>
+          <div style="display:flex;align-items:center;padding:0 8px;font-weight:600;color:var(--ink-soft);">
+            Halaman {{ currentPage }} / {{ lastPage }}
+          </div>
+          <button :disabled="currentPage === lastPage" @click="nextPage">
             <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
           </button>
         </div>
       </div>
     </section>
+
+    <Teleport to="body">
+      <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-title">
+              <Icon icon="material-symbols:person-add" width="22" height="22" />
+              <h3>Tambah Karyawan Baru</h3>
+            </div>
+          </div>
+
+          <div class="modal-body">
+            <div class="field">
+              <label>Nama</label>
+              <input type="text" v-model="form.name" placeholder="Nama lengkap" />
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input type="email" v-model="form.email" placeholder="Email" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input type="password" v-model="form.password" placeholder="Password" />
+            </div>
+            <div class="field">
+              <label>Nomor HP</label>
+              <input type="text" v-model="form.no_hp" placeholder="Nomor HP" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Peran</label>
+                <select v-model="form.role">
+                  <option value="karyawan">Karyawan</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Lokasi Cabang</label>
+                <select v-model="form.home_location_id">
+                  <option value="" disabled>Pilih lokasi</option>
+                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
+            <button class="btn-save" type="button" @click="submitNewEmployee" :disabled="saving">
+              <Icon icon="material-symbols:save-outline" width="18" height="18" />
+              {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -282,6 +412,149 @@ tbody tr:last-child td {
 }
 .pager button:disabled {
   opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ================= MODAL ================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 37, 33, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+.modal {
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e7e7e2;
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+.modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.16) transparent;
+}
+.modal::-webkit-scrollbar {
+  width: 8px;
+}
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}
+.modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.18);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 24px;
+  background: #f6f5f1;
+  border-bottom: 1px solid #e7e7e2;
+  border-radius: 18px 18px 0 0;
+}
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.modal-title .iconify {
+  color: #173d31;
+}
+.modal-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #154538;
+}
+.modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.field label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #404945;
+}
+.field input,
+.field select {
+  border: 1px solid #e7e7e2;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1c2521;
+  outline: none;
+  background: #fff;
+}
+.field input:focus,
+.field select:focus {
+  border-color: #173d31;
+}
+.field-row {
+  display: flex;
+  gap: 16px;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 18px 24px;
+  border-top: 1px solid #e7e7e2;
+  background: #f6f5f1;
+  border-radius: 0 0 18px 18px;
+}
+.btn-cancel {
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: 1px solid #e7e7e2;
+  background: #fff;
+  color: #1c2521;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-cancel:hover {
+  background: #f0f0eb;
+}
+.btn-save {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #2F5D4F;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-save:hover {
+  background: #0f2b22;
+}
+.btn-save:disabled,
+.btn-cancel:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
