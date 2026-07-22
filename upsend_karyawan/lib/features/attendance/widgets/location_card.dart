@@ -67,7 +67,7 @@ class LocationCard extends StatelessWidget {
                           ? "Di dalam radius ${location.distance.toStringAsFixed(0)}m"
                           : "Di luar radius ${location.distance.toStringAsFixed(0)}m dari ${location.radiusMeter}m ",
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 12, 
                         color: inRange
                             ? Colors.grey.shade600
                             : const Color(0xFFDC2626),

@@ -33,9 +33,13 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        leadingWidth: 25 + 24 + 25,
+        leading: Padding (
+          padding: const EdgeInsets.only(left: 20.0),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         title: const Text(
           "Check In",
@@ -51,7 +55,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
           if (state.status == AttendanceStatus.loading &&
               state.nearbyLocations.isEmpty) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF006D4C)),
+              child: CircularProgressIndicator(color: Color(0xFF006948)),
             );
           }
 
@@ -62,16 +66,20 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
           return AttendanceStepper(
             currentStep: 1,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 25.0),
               child: Column(
                 children: [
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Text(
                     _buildSubtitle(state),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                    style: const TextStyle(
+                      color: Color(0xFF9A9A9A),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   if (state.selectedLocation != null)
                     LocationCard(location: state.selectedLocation!),
@@ -93,7 +101,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                           (hasValidLocation &&
                               state.status != AttendanceStatus.loading)
                           ? const Color(0xFF006948)
-                          : Colors.grey.shade300,
+                          : const Color(0xFF9A9A9A),
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
@@ -195,7 +203,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
     if (state.selectedLocation != null) {
       return state.selectedLocation!.withinRadius
           ? "Lokasi Anda telah ditemukan"
-          : "Anda di luar radius, mendekatlah untuk absen";
+          : "Anda di luar jangkauan lokasi";
     }
     return "Mencari lokasi Anda...";
   }
