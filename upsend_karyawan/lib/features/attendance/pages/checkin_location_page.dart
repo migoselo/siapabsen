@@ -55,6 +55,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
             );
           }
 
+          final canGoToCamera = state.selectedLocation != null &&
+              state.status == AttendanceStatus.success;
+
           return AttendanceStepper(
             currentStep: 1,
             child: Padding(
@@ -81,44 +84,41 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
 
                   const Spacer(),
 
-                  // Tombol "Lanjut ke kamera" -> memicu PhotoCaptured
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          (state.selectedLocation != null &&
-                              state.status != AttendanceStatus.loading)
+                      backgroundColor: canGoToCamera
                           ? const Color(0xFF006D4C)
                           : Colors.grey.shade300,
+                      disabledBackgroundColor: Colors.grey.shade300,
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
-                    onPressed:
-                        (state.selectedLocation == null ||
-                            state.status == AttendanceStatus.loading)
-                        ? null
-                        : () {
-                            // navigate immediately to camera page
+                    onPressed: canGoToCamera
+                        ? () {
+                            context.read<AttendanceBloc>().add(GoToCamera());
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const CheckinCameraPage(),
                               ),
                             );
-                          },
+                          }
+                        : null,
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "Lanjut ke kamera ",
+                          "Lanjut ke kamera",
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        SizedBox(width: 8),
                         Icon(
                           Icons.camera_alt_outlined,
                           color: Colors.white,
@@ -128,6 +128,20 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  if (!canGoToCamera)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Text(
+                        state.selectedLocation == null
+                            ? 'Lokasi belum tersedia. Pastikan GPS dan izin lokasi aktif.'
+                            : 'Memuat lokasi... silakan tunggu.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
 
                   // Tombol "Coba lagi" -> memicu FetchNearbyLocations
                   OutlinedButton(
