@@ -33,16 +33,20 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        leadingWidth: 25 + 24 + 25,
+        leading: Padding (
+          padding: const EdgeInsets.only(left: 20.0),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         title: const Text(
           "Check In",
           style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
           ),
         ),
       ),
@@ -51,26 +55,31 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
           if (state.status == AttendanceStatus.loading &&
               state.nearbyLocations.isEmpty) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF006D4C)),
+              child: CircularProgressIndicator(color: Color(0xFF006948)),
             );
           }
 
-          final canGoToCamera = state.selectedLocation != null &&
-              state.status == AttendanceStatus.success;
+          final hasValidLocation =
+              state.selectedLocation != null &&
+              state.selectedLocation!.withinRadius;
 
           return AttendanceStepper(
             currentStep: 1,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 25.0),
               child: Column(
                 children: [
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Text(
                     _buildSubtitle(state),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                    style: const TextStyle(
+                      color: Color(0xFF9A9A9A),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   if (state.selectedLocation != null)
                     LocationCard(location: state.selectedLocation!),
@@ -82,31 +91,35 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                       state.nearbyLocations.isEmpty)
                     const _EmptyLocationBox(),
 
+                  // Box besar "di luar radius" DIHAPUS — cukup card + subtitle
                   const Spacer(),
 
+                  // Tombol "Lanjut ke kamera" -> DIKUNCI kalau di luar radius
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: canGoToCamera
-                          ? const Color(0xFF006D4C)
-                          : Colors.grey.shade300,
-                      disabledBackgroundColor: Colors.grey.shade300,
+                      backgroundColor:
+                          (hasValidLocation &&
+                              state.status != AttendanceStatus.loading)
+                          ? const Color(0xFF006948)
+                          : const Color(0xFF9A9A9A),
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       elevation: 0,
                     ),
-                    onPressed: canGoToCamera
-                        ? () {
-                            context.read<AttendanceBloc>().add(GoToCamera());
+                    onPressed:
+                        (!hasValidLocation ||
+                            state.status == AttendanceStatus.loading)
+                        ? null
+                        : () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const CheckinCameraPage(),
                               ),
                             );
-                          }
-                        : null,
+                          },
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -142,6 +155,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                         ),
                       ),
                     ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
 
                   // Tombol "Coba lagi" -> memicu FetchNearbyLocations
                   OutlinedButton(
@@ -149,14 +165,14 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                       side: const BorderSide(color: Colors.black, width: 1.2),
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                     ),
                     onPressed: state.status == AttendanceStatus.loading
                         ? null
                         : () {
                             context.read<AttendanceBloc>().add(
-                              FetchNearbyLocations(), // <-- DIPERBAIKI
+                              FetchNearbyLocations(),
                             );
                           },
                     child: state.status == AttendanceStatus.loading
@@ -181,8 +197,8 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                                 "Coba lagi",
                                 style: TextStyle(
                                   color: Colors.black,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -203,7 +219,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
       return "Gagal mendeteksi lokasi";
     }
     if (state.selectedLocation != null) {
-      return "Lokasi Anda telah ditemukan";
+      return state.selectedLocation!.withinRadius
+          ? "Lokasi Anda telah ditemukan"
+          : "Anda di luar jangkauan lokasi";
     }
     return "Mencari lokasi Anda...";
   }

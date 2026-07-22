@@ -1,32 +1,70 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { Icon } from '@iconify/vue'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import api from '../api'
 
 /*
-  View ini cuma berisi KONTEN halaman (sidebar & topbar sudah ditangani
-  MainLayout.vue lewat router-view) — ikut pola yang sama dengan
-  DashboardView.vue.
+  Free map picker using Leaflet + OpenStreetMap tiles + Nominatim search.
+  No API key required.
 */
 
 const locations = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
+const currentPage = ref(1)
+const perPage = ref(10)
+const totalCount = ref(0)
 
 const filteredLocations = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return locations.value
-  return locations.value.filter(
-    (l) => l.name.toLowerCase().includes(q) || l.address.toLowerCase().includes(q),
-  )
+  return locations.value.filter((l) => {
+    const addressText = String(l.address || '').toLowerCase()
+    return (
+      l.name.toLowerCase().includes(q)
+      || addressText.includes(q)
+      || String(l.latitude).toLowerCase().includes(q)
+      || String(l.longitude).toLowerCase().includes(q)
+      || String(l.radius_meter || '').toLowerCase().includes(q)
+    )
+  })
+})
+
+const totalPages = computed(() => {
+  const total = Math.max(1, Math.ceil(filteredLocations.value.length / perPage.value))
+  if (currentPage.value > total) currentPage.value = total
+  return total
+})
+
+const paginatedLocations = computed(() => {
+  const start = (currentPage.value - 1) * perPage.value
+  return filteredLocations.value.slice(start, start + perPage.value)
+})
+
+const displayTotal = computed(() => {
+  return searchQuery.value.trim() ? filteredLocations.value.length : (totalCount.value || locations.value.length)
+})
+
+function prevPage() {
+  if (currentPage.value > 1) currentPage.value -= 1
+}
+
+function nextPage() {
+  if (currentPage.value < totalPages.value) currentPage.value += 1
+}
+
+watch([() => searchQuery.value, () => filteredLocations.value.length], () => {
+  currentPage.value = 1
 })
 
 async function fetchLocations() {
   loading.value = true
   try {
-    // TODO: sesuaikan endpoint dengan API yang disediakan tim backend
     const res = await api.get('/locations')
-    locations.value = res.data.locations
+    locations.value = res.data
+    totalCount.value = Array.isArray(res.data) ? res.data.length : 0
   } catch (err) {
     console.error('Gagal mengambil data lokasi:', err)
   } finally {
@@ -35,12 +73,18 @@ async function fetchLocations() {
 }
 
 function onSearchInput() {
-  // TODO: kalau pencarian dilakukan di server, panggil endpoint terpisah di sini
+  // TODO: server-side search
 }
 
 /* ---------------- Modal Tambah Lokasi Baru ---------------- */
 const showModal = ref(false)
 const saving = ref(false)
+const geolocating = ref(false)
+const searchingLocation = ref(false)
+const searchLocationQuery = ref('')
+const mapContainer = ref(null)
+let mapInstance = null
+let markerInstance = null
 
 const form = ref({
   name: '',
@@ -49,25 +93,139 @@ const form = ref({
   radius: 100,
 })
 
+function createMarkerIcon() {
+  return L.divIcon({
+    html: '<div class="map-picker-pin"></div>',
+    className: 'map-picker-icon-wrapper',
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+  })
+}
+
+function setCoordinates(lat, lng) {
+  const parsedLat = Number(lat)
+  const parsedLng = Number(lng)
+  if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) return
+
+  form.value.latitude = parsedLat.toFixed(6)
+  form.value.longitude = parsedLng.toFixed(6)
+
+  if (markerInstance) markerInstance.setLatLng([parsedLat, parsedLng])
+  if (mapInstance) mapInstance.panTo([parsedLat, parsedLng])
+}
+
+function initMap() {
+  if (!mapContainer.value || mapInstance) return
+
+  const defaultLat = Number.parseFloat(form.value.latitude) || -6.2088
+  const defaultLng = Number.parseFloat(form.value.longitude) || 106.8456
+
+  mapInstance = L.map(mapContainer.value).setView([defaultLat, defaultLng], 13)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(mapInstance)
+
+  markerInstance = L.marker([defaultLat, defaultLng], {
+    draggable: true,
+    icon: createMarkerIcon(),
+  }).addTo(mapInstance)
+
+  markerInstance.on('dragend', (e) => {
+    const p = e.target.getLatLng()
+    setCoordinates(p.lat, p.lng)
+  })
+
+  mapInstance.on('click', (e) => {
+    setCoordinates(e.latlng.lat, e.latlng.lng)
+  })
+}
+
+function destroyMap() {
+  if (mapInstance) {
+    mapInstance.off()
+    mapInstance.remove()
+    mapInstance = null
+  }
+  markerInstance = null
+}
+
 function openAddModal() {
   form.value = { name: '', latitude: '', longitude: '', radius: 100 }
   showModal.value = true
+  nextTick(() => initMap())
 }
 
 function closeModal() {
   if (saving.value) return
   showModal.value = false
+  destroyMap()
 }
+
+function useCurrentLocation() {
+  if (!navigator.geolocation) {
+    window.alert('Browser ini tidak mendukung geolocation.')
+    return
+  }
+
+  geolocating.value = true
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      setCoordinates(position.coords.latitude, position.coords.longitude)
+      if (mapInstance) mapInstance.setView([position.coords.latitude, position.coords.longitude], 15)
+      geolocating.value = false
+    },
+    () => {
+      geolocating.value = false
+      window.alert('Tidak bisa mengambil lokasi saat ini. Silakan pilih titik di peta.')
+    },
+  )
+}
+
+async function searchLocation() {
+  const query = searchLocationQuery.value.trim()
+  if (!query) return
+  searchingLocation.value = true
+  try {
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(query)}`,
+      { headers: { 'Accept-Language': 'id' } },
+    )
+    const results = await resp.json()
+    if (results?.[0]) {
+      const p = results[0]
+      setCoordinates(p.lat, p.lon)
+      if (mapInstance) mapInstance.setView([Number(p.lat), Number(p.lon)], 15)
+    } else {
+      window.alert('Lokasi tidak ditemukan. Coba kata kunci lain.')
+    }
+  } catch (err) {
+    console.error('Gagal mencari lokasi:', err)
+    window.alert('Gagal mencari lokasi. Silakan coba lagi.')
+  } finally {
+    searchingLocation.value = false
+  }
+}
+
+watch(
+  () => [form.value.latitude, form.value.longitude],
+  ([latitude, longitude]) => {
+    const lat = Number.parseFloat(latitude)
+    const lng = Number.parseFloat(longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+    if (markerInstance) markerInstance.setLatLng([lat, lng])
+    if (mapInstance) mapInstance.panTo([lat, lng])
+  },
+  { flush: 'post' },
+)
 
 async function submitLocation() {
   saving.value = true
   try {
-    // TODO: sesuaikan endpoint dengan API yang disediakan tim backend
     await api.post('/locations', {
       name: form.value.name,
       latitude: form.value.latitude,
       longitude: form.value.longitude,
-      radius: form.value.radius,
+      radius_meter: form.value.radius,
     })
     showModal.value = false
     fetchLocations()
@@ -78,9 +236,8 @@ async function submitLocation() {
   }
 }
 
-onMounted(() => {
-  fetchLocations()
-})
+onMounted(() => fetchLocations())
+onBeforeUnmount(() => destroyMap())
 </script>
 
 <template>
@@ -105,10 +262,10 @@ onMounted(() => {
         <thead>
           <tr>
             <th>Nama Cabang</th>
-            <th>Alamat Cabang</th>
             <th>Latitude</th>
             <th>Longitude</th>
-            <th>Status</th>
+            <th>Radius (m)</th>
+            <th>Dibuat</th>
           </tr>
         </thead>
         <tbody>
@@ -118,55 +275,44 @@ onMounted(() => {
           <tr v-else-if="filteredLocations.length === 0">
             <td colspan="5" class="empty-cell">Tidak ada lokasi ditemukan.</td>
           </tr>
-          <tr v-for="loc in filteredLocations" :key="loc.id">
+          <tr v-for="loc in paginatedLocations" :key="loc.id">
             <td>
               <div class="loc-name">{{ loc.name }}</div>
               <div class="loc-id">ID: {{ loc.id }}</div>
             </td>
-            <td>{{ loc.address }}</td>
             <td>{{ loc.latitude }}</td>
             <td>{{ loc.longitude }}</td>
-            <td>
-              <span class="badge" :class="loc.status === 'aktif' ? 'aktif' : 'nonaktif'">
-                {{ loc.status === 'aktif' ? 'Aktif' : 'Nonaktif' }}
-              </span>
-            </td>
+            <td>{{ loc.radius_meter ?? '-' }}</td>
+            <td>{{ loc.created_at ? new Date(loc.created_at).toLocaleDateString('id-ID') : '-' }}</td>
           </tr>
         </tbody>
       </table>
 
       <div class="table-footer">
-        <span>Menampilkan {{ filteredLocations.length }} dari 150 lokasi</span>
+        <span>Menampilkan {{ paginatedLocations.length }} dari {{ displayTotal }} lokasi</span>
         <div class="pager">
-          <button disabled>
+          <button :disabled="currentPage === 1" @click="prevPage">
             <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
           </button>
-          <button>
+          <div style="display:flex;align-items:center;padding:0 8px;font-weight:600;color:var(--ink-soft);">Halaman {{ currentPage }} / {{ totalPages }}</div>
+          <button :disabled="currentPage === totalPages" @click="nextPage">
             <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
           </button>
         </div>
       </div>
     </section>
 
-    <div class="add-btn-row">
-      <button class="add-btn" @click="openAddModal">
-        Tambah Lokasi Baru
-        <Icon icon="material-symbols:add-rounded" width="18" height="18" />
-      </button>
-    </div>
+    
 
     <!-- ================= MODAL TAMBAH LOKASI ================= -->
     <Teleport to="body">
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-        <div class="modal">
+        <div class="modal" ref="modalRef">
           <div class="modal-head">
             <div class="modal-title">
               <Icon icon="material-symbols:add-location-alt-outline" width="22" height="22" />
               <h3>Tambah Lokasi Baru</h3>
             </div>
-            <button class="modal-close" @click="closeModal">
-              <Icon icon="material-symbols:close-rounded" width="20" height="20" />
-            </button>
           </div>
 
           <div class="modal-body">
@@ -195,16 +341,32 @@ onMounted(() => {
             </div>
 
             <div class="field">
-              <label>Preview Lokasi</label>
-              <div class="map-preview">
-                <div class="map-radius">
-                  <div class="map-pin">
-                    <Icon icon="material-symbols:location-on" width="18" height="18" />
-                  </div>
+              <label>Pilih Lokasi di Peta</label>
+              <div class="map-actions">
+                <div class="map-search">
+                  <input
+                    ref="searchInput"
+                    v-model="searchLocationQuery"
+                    type="text"
+                    placeholder="Cari nama tempat / alamat"
+                    @keydown.enter.prevent="searchLocation"
+                  />
+                  <button class="map-search-btn" type="button" @click="searchLocation" :disabled="searchingLocation">
+                    <Icon icon="material-symbols:search-rounded" width="16" height="16" />
+                  </button>
                 </div>
-                <div class="map-coords">
-                  Lat: {{ form.latitude || '-' }} | Long: {{ form.longitude || '-' }}
-                </div>
+                <button class="map-action-btn" type="button" @click="useCurrentLocation" :disabled="geolocating">
+                  <Icon icon="material-symbols:my-location-rounded" width="16" height="16" />
+                  {{ geolocating ? 'Mengambil lokasi...' : 'Gunakan lokasi saya' }}
+                </button>
+              </div>
+              <div class="map-help-box">
+                <span>• Klik peta untuk menandai titik</span>
+                <span>• Seret pin untuk mengatur posisi</span>
+              </div>
+              <div ref="mapContainer" class="map-preview"></div>
+              <div class="map-coords">
+                Lat: {{ form.latitude || '-' }} | Long: {{ form.longitude || '-' }}
               </div>
             </div>
           </div>
@@ -451,6 +613,25 @@ tbody tr:last-child td {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
+
+/* Thinner, subtle scrollbar for modal while preserving scroll behavior */
+.modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.16) transparent;
+}
+.modal::-webkit-scrollbar {
+  width: 8px;
+}
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}
+.modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.18);
+}
 .modal-head {
   display: flex;
   align-items: center;
@@ -459,6 +640,9 @@ tbody tr:last-child td {
   background: #f6f5f1;
   border-bottom: 1px solid #e7e7e2;
   border-radius: 18px 18px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 .modal-title {
   display: flex;
@@ -545,54 +729,110 @@ tbody tr:last-child td {
   font-weight: 600;
 }
 
+.map-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.map-search {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d9e2dc;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0 8px 0 12px;
+  flex: 1;
+  min-width: 220px;
+}
+.map-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 10px 0;
+  font-size: 13px;
+  width: 100%;
+  color: #1c2521;
+}
+.map-search-btn {
+  border: none;
+  background: #154538;
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.map-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d9e2dc;
+  border-radius: 999px;
+  background: #f6f9f7;
+  color: #154538;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.map-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.map-help-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: #5b6864;
+  margin-bottom: 8px;
+}
 .map-preview {
   position: relative;
-  height: 220px;
+  height: 240px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #e7e7e2;
-  background:
-    repeating-linear-gradient(45deg, #7fae5f 0 24px, #6fa04f 24px 48px),
-    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 0 10px, transparent 10px 20px);
+  background: #edf4ee;
 }
-.map-radius {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 130px;
-  height: 130px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.map-preview > div,
+.map-preview .gm-style,
+.map-preview .leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: inherit;
 }
-.map-pin {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: #fff;
-  border: 3px solid #154538;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+.map-picker-pin {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #154538;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 4px rgba(21, 69, 56, 0.18);
 }
-.map-pin .iconify {
-  color: #154538;
+.map-picker-icon-wrapper {
+  background: transparent;
+  border: none;
 }
 .map-coords {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  background: rgba(255, 255, 255, 0.92);
+  margin-top: 10px;
+  background: #f6f5f1;
   color: #1c2521;
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border-radius: 6px;
+  display: inline-block;
 }
 
 .modal-footer {
@@ -624,7 +864,7 @@ tbody tr:last-child td {
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: #2F5D4F;
+  background: #2f5d4f;
   color: #fff;
   font-size: 14px;
   font-weight: 700;

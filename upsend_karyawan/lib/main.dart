@@ -4,6 +4,7 @@ import 'package:upsend_karyawan/core/api/api.dart';
 import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
 import 'package:upsend_karyawan/features/auth/pages/register_page.dart';
 import 'package:upsend_karyawan/features/splashscreen/pages/splash_page.dart';
+import 'package:upsend_karyawan/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/home/bloc/home_bloc.dart';
 import '../features/home/repository/home_repository.dart';
@@ -60,10 +61,7 @@ class MyApp extends StatelessWidget {
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Attendance App',
-          theme: ThemeData(
-            fontFamily: 'PlusJakartaSans',
-            scaffoldBackgroundColor: Colors.white,
-          ),
+          theme: AppTheme.lightTheme,
           initialRoute: '/splash',
           routes: {
             '/splash': (context) => const SplashPage(),
