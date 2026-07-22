@@ -124,19 +124,37 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "Lanjut ke kamera ",
+                          "Lanjut ke kamera",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
+                        SizedBox(width: 8),
                         Icon(
                           Icons.camera_alt_outlined,
                           color: Colors.white,
                           size: 18,
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (!canGoToCamera)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Text(
+                        state.selectedLocation == null
+                            ? 'Lokasi belum tersedia. Pastikan GPS dan izin lokasi aktif.'
+                            : 'Memuat lokasi... silakan tunggu.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
                     ),
                   ),
                   const SizedBox(height: 15),
@@ -163,7 +181,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Color(0xFF006948),
+                              color: Color(0xFF006D4C),
                             ),
                           )
                         : const Row(

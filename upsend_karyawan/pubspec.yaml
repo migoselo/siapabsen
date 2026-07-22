@@ -10,6 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  intl: ^0.19.0
   # Perbaikan 1: flutter_svg ditaruh sejajar di sini
   flutter_svg: ^2.3.0
 
@@ -31,7 +32,20 @@ dependencies:
 
 flutter:
   uses-material-design: true
+  
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
 
   # Perbaikan 2: Spasi assets dirapikan (maju 2 spasi dari kiri)
   assets:
     - assets/images/
+    - assets/fonts/
