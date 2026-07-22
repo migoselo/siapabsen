@@ -14,26 +14,34 @@ const routes = [
       {
         path: '',
         name: 'Dashboard',
-        component: () => import('../views/DashboardView.vue'),
-      },
-      {
-        path: 'dashboard',
+        alias: '/dashboard',
         component: () => import('../views/DashboardView.vue'),
       },
       {
         path: 'lokasi-kerja',
-        component: () => import('../views/LokasiKerjaView.vue')
+        name: 'LokasiKerja',
+        component: () => import('../views/LokasiKerjaView.vue'),
       },
       {
         path: 'karyawan',
-        component: () => import('../views/DataKaryawanView.vue')
+        name: 'DataKaryawan',
+        component: () => import('../views/DataKaryawanView.vue'),
       },
       {
         path: 'absensi',
-        component: () => import('../views/DataAbsensiView.vue')
-      }
-      // Tambahkan halaman lain di sini nanti, contoh:
-      // { path: 'absensi', name: 'DataAbsensiView', component: () => import('../views/DataAbsensiView.vue') },
+        name: 'DataAbsensi',
+        component: () => import('../views/DataAbsensiView.vue'),
+      },
+      {
+        path: 'absensi/:id',
+        name: 'DetailAbsen',
+        component: () => import('../views/DetailAbsenView.vue'),
+      },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('../views/ProfileView.vue'),
+      },
     ],
   },
 ]
@@ -43,17 +51,15 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   const token = localStorage.getItem('auth_token')
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
 
   if (requiresAuth && !token) {
-    next({ name: 'Login' })
+    return { name: 'Login' }
   } else if (to.name === 'Login' && token) {
     // Udah login, gak perlu balik ke halaman login lagi
-    next({ name: 'Dashboard' })
-  } else {
-    next()
+    return { name: 'Dashboard' }
   }
 })
 

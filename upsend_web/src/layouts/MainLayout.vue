@@ -23,7 +23,7 @@ const navigation = [
     text: 'Dashboard',
     icon: 'material-symbols:dashboard-outline',
     activeIcon: 'material-symbols:dashboard',
-    path: '/',
+    path: '/dashboard',
   },
   {
     id: 'lokasi',
@@ -63,10 +63,6 @@ const currentRouteName = computed(() => {
   return current ? current.text : 'Dashboard'
 })
 
-function handleItemClick(path) {
-  router.push(path)
-}
-
 function handleLogout() {
   authStore.logout()
   router.push('/login')
@@ -104,16 +100,16 @@ onUnmounted(() => {
       </div>
 
       <nav class="nav">
-        <button
+        <router-link
           v-for="item in navigation"
           :key="item.id"
+          :to="item.path"
           class="nav-item"
           :class="{ active: isActive(item) }"
-          @click="handleItemClick(item.path)"
         >
           <Icon :icon="iconFor(item)" class="menu-icon" />
           {{ item.text }}
-        </button>
+        </router-link>
       </nav>
 
       <button class="logout" @click="handleLogout">
@@ -143,16 +139,16 @@ onUnmounted(() => {
     </main>
 
     <nav v-if="isMobile" class="bottom-nav">
-      <div
+      <router-link
         v-for="item in navigation"
         :key="item.id"
+        :to="item.path"
         class="bottom-nav-item"
         :class="{ active: isActive(item) }"
-        @click="handleItemClick(item.path)"
       >
         <Icon :icon="iconFor(item)" class="menu-icon" />
         <span>{{ item.text.split(' ')[0] }}</span>
-      </div>
+      </router-link>
     </nav>
 
   </div>
@@ -249,6 +245,7 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: #4f5b58;
+  text-decoration: none;
   transition: all 0.2s ease;
 }
 .nav-item:hover {
@@ -392,6 +389,7 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--ink-soft);
   cursor: pointer;
+  text-decoration: none;
 }
 .bottom-nav-item.active {
   color: var(--green-900);
