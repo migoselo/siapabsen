@@ -1,11 +1,9 @@
-<script setup></script>
+<script setup>
+// Tidak perlu import Dashboard di sini.
+// <router-view /> yang otomatis nampilin komponen sesuai route aktif,
+// jadi App.vue cukup jadi "cangkang" saja.
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <router-view />
 </template>
-
-<style scoped></style>
