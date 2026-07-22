@@ -6,7 +6,7 @@ enum AttendanceStatus { initial, loading, success, failure }
 
 class AttendanceState {
   final AttendanceStatus status;
-  final int currentStep; // 1: Lokasi, 2: Kamera, 3: Selesai
+  final int currentStep;
   final List<LocationModel> nearbyLocations;
   final LocationModel? selectedLocation;
   final double? latitude;
@@ -32,11 +32,13 @@ class AttendanceState {
     int? currentStep,
     List<LocationModel>? nearbyLocations,
     LocationModel? selectedLocation,
-    bool clearSelectedLocation = false, // <-- baru
+    bool clearSelectedLocation = false,
     double? latitude,
     double? longitude,
     File? capturedPhoto,
     AttendanceModel? attendanceResult,
+    AttendanceModel? openSession, // <-- BARU
+    bool clearOpenSession = false, // <-- BARU
     String? errorMessage,
   }) {
     return AttendanceState(
@@ -45,7 +47,7 @@ class AttendanceState {
       nearbyLocations: nearbyLocations ?? this.nearbyLocations,
       selectedLocation: clearSelectedLocation
           ? null
-          : (selectedLocation ?? this.selectedLocation), // <-- diubah
+          : (selectedLocation ?? this.selectedLocation),
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       capturedPhoto: capturedPhoto ?? this.capturedPhoto,

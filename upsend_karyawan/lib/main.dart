@@ -4,6 +4,7 @@ import 'package:upsend_karyawan/core/api/api.dart';
 import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
 import 'package:upsend_karyawan/features/auth/pages/register_page.dart';
 import 'package:upsend_karyawan/features/splashscreen/pages/splash_page.dart';
+import 'package:upsend_karyawan/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/home/bloc/home_bloc.dart';
 import '../features/home/repository/home_repository.dart';
@@ -15,10 +16,11 @@ import '../features/attendance/pages/checkin_location_page.dart';
 import '../features/attendance/bloc/attendance_bloc.dart';
 import '../features/auth/bloc/auth_bloc.dart';
 import '../features/auth/repository/auth_repository.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Api.init();
+  await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
 
@@ -59,10 +61,7 @@ class MyApp extends StatelessWidget {
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Attendance App',
-          theme: ThemeData(
-            fontFamily: 'PlusJakartaSans',
-            scaffoldBackgroundColor: Colors.white,
-          ),
+          theme: AppTheme.lightTheme,
           initialRoute: '/splash',
           routes: {
             '/splash': (context) => const SplashPage(),

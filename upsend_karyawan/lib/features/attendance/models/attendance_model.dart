@@ -27,20 +27,41 @@ class AttendanceModel {
 
   factory AttendanceModel.fromJson(Map<String, dynamic> json) {
     return AttendanceModel(
-      id: json['id'] ?? 0,
-      employeeId: json['employee_id'] ?? 0,
-      locationId: json['location_id'] ?? 0,
-      checkInTime: DateTime.parse(
-        json['check_in_time'] ?? DateTime.now().toIso8601String(),
-      ),
-      checkInLat: (json['check_in_lat'] as num?)?.toDouble() ?? 0.0,
-      checkInLng: (json['check_in_lng'] as num?)?.toDouble() ?? 0.0,
-      checkInDistance: (json['check_in_distance'] as num?)?.toDouble() ?? 0.0,
-      checkInPhoto: json['check_in_photo'] ?? '',
-      status: json['status'] ?? 'pending',
+      id: _toInt(json['id']),
+      employeeId: _toInt(json['employee_id']),
+      locationId: _toInt(json['location_id']),
+      checkInTime:
+          DateTime.tryParse(json['check_in_time']?.toString() ?? '') ??
+          DateTime.now(),
+      checkInLat: _toDouble(json['check_in_lat']),
+      checkInLng: _toDouble(json['check_in_lng']),
+      checkInDistance: _toDouble(json['check_in_distance']),
+      checkInPhoto: json['check_in_photo']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
       location: json['location'] != null
           ? LocationModel.fromJson(json['location'])
           : null,
     );
+  }
+
+  // Helper: parse ke int, aman walau nilainya datang sebagai
+  // int, double, String, atau null dari backend.
+  static int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? double.tryParse(value)?.toInt() ?? 0;
+    }
+    return 0;
+  }
+
+  // Helper: parse ke double, aman walau nilainya datang sebagai
+  // int, double, String (misal "-7.2504450" dari kolom decimal), atau null.
+  static double _toDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
   }
 }

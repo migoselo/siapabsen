@@ -33,171 +33,165 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+        leadingWidth: 25 + 24 + 25,
+        leading: Padding (
+          padding: const EdgeInsets.only(left: 20.0),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         title: const Text(
           "Check In",
           style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
           ),
         ),
       ),
-      body: BlocListener<AttendanceBloc, AttendanceState>(
-        listenWhen: (previous, current) =>
-            previous.currentStep != current.currentStep,
-        listener: (context, state) {
-          if (state.currentStep == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinCameraPage()),
-            );
-          } else if (state.currentStep == 3) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinSuccessPage()),
+      body: BlocBuilder<AttendanceBloc, AttendanceState>(
+        builder: (context, state) {
+          if (state.status == AttendanceStatus.loading &&
+              state.nearbyLocations.isEmpty) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF006948)),
             );
           }
-        },
-        child: BlocBuilder<AttendanceBloc, AttendanceState>(
-          builder: (context, state) {
-            if (state.status == AttendanceStatus.loading &&
-                state.nearbyLocations.isEmpty) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF006D4C)),
-              );
-            }
 
-            return AttendanceStepper(
-              currentStep: 1,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 24),
-                    Text(
-                      _buildSubtitle(state),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 15,
-                      ),
+          final hasValidLocation =
+              state.selectedLocation != null &&
+              state.selectedLocation!.withinRadius;
+
+          return AttendanceStepper(
+            currentStep: 1,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    _buildSubtitle(state),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF9A9A9A),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 12),
 
-                    if (state.selectedLocation != null)
-                      LocationCard(location: state.selectedLocation!),
+                  if (state.selectedLocation != null)
+                    LocationCard(location: state.selectedLocation!),
 
-                    if (state.status == AttendanceStatus.failure)
-                      _ErrorBox(message: state.errorMessage),
+                  if (state.status == AttendanceStatus.failure)
+                    _ErrorBox(message: state.errorMessage),
 
-                    if (state.status == AttendanceStatus.success &&
-                        state.nearbyLocations.isEmpty)
-                      const _EmptyLocationBox(),
+                  if (state.status == AttendanceStatus.success &&
+                      state.nearbyLocations.isEmpty)
+                    const _EmptyLocationBox(),
 
-                    const Spacer(),
+                  // Box besar "di luar radius" DIHAPUS — cukup card + subtitle
+                  const Spacer(),
 
-                    // Tombol "Lanjut ke kamera" -> memicu PhotoCaptured
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            (state.selectedLocation != null &&
-                                state.status != AttendanceStatus.loading)
-                            ? const Color(0xFF006D4C)
-                            : Colors.grey.shade300,
-                        minimumSize: const Size.fromHeight(54),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
+                  // Tombol "Lanjut ke kamera" -> DIKUNCI kalau di luar radius
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          (hasValidLocation &&
+                              state.status != AttendanceStatus.loading)
+                          ? const Color(0xFF006948)
+                          : const Color(0xFF9A9A9A),
+                      minimumSize: const Size.fromHeight(54),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
                       ),
-                      onPressed:
-                          (state.selectedLocation == null ||
-                              state.status == AttendanceStatus.loading)
-                          ? null
-                          : () {
-                              // navigate immediately to camera page
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (_) => const CheckinCameraPage()),
-                              );
-                            },
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Lanjut ke kamera ",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Icon(
-                            Icons.camera_alt_outlined,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ],
-                      ),
+                      elevation: 0,
                     ),
-                    const SizedBox(height: 12),
-
-                    // Tombol "Coba lagi" -> memicu FetchNearbyLocations
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.black, width: 1.2),
-                        minimumSize: const Size.fromHeight(54),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: state.status == AttendanceStatus.loading
-                          ? null
-                          : () {
-                              context.read<AttendanceBloc>().add(
-                                FetchNearbyLocations(), // <-- DIPERBAIKI
-                              );
-                            },
-                      child: state.status == AttendanceStatus.loading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF006D4C),
+                    onPressed:
+                        (!hasValidLocation ||
+                            state.status == AttendanceStatus.loading)
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CheckinCameraPage(),
                               ),
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.refresh,
-                                  color: Colors.black,
-                                  size: 18,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  "Coba lagi",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            );
+                          },
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Lanjut ke kamera ",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Icon(
+                          Icons.camera_alt_outlined,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 15),
+
+                  // Tombol "Coba lagi" -> memicu FetchNearbyLocations
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.black, width: 1.2),
+                      minimumSize: const Size.fromHeight(54),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    onPressed: state.status == AttendanceStatus.loading
+                        ? null
+                        : () {
+                            context.read<AttendanceBloc>().add(
+                              FetchNearbyLocations(),
+                            );
+                          },
+                    child: state.status == AttendanceStatus.loading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF006948),
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.refresh,
+                                color: Colors.black,
+                                size: 18,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                "Coba lagi",
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -207,7 +201,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
       return "Gagal mendeteksi lokasi";
     }
     if (state.selectedLocation != null) {
-      return "Lokasi Anda telah ditemukan";
+      return state.selectedLocation!.withinRadius
+          ? "Lokasi Anda telah ditemukan"
+          : "Anda di luar jangkauan lokasi";
     }
     return "Mencari lokasi Anda...";
   }

@@ -22,6 +22,30 @@ class AttendanceRepository {
     }
   }
 
+  // Future<AttendanceModel> checkIn({
+  //   required int locationId,
+  //   required double lat,
+  //   required double lng,
+  //   required File photo,
+  // }) async {
+  //   try {
+  //     String fileName = photo.path.split('/').last;
+  //     FormData formData = FormData.fromMap({
+  //       'location_id': locationId,
+  //       'lat': lat,
+  //       'lng': lng,
+  //       'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
+  //     });
+
+  //     final response = await Api.dio.post(
+  //       '/attendances/check-in',
+  //       data: formData,
+  //     );
+  //     return AttendanceModel.fromJson(response.data);
+  //   } catch (e) {
+  //     rethrow;
+  //   }
+  // }
   Future<AttendanceModel> checkIn({
     required int locationId,
     required double lat,
@@ -42,6 +66,16 @@ class AttendanceRepository {
         data: formData,
       );
       return AttendanceModel.fromJson(response.data);
+    } on DioException catch (e) {
+      // Ambil pesan validasi asli dari backend (Laravel biasanya di 'message' atau 'errors')
+      final data = e.response?.data;
+      if (data is Map) {
+        final message = data['message'] ?? data['errors']?.toString();
+        throw Exception(
+          message ?? 'Gagal melakukan check-in (${e.response?.statusCode})',
+        );
+      }
+      rethrow;
     } catch (e) {
       rethrow;
     }
