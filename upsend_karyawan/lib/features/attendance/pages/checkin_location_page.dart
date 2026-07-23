@@ -141,24 +141,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (!canGoToCamera)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Text(
-                        state.selectedLocation == null
-                            ? 'Lokasi belum tersedia. Pastikan GPS dan izin lokasi aktif.'
-                            : 'Memuat lokasi... silakan tunggu.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-
+                  
                   // Tombol "Coba lagi" -> memicu FetchNearbyLocations
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(
