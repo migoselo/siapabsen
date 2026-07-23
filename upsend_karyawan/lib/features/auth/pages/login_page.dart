@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:upsend_karyawan/features/auth/bloc/auth_bloc.dart';
+import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -26,7 +27,7 @@ class _LoginPageState extends State<LoginPage> {
     final password = _passwordController.text;
 
     if (phone.isEmpty || password.isEmpty) {
-      _showSnackBar('Nomor HP dan Password wajib diisi!');
+      AppSnackbar.error(context, 'Nomor HP dan Password wajib diisi!');
       return;
     }
 
@@ -36,12 +37,6 @@ class _LoginPageState extends State<LoginPage> {
     context.read<AuthBloc>().add(
       AuthLoginRequested(noHp: phone, password: password),
     );
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -58,10 +53,7 @@ class _LoginPageState extends State<LoginPage> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state.status == AuthStatus.authenticated) {
-          _showSnackBar('Login Berhasil!');
-          // Navigasi baru terjadi SETELAH AuthState benar-benar
-          // authenticated & user sudah ke-set — jadi pas HomePage
-          // dibangun, context.watch<AuthBloc>().state.user sudah ada.
+          AppSnackbar.success(context, 'Login Berhasil!');
           Navigator.pushReplacementNamed(context, '/home');
         } else if (state.status == AuthStatus.failure) {
           _showSnackBar(

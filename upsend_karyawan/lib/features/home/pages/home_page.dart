@@ -9,6 +9,7 @@ import '../widgets/attendance_status_card.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../auth/bloc/auth_bloc.dart';
+import '../../../core/widgets/custom_snackbar.dart';
 
 const Color kPrimary = Color(0xFF006948);
 const Color kDanger = Color(0xFFE0224E);
@@ -66,9 +67,7 @@ class _HomePageState extends State<HomePage> {
           listener: (context, state) {
             if (state.status == HomeStatus.failure &&
                 state.errorMessage != null) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+              AppSnackbar.error(context, state.errorMessage!);
             }
           },
           builder: (context, state) {
@@ -95,8 +94,7 @@ class _HomePageState extends State<HomePage> {
                       return GreetingHeader(userName: userName);
                     },
                   ),
-                  const SizedBox(height: 44),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 30),
 
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 30),
@@ -141,7 +139,7 @@ class _ActionButton extends StatelessWidget {
           backgroundColor: buttonColor,
           disabledBackgroundColor: buttonColor.withOpacity(0.6),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(15),
           ),
           elevation: 0,
         ),
