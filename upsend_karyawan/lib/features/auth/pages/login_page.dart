@@ -65,7 +65,8 @@ class _LoginPageState extends State<LoginPage> {
           Navigator.pushReplacementNamed(context, '/home');
         } else if (state.status == AuthStatus.failure) {
           _showSnackBar(
-            state.errorMessage ?? 'Gagal masuk, silakan coba lagi.',
+            (state.errorMessage ?? 'Gagal masuk, silakan coba lagi.')
+                .replaceFirst('Exception: ', ''),
           );
         }
       },

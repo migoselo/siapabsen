@@ -6,7 +6,7 @@ class Api {
   static final Dio dio = Dio(
     BaseOptions(
       // baseUrl: 'http://192.168.44.8:8010/api',
-      baseUrl: 'http://siapabsensi.siapsoft.com',
+      baseUrl: 'https://siapabsensi.siapsoft.com/api',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
