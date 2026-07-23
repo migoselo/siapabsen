@@ -10,6 +10,7 @@ import '../widgets/attendance_stepper.dart';
 import '../widgets/selfie_preview.dart';
 import '../../../core/services/camera_service.dart';
 import 'checkin_success_page.dart';
+import '../../../core/widgets/custom_snackbar.dart';
 
 class CheckinCameraPage extends StatefulWidget {
   const CheckinCameraPage({super.key});
@@ -53,9 +54,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
       setState(() {
         _cameraPermissionDenied = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal inisialisasi kamera: ${e.toString()}')),
-      );
+      AppSnackbar.error(context, 'Gagal memulai kamera: ${e.toString()}');
     } finally {
       _cameraInitInProgress = false;
     }
@@ -99,9 +98,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
             );
           } else if (state.status == AttendanceStatus.failure &&
               state.errorMessage != null) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+            AppSnackbar.error(context, state.errorMessage!);
           }
         },
         child: BlocBuilder<AttendanceBloc, AttendanceState>(
@@ -180,13 +177,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                                   if (state.selectedLocation == null ||
                                       state.latitude == null ||
                                       state.longitude == null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Lokasi check-in belum tersedia.',
-                                        ),
-                                      ),
-                                    );
+                                    AppSnackbar.error(context, 'Lokasi check-in belum tersedia.');
                                     return;
                                   }
 
@@ -198,11 +189,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
 
                                 if (!_cameraInitialized ||
                                     _cameraService.controller == null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Kamera belum siap'),
-                                    ),
-                                  );
+                                  AppSnackbar.error(context, 'Kamera belum siap');
                                   return;
                                 }
 
@@ -212,19 +199,9 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                                   context.read<AttendanceBloc>().add(
                                     PhotoCaptured(file),
                                   );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Foto berhasil diambil'),
-                                    ),
-                                  );
+                                  AppSnackbar.success(context, 'Foto berhasil diambil');
                                 } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Wajah tidak terdeteksi. Coba lagi.',
-                                      ),
-                                    ),
-                                  );
+                                  AppSnackbar.warning(context, 'Wajah tidak terdeteksi. Coba lagi.');
                                 }
                               },
                         child: isSubmitting
