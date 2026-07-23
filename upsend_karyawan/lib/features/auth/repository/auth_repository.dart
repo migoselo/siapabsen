@@ -1,11 +1,12 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api.dart';
 import '../models/user_model.dart';
+import 'package:dio/dio.dart';
 
 class AuthRepository {
   static const _tokenKey = 'auth_token';
 
-  Future<UserModel> login({
+  /* Future<UserModel> login({
     required String noHp,
     required String password,
   }) async {
@@ -35,7 +36,37 @@ class AuthRepository {
     await prefs.setString('user_name', user.name);
 
     return user;
+  } */
+
+ Future<UserModel> login({required String noHp, required String password}) async {
+  try {
+    final response = await Api.dio.post('/login', data: {
+      'no_hp': noHp,
+      'password': password,
+    });
+
+    final token = response.data['token'] as String;
+    final user = UserModel.fromJson(response.data['user']);
+
+    await _saveToken(token);
+    Api.dio.options.headers['Authorization'] = 'Bearer $token';
+
+    return user;
+  } on DioException catch (e) {
+    // Ambil pesan bersih dari backend, bukan dump teknis DioException
+    if (e.response?.data != null && e.response!.data is Map) {
+      final data = e.response!.data as Map;
+      if (data['errors'] != null) {
+        final firstError = (data['errors'] as Map).values.first[0];
+        throw Exception(firstError.toString());
+      }
+      if (data['message'] != null) {
+        throw Exception(data['message'].toString());
+      }
+    }
+    throw Exception('Gagal terhubung ke server. Periksa koneksi internet Anda.');
   }
+}
 
   /// Dipanggil saat app dibuka — cek apakah ada sesi login tersimpan & masih valid.
   Future<UserModel?> getCurrentUser() async {
