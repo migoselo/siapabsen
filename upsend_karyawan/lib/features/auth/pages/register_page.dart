@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 // Sesuaikan path import core API dengan struktur project kamu
 import 'package:upsend_karyawan/core/api/api.dart';
+import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -38,7 +39,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final password = _passwordController.text;
 
     if (nama.isEmpty || email.isEmpty || nomorHp.isEmpty || password.isEmpty) {
-      _showSnackBar('Semua field wajib diisi!');
+      AppSnackbar.error(context, 'Semua field wajib diisi!');
       return;
     }
 
@@ -60,7 +61,7 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        _showSnackBar('Registrasi Berhasil! Silakan masuk.');
+        AppSnackbar.success(context, 'Registrasi Berhasil! Silakan masuk.');
         if (mounted) {
           Navigator.pop(
             context,
@@ -69,7 +70,7 @@ class _RegisterPageState extends State<RegisterPage> {
       } else {
         final errorMsg =
             response.data['message'] ?? 'Gagal melakukan registrasi.';
-        _showSnackBar(errorMsg);
+        AppSnackbar.error(context, errorMsg);
       }
     } on DioException catch (e) {
       // Menangkap detail error validasi (422) langsung dari Laravel
@@ -79,17 +80,18 @@ class _RegisterPageState extends State<RegisterPage> {
           final Map<String, dynamic> validationErrors = data['errors'];
           // Mengambil string pesan error pertama yang digagalkan Laravel
           final firstError = validationErrors.values.first[0];
-          _showSnackBar('Gagal: $firstError');
+          AppSnackbar.error(context, 'Gagal: $firstError');
         } else {
-          _showSnackBar(data['message'] ?? 'Data tidak valid (422).');
+          AppSnackbar.error(context, data['message'] ?? 'Data tidak valid');
         }
       } else {
         final errorMsg =
             e.response?.data['message'] ?? 'Gagal melakukan registrasi.';
-        _showSnackBar(errorMsg);
+        AppSnackbar.error(context, errorMsg);
       }
     } catch (e) {
-      _showSnackBar(
+      AppSnackbar.error(
+        context,
         'Gagal terhubung ke server. Periksa koneksi internet Anda.',
       );
     } finally {
@@ -99,12 +101,6 @@ class _RegisterPageState extends State<RegisterPage> {
         });
       }
     }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
