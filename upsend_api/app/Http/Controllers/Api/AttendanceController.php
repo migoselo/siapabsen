@@ -34,51 +34,55 @@ class AttendanceController extends Controller
         return response()->json($locations);
     }
 
-    public function checkIn(Request $request)
-    {
-        $data = $request->validate([
-            'location_id' => 'required|exists:locations,id',
-            'lat' => 'required|numeric|between:-90,90',
-            'lng' => 'required|numeric|between:-180,180',
-            'photo' => 'required|image|max:5120',
-        ]);
+   public function checkIn(Request $request)
+{
+    $data = $request->validate([
+        'location_id' => 'required|exists:locations,id',
+        'lat' => 'required|numeric|between:-90,90',
+        'lng' => 'required|numeric|between:-180,180',
+        'photo' => 'required|image|max:5120',
+    ]);
 
-        $employeeId = $request->user()->id;
+    $employeeId = $request->user()->id;
 
-        $openSession = Attendance::where('employee_id', $employeeId)
-            ->whereNull('check_out_time')
-            ->exists();
+    $openSession = Attendance::where('employee_id', $employeeId)
+        ->whereNull('check_out_time')
+        ->exists();
 
-        if ($openSession) {
-            return response()->json([
-                'message' => 'Masih ada sesi check-in yang belum check-out. Check-out dulu sebelum absen baru.',
-            ], 422);
-        }
-
-        $location = Location::findOrFail($data['location_id']);
-
-        $distance = DistanceHelper::haversine(
-            $data['lat'], $data['lng'], $location->latitude, $location->longitude
-        );
-
-        $photoPath = $request->file('photo')->store('attendance-photos', 'public');
-
-        // Kalau di luar radius, status pending -> harus direview admin, bukan auto-reject
-        $status = $distance <= $location->radius_meter ? 'approved' : 'pending';
-
-        $attendance = Attendance::create([
-            'employee_id' => $employeeId,
-            'location_id' => $location->id,
-            'check_in_time' => now(),
-            'check_in_lat' => $data['lat'],
-            'check_in_lng' => $data['lng'],
-            'check_in_distance' => $distance,
-            'check_in_photo' => $photoPath,
-            'status' => $status,
-        ]);
-
-        return response()->json($attendance->load('location'), 201);
+    if ($openSession) {
+        return response()->json([
+            'message' => 'Masih ada sesi check-in yang belum check-out. Check-out dulu sebelum absen baru.',
+        ], 422);
     }
+
+    $location = Location::findOrFail($data['location_id']);
+
+    $distance = DistanceHelper::haversine(
+        $data['lat'], $data['lng'], $location->latitude, $location->longitude
+    );
+
+    // TEGAS: tolak kalau di luar radius
+    if ($distance > $location->radius_meter) {
+        return response()->json([
+            'message' => "Anda berada di luar radius absen (jarak: " . round($distance) . "m, maksimal: {$location->radius_meter}m).",
+        ], 422);
+    }
+
+    $photoPath = $request->file('photo')->store('attendance-photos', 'public');
+
+    $attendance = Attendance::create([
+        'employee_id' => $employeeId,
+        'location_id' => $location->id,
+        'check_in_time' => now(),
+        'check_in_lat' => $data['lat'],
+        'check_in_lng' => $data['lng'],
+        'check_in_distance' => $distance,
+        'check_in_photo' => $photoPath,
+        'status' => 'approved',
+    ]);
+
+    return response()->json($attendance->load('location'), 201);
+}
 
     public function checkOut(Request $request, Attendance $attendance)
 {

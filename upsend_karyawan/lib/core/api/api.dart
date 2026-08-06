@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Api {
   static final Dio dio = Dio(
     BaseOptions(
-      baseUrl: 'https://siapabsensi.siapsoft.com/api',
+      baseUrl: 'http://192.168.44.8:8010/api',
+      // baseUrl: 'https://siapabsensi.siapsoft.com/api',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',

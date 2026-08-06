@@ -21,6 +21,10 @@ async function loadAttendancePhoto(attendanceId) {
   photoError.value = ''
   photoUrl.value = null
 
+  if (!attendance.value?.photo_available) {
+    return
+  }
+
   try {
     const response = await api.get(`/attendances/${attendanceId}/photo`, {
       responseType: 'blob',

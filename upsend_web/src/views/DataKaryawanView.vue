@@ -168,8 +168,8 @@ onMounted(() => {
               </div>
             </td>
             <td>{{ emp.email }}</td>
-            <td>{{ emp.phone }}</td>
-            <td>{{ emp.location }}</td>
+            <td>{{ emp.no_hp || '-' }}</td>
+            <td>{{ emp.homeLocation?.name || emp.home_location?.name || emp.location?.name || emp.home_location || '-' }}</td>
           </tr>
         </tbody>
       </table>

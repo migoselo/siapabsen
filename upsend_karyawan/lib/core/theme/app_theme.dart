@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const Color primaryGreen = Color(0xFF006948);
+  static const Color primaryGreen = Color(0xFF2F3B69);
   static const Color grayBorder = Color(0xFFD9D9D9);
   static const Color grayText = Color(0xFF9A9A9A);
 
@@ -53,7 +53,7 @@ class AppTheme {
       // Supaya kursor blink & selection text juga ikut hijau, bukan ungu
       textSelectionTheme: const TextSelectionThemeData(
         cursorColor: primaryGreen,
-        selectionColor: Color(0x33006948), // hijau transparan
+        selectionColor: Color(0x332F3B69),
         selectionHandleColor: primaryGreen,
       ),
 
