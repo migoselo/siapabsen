@@ -129,7 +129,7 @@ class ProfilePage extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF006948)),
+              child: CircularProgressIndicator(color: Color(0xFF2B3A8F)),
             );
           }
 

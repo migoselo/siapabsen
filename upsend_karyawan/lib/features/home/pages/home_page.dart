@@ -4,15 +4,15 @@ import '../bloc/home_bloc.dart';
 import '../bloc/home_event.dart';
 import '../bloc/home_state.dart';
 import '../widgets/greeting_header.dart';
-import '../widgets/attendance_status_card.dart';
-// import '../widgets/gps_status_chip.dart';
-import '../../attendance/pages/checkin_location_page.dart';
-import '../../../core/widgets/custom_bottom_navbar.dart';
+import '../widgets/realtime_clock.dart';
+import '../widgets/attendance_info_boxes.dart';
+import '../widgets/recent_attendances_list.dart';
 import '../../auth/bloc/auth_bloc.dart';
-import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/custom_bottom_navbar.dart';
+import '../../attendance/pages/checkin_location_page.dart';
+// TODO: import BottomNav punya kamu yang udah jadi, saya gak nyentuh itu.
 
-const Color kPrimary = Color(0xFF006948);
-const Color kDanger = Color(0xFFE0224E);
+const Color kDanger = Color(0xFFE11D48);
 const Color kBackground = Color(0xFFFFFFFF);
 
 class HomePage extends StatefulWidget {
@@ -23,19 +23,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _activeNavIndex = 0; // 0 = Beranda
+  int _activeNavIndex = 0;
 
   @override
   void initState() {
     super.initState();
     context.read<HomeBloc>().add(const HomeStarted());
-
-    // Refresh data user (nama + otomatis identicon ikut) dari backend
-    // setiap kali Home dibuka, pakai AuthRepository.getCurrentUser()
-    // yang sekarang sudah handle bentuk respons /me dengan benar.
-    // Ini SUMBER YANG SAMA dipakai ProfilePage, jadi nama & avatar
-    // di Home & Profile dijamin selalu identik.
-    context.read<AuthBloc>().add(const AuthCheckRequested());
   }
 
   @override
@@ -45,15 +38,26 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _activeNavIndex,
         onTap: (index) async {
-          if (index == 1) {
+          if (index == 2) {
+            // Presensi -> buka CheckinLocationPage
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
+            );
+            if (context.mounted) {
+              setState(() => _activeNavIndex = 0);
+              context.read<HomeBloc>().add(const HomeStarted());
+            }
+          } else if (index == 4) {
+            // Profil
             await Navigator.pushNamed(context, '/profile');
             if (context.mounted) {
               setState(() => _activeNavIndex = 0);
-              // Balik dari Profile → refresh AuthBloc juga, jaga-jaga
-              // kalau ada perubahan data user.
               context.read<AuthBloc>().add(const AuthCheckRequested());
             }
           } else {
+            // Beranda (0), Izin (1), Riwayat (3) — sementara cuma ganti index
+            // TODO: sambungkan ke halaman Izin & Riwayat kalau sudah dibuat
             setState(() => _activeNavIndex = index);
           }
         },
@@ -61,52 +65,47 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: BlocConsumer<HomeBloc, HomeState>(
           listener: (context, state) {
-            if (state.status == HomeStatus.failure &&
-                state.errorMessage != null) {
-              AppSnackbar.error(context, state.errorMessage!);
+            if (state.status == HomeStatus.failure && state.errorMessage != null) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(state.errorMessage!)));
             }
           },
           builder: (context, state) {
-            if (state.status == HomeStatus.initial ||
-                state.status == HomeStatus.loading) {
-              return const Center(
-                child: CircularProgressIndicator(color: kPrimary),
-              );
+            if (state.status == HomeStatus.initial || state.status == HomeStatus.loading) {
+              return const Center(child: CircularProgressIndicator(color: kDanger));
             }
 
-            return SizedBox(
-              width: 412,
+            final authState = context.watch<AuthBloc>().state;
+            final userName = authState.user?.name ?? '-';
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Builder(
-                    builder: (context) {
-                      // context.watch biar rebuild otomatis kalau
-                      // AuthState berubah (misal AuthCheckRequested
-                      // barusan selesai fetch dari /me).
-                      final authState = context.watch<AuthBloc>().state;
-                      final userName = authState.user?.name ?? '-';
+                  GreetingHeader(userName: userName),
+                  const SizedBox(height: 20),
 
-                      return GreetingHeader(userName: userName);
-                    },
+                  const RealtimeClockCard(),
+                  const SizedBox(height: 16),
+
+                  AttendanceInfoBoxes(
+                    checkInTime: state.checkInTime,
+                    locationName: state.locationName,
+                    checkOutTime: null,
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 16),
 
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: AttendanceStatusCard(
-                      isCheckedIn: state.isCheckedIn,
-                      locationName: state.locationName,
-                      checkInTime: state.checkInTime,
+                  if (state.isCheckedIn) ...[
+                    _CheckOutButton(
+                      isSubmitting: state.status == HomeStatus.submitting,
+                      onPressed: () =>
+                          context.read<HomeBloc>().add(const HomeCheckOutRequested()),
                     ),
-                  ),
+                    const SizedBox(height: 20),
+                  ],
 
-                  const SizedBox(height: 36),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 33),
-                    child: _ActionButton(state: state),
-                  ),
+                  RecentAttendanceList(history: state.history),
                 ],
               ),
             );
@@ -117,73 +116,47 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final HomeState state;
-  const _ActionButton({required this.state});
+class _CheckOutButton extends StatelessWidget {
+  final bool isSubmitting;
+  final VoidCallback onPressed;
+
+  const _CheckOutButton({required this.isSubmitting, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    final isSubmitting = state.status == HomeStatus.submitting;
-    final buttonColor = state.isCheckedIn ? kDanger : kPrimary;
-
     return SizedBox(
-      width: 346,
-      height: 60,
+      width: double.infinity,
+      height: 52,
       child: ElevatedButton(
-        onPressed: isSubmitting ? null : () => _handlePress(context),
+        onPressed: isSubmitting ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
-          disabledBackgroundColor: buttonColor.withOpacity(0.6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
+          backgroundColor: const Color(0xFF2B3A8F),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
         ),
         child: isSubmitting
             ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Colors.white,
-                ),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
               )
-            : Row(
+            : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Icon(Icons.logout, size: 18, color: Colors.white),
+                  SizedBox(width: 8),
                   Text(
-                    state.isCheckedIn ? 'Check Out' : 'Check In',
-                    style: const TextStyle(
-                      fontSize: 16,
+                    'Check Out sekarang',
+                    style: TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    state.isCheckedIn ? Icons.logout : Icons.login,
-                    size: 22,
-                    color: Colors.white,
                   ),
                 ],
               ),
       ),
     );
-  }
-
-  Future<void> _handlePress(BuildContext context) async {
-    if (state.isCheckedIn) {
-      context.read<HomeBloc>().add(const HomeCheckOutRequested());
-    } else {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const CheckinLocationPage(),
-        ), // Sesuaikan nama class halamanmu
-      );
-      // TODO: aktifkan setelah ganti import ke widget asli temen kamu
-      // await Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckInFlowPage()));
-      if (context.mounted) context.read<HomeBloc>().add(const HomeStarted());
-    }
   }
 }

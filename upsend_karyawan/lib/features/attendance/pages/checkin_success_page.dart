@@ -66,7 +66,7 @@ class CheckinSuccessPage extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: const BoxDecoration(
-                              color: Color(0xFF006D4C),
+                              color: Color(0xFF2B3A8F),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -105,14 +105,14 @@ class CheckinSuccessPage extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 62,
-                      color: Color(0xFF006D4C),
+                      color: Color(0xFF2B3A8F),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     "Berhasil absen pada tanggal $dateText",
                     style: const TextStyle(
-                      color: Color(0xFF006D4C),
+                      color: Color(0xFF2B3A8F),
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
@@ -120,7 +120,7 @@ class CheckinSuccessPage extends StatelessWidget {
                   const Spacer(),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF006D4C),
+                      backgroundColor: const Color(0xFF2B3A8F),
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
