@@ -55,7 +55,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
           if (state.status == AttendanceStatus.loading &&
               state.nearbyLocations.isEmpty) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF006948)),
+              child: CircularProgressIndicator(color: Color(0xFF2B3A8F)),
             );
           }
 
@@ -100,7 +100,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                       backgroundColor:
                           (hasValidLocation &&
                               state.status != AttendanceStatus.loading)
-                          ? const Color(0xFF006948)
+                          ? const Color(0xFF2B3A8F)
                           : const Color(0xFF9A9A9A),
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
@@ -164,7 +164,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Color(0xFF006D4C),
+                              color: Color(0xFF2B3A8F),
                             ),
                           )
                         : const Row(

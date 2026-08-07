@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+/* import 'package:flutter/material.dart';
 
-const Color kActiveBorder = Color(0xFF006948); // hijau, saat sudah check-in
+const Color kActiveBorder = Color(0xFF2B3A8F); // biru, saat sudah check-in
 const Color kInactiveBorder = Color(0xFFFFD400); // kuning, saat belum check-in
 const Color kSurface = Color(0xFFFFFFFF);
 const Color kBorder = Color(0xFFBCCAC0);
@@ -145,4 +145,4 @@ class _IconText extends StatelessWidget {
       ],
     );
   }
-}
+} */
