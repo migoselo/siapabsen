@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:upsend_karyawan/features/auth/bloc/auth_bloc.dart';
+import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
 
 enum LoginType { email, employeeId, phone }
 
@@ -79,12 +80,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -93,9 +88,9 @@ class _LoginPageState extends State<LoginPage> {
           _showSnackBar('Login Berhasil!');
           Navigator.pushReplacementNamed(context, '/home');
         } else if (state.status == AuthStatus.failure) {
-          _showSnackBar(
-            state.errorMessage ?? 'Gagal masuk, silakan coba lagi.',
-          );
+          AppSnackbar.error(context, (
+            state.errorMessage ?? 'Gagal masuk, silakan coba lagi.'
+          ).replaceFirst('Exception: ', ''));
         }
       },
       child: Scaffold(

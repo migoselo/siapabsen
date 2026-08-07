@@ -27,6 +27,9 @@ const form = ref({
   home_location_id: '',
 })
 
+// 🔽 TAMBAHAN: toggle show/hide password
+const showPassword = ref(false)
+
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return employees.value
@@ -80,6 +83,7 @@ function openAddModal() {
     role: 'karyawan',
     home_location_id: '',
   }
+  showPassword.value = false
   showModal.value = true
   fetchLocations()
 }
@@ -211,11 +215,31 @@ onMounted(() => {
             </div>
             <div class="field">
               <label>Password</label>
-              <input type="password" v-model="form.password" placeholder="Password" />
+              <div class="input-eye-wrap">
+                <input
+                  :type="showPassword ? 'text' : 'password'"
+                  v-model="form.password"
+                  placeholder="Password"
+                />
+                <button
+                  type="button"
+                  class="eye-toggle"
+                  @click="showPassword = !showPassword"
+                  tabindex="-1"
+                >
+                  <Icon :icon="showPassword ? 'material-symbols:visibility-off-rounded' : 'material-symbols:visibility-rounded'" width="18" height="18" />
+                </button>
+              </div>
             </div>
             <div class="field">
               <label>Nomor HP</label>
-              <input type="text" v-model="form.no_hp" placeholder="Nomor HP" />
+              <input
+                type="text"
+                inputmode="numeric"
+                v-model="form.no_hp"
+                @input="form.no_hp = form.no_hp.replace(/\D/g, '')"
+                placeholder="Nomor HP"
+              />
             </div>
             <div class="field-row">
               <div class="field">
@@ -556,6 +580,34 @@ tbody tr:last-child td {
 .btn-cancel:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 🔽 TAMBAHAN: wrapper input password + tombol mata */
+.input-eye-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-eye-wrap input {
+  width: 100%;
+  padding-right: 42px;
+}
+.eye-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  color: var(--ink-soft, #5b6864);
+}
+.eye-toggle:hover {
+  color: #173d31;
 }
 
 @media (max-width: 700px) {
