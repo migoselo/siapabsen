@@ -1,23 +1,6 @@
 import 'package:flutter/material.dart';
-
-// =====================================================================
-// SOURCE OF TRUTH — spesifikasi Figma persis
-// =====================================================================
-const Color _kBorder = Color(0xFFBCCAC0);
-const Color _kBackground = Color(0xFFFFFFFF);
-const Color _kSelectedBg = Color(0xFF006948);
-const Color _kIconActive = Color(0xFFFFFFFF);
-const Color _kIconInactive = Color(0xFF3D4A42);
-
-const double _kHeight = 74;
-const double _kBorderTopWidth = 2;
-const double _kSelectedRadius = 12;
-const double _kIconSize = 24;
-const double _kLabelFontSize = 16;
-const FontWeight _kLabelFontWeight = FontWeight.w400; // regular
-const double _kHorizontalPadding = 56.66;
-const double _kVerticalPadding = 8;
-const double _kSpacingAntarMenu = 60;
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class BottomNavItem {
   final IconData icon;
@@ -26,6 +9,166 @@ class BottomNavItem {
   const BottomNavItem({required this.icon, required this.label});
 }
 
+class CustomBottomNavBar extends StatelessWidget {
+  final int currentIndex;
+  final Function(int) onTap;
+
+  const CustomBottomNavBar({
+    Key? key,
+    required this.currentIndex,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Warna yang disesuaikan dengan gambar
+    const Color activeColor = Color(0xFF2E3A6E);
+    const Color inactiveColor = Color(0xFF9E9E9E);
+    const Color fabColor = Color(0xFF5163B7);
+
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      clipBehavior: Clip.none,
+      children: [
+        // Background Bar
+        Container(
+          height: 65,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              // Item 1: Beranda
+              _buildNavItem(
+                index: 0,
+                label: 'Beranda',
+                iconPath: 'assets/images/Home.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+              ),
+
+              // Item 2: Izin
+              _buildNavItem(
+                index: 1,
+                label: 'Izin',
+                iconPath: 'assets/images/Document.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+              ),
+
+              // Spacer untuk memberi ruang pada Tombol Presensi di tengah
+              const SizedBox(width: 50),
+
+              // Item 4: Riwayat
+              _buildNavItem(
+                index: 3,
+                label: 'Riwayat',
+                iconPath: 'assets/images/History.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+              ),
+
+              // Item 5: Profil
+              _buildNavItem(
+                index: 4,
+                label: 'Profil',
+                iconPath: 'assets/images/Profile.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+              ),
+            ],
+          ),
+        ),
+
+        // Item 3: Presensi (Tombol Lingkaran Tengah)
+        Positioned(
+          top: -24,
+          child: GestureDetector(
+            onTap: () => onTap(2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 62,
+                  height: 62,
+                  decoration: const BoxDecoration(
+                    color: fabColor,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: SvgPicture.asset(
+                    'assets/images/faceid.svg',
+                    color: Colors.white,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Presensi',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: currentIndex == 2
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: currentIndex == 2 ? activeColor : inactiveColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required String label,
+    required String iconPath,
+    required Color activeColor,
+    required Color inactiveColor,
+  }) {
+    final bool isSelected = currentIndex == index;
+    final Color currentColor = isSelected ? activeColor : inactiveColor;
+
+    return InkWell(
+      onTap: () => onTap(index),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SvgPicture.asset(
+            iconPath,
+            width: 24,
+            height: 24,
+            color: currentColor,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: currentColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Backwards-compatible alias: jika ada kode yang masih memanggil `BottomNav`,
+// kita sediakan wrapper ringan agar pemanggilan lama tidak error.
 class BottomNav extends StatelessWidget {
   final List<BottomNavItem> items;
   final int activeIndex;
@@ -40,83 +183,6 @@ class BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: _kHeight,
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: _kBackground,
-        border: Border(top: BorderSide(color: _kBorder, width: _kBorderTopWidth)),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: _kHorizontalPadding,
-        vertical: _kVerticalPadding,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (int i = 0; i < items.length; i++) ...[
-            _BottomNavItemWidget(
-              item: items[i],
-              isActive: i == activeIndex,
-              onTap: () => onTap(i),
-            ),
-            if (i != items.length - 1) const SizedBox(width: _kSpacingAntarMenu),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _BottomNavItemWidget extends StatelessWidget {
-  final BottomNavItem item;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _BottomNavItemWidget({
-    required this.item,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final iconColor = isActive ? _kIconActive : _kIconInactive;
-
-    final content = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(item.icon, size: _kIconSize, color: iconColor),
-        const SizedBox(height: 4), // NOTE: spacing icon->label gak ada di spec, estimasi
-        Text(
-          item.label,
-          style: TextStyle(
-            fontSize: _kLabelFontSize,
-            fontWeight: _kLabelFontWeight,
-            color: iconColor,
-          ),
-        ),
-      ],
-    );
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: isActive
-          ? Container(
-              // NOTE: padding internal pill ini gak disebutkan di spec,
-              // estimasi dari screenshot — sesuaikan lagi kalau meleset.
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: _kSelectedBg,
-                borderRadius: BorderRadius.circular(_kSelectedRadius),
-              ),
-              child: content,
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: content,
-            ),
-    );
+    return CustomBottomNavBar(currentIndex: activeIndex, onTap: onTap);
   }
 }
