@@ -42,12 +42,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackground,
-      bottomNavigationBar: BottomNav(
-        items: const [
-          BottomNavItem(icon: Icons.home_filled, label: 'Beranda'),
-          BottomNavItem(icon: Icons.person, label: 'Profil'),
-        ],
-        activeIndex: _activeNavIndex,
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _activeNavIndex,
         onTap: (index) async {
           if (index == 1) {
             await Navigator.pushNamed(context, '/profile');

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:upsend_karyawan/core/api/api.dart';
 import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
-import 'package:upsend_karyawan/features/auth/pages/register_page.dart';
+import 'package:upsend_karyawan/features/onboarding/pages/onboarding_screen.dart';
 import 'package:upsend_karyawan/features/splashscreen/pages/splash_page.dart';
 import 'package:upsend_karyawan/core/theme/app_theme.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -65,9 +63,9 @@ class MyApp extends StatelessWidget {
           initialRoute: '/splash',
           routes: {
             '/splash': (context) => const SplashPage(),
+            '/onboarding': (context) => const OnboardingScreen(),
             '/login': (context) => const LoginPage(),
             '/profile': (context) => const ProfilePage(),
-            '/register_page': (context) => const RegisterPage(),
             '/home': (context) => const HomePage(),
             '/checkin': (context) => const CheckinLocationPage(),
           },

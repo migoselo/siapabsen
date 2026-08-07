@@ -38,7 +38,7 @@ class _SplashPageState extends State<SplashPage> {
     // 3. Pindah halaman tepat di detik ke 3
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        Navigator.pushReplacementNamed(context, '/onboarding');
       }
     });
   }
@@ -48,7 +48,7 @@ class _SplashPageState extends State<SplashPage> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF006847),
+      backgroundColor: const Color(0xFF2F3B69),
       body: SafeArea(
         child: Center(
           // Gabungan animasi masuk dan animasi keluar menggunakan _fadeOut
@@ -68,20 +68,18 @@ class _SplashPageState extends State<SplashPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SvgPicture.asset(
-                    'assets/images/Logo Container.svg',
-                    width: size.width * 0.45,
+                    'assets/images/Logo.svg',
+                    width: size.width * 0.32,
                   ),
-                  Transform.translate(
-                    offset: const Offset(0, -30),
-                    child: const Text(
-                      'SiapAbsen',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 32,
-                        color: Colors.white,
-                        letterSpacing: 0.3,
-                      ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'SiapAbsen',
+                    style: TextStyle(
+                      fontFamily: 'jakarta',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ],

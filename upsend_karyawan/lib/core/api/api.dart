@@ -6,10 +6,13 @@ class Api {
   static final Dio dio = Dio(
     BaseOptions(
       // baseUrl: 'http://192.168.44.8:8010/api',
-      baseUrl: 'https://siapabsensi.siapsoft.com/api',
+      // baseUrl: 'https://26.214.138.24/api',
+      baseUrl: 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
+      // baseUrl: 'https://siapabsensi.siapsoft.com/api',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       },
     ),
   );
