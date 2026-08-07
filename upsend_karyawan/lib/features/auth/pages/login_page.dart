@@ -85,7 +85,6 @@ class _LoginPageState extends State<LoginPage> {
       SnackBar(content: Text(message)),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(

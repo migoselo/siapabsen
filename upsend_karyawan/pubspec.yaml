@@ -28,6 +28,8 @@ dependencies:
   flutter_lints: ^6.0.0
   bloc: ^9.2.1
   google_fonts: ^8.2.0
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
 
 flutter:
   uses-material-design: true

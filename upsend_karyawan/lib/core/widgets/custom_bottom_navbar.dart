@@ -72,14 +72,12 @@ class CustomBottomNavBar extends StatelessWidget {
               const SizedBox(width: 50),
 
               // Item 4: Riwayat
-              Expanded(
-                child: _buildNavItem(
-                  index: 3,
-                  label: 'Riwayat',
-                  iconPath: 'assets/images/History.svg',
-                  activeColor: activeColor,
-                  inactiveColor: inactiveColor,
-                ),
+              _buildNavItem(
+                index: 3,
+                label: 'Riwayat',
+                iconPath: 'assets/images/history.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
               ),
 
               // Item 5: Profil
