@@ -47,21 +47,25 @@ class CustomBottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               // Item 1: Beranda
-              _buildNavItem(
-                index: 0,
-                label: 'Beranda',
-                iconPath: 'assets/images/Home.svg',
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
+              Expanded(
+                child: _buildNavItem(
+                  index: 0,
+                  label: 'Beranda',
+                  iconPath: 'assets/images/Home.svg',
+                  activeColor: activeColor,
+                  inactiveColor: inactiveColor,
+                ),
               ),
 
               // Item 2: Izin
-              _buildNavItem(
-                index: 1,
-                label: 'Izin',
-                iconPath: 'assets/images/Document.svg',
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
+              Expanded(
+                child: _buildNavItem(
+                  index: 1,
+                  label: 'Izin',
+                  iconPath: 'assets/images/Document.svg',
+                  activeColor: activeColor,
+                  inactiveColor: inactiveColor,
+                ),
               ),
 
               // Spacer untuk memberi ruang pada Tombol Presensi di tengah
@@ -77,12 +81,14 @@ class CustomBottomNavBar extends StatelessWidget {
               ),
 
               // Item 5: Profil
-              _buildNavItem(
-                index: 4,
-                label: 'Profil',
-                iconPath: 'assets/images/Profile.svg',
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
+              Expanded(
+                child: _buildNavItem(
+                  index: 4,
+                  label: 'Profil',
+                  iconPath: 'assets/images/Profile.svg',
+                  activeColor: activeColor,
+                  inactiveColor: inactiveColor,
+                ),
               ),
             ],
           ),

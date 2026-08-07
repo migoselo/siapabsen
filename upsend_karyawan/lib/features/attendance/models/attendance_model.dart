@@ -9,6 +9,7 @@ class AttendanceModel {
   final double checkInLng;
   final double checkInDistance;
   final String checkInPhoto;
+  final DateTime? checkOutTime; // BARU — dibutuhkan buat Presensi Terakhir & durasi kerja
   final String status;
   final LocationModel? location;
 
@@ -21,6 +22,7 @@ class AttendanceModel {
     required this.checkInLng,
     required this.checkInDistance,
     required this.checkInPhoto,
+    this.checkOutTime,
     required this.status,
     this.location,
   });
@@ -30,13 +32,17 @@ class AttendanceModel {
       id: _toInt(json['id']),
       employeeId: _toInt(json['employee_id']),
       locationId: _toInt(json['location_id']),
-      checkInTime:
-          DateTime.tryParse(json['check_in_time']?.toString() ?? '') ??
-          DateTime.now(),
+        checkInTime:
+          (DateTime.tryParse(json['check_in_time']?.toString() ?? '')
+              ?? DateTime.now())
+            .toLocal(),
       checkInLat: _toDouble(json['check_in_lat']),
       checkInLng: _toDouble(json['check_in_lng']),
       checkInDistance: _toDouble(json['check_in_distance']),
       checkInPhoto: json['check_in_photo']?.toString() ?? '',
+        checkOutTime: json['check_out_time'] != null
+          ? DateTime.tryParse(json['check_out_time'].toString())?.toLocal()
+          : null,
       status: json['status']?.toString() ?? 'pending',
       location: json['location'] != null
           ? LocationModel.fromJson(json['location'])
@@ -44,8 +50,6 @@ class AttendanceModel {
     );
   }
 
-  // Helper: parse ke int, aman walau nilainya datang sebagai
-  // int, double, String, atau null dari backend.
   static int _toInt(dynamic value) {
     if (value == null) return 0;
     if (value is int) return value;
@@ -56,8 +60,6 @@ class AttendanceModel {
     return 0;
   }
 
-  // Helper: parse ke double, aman walau nilainya datang sebagai
-  // int, double, String (misal "-7.2504450" dari kolom decimal), atau null.
   static double _toDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is num) return value.toDouble();

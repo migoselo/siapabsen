@@ -7,7 +7,7 @@ class StepProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color primaryColor = const Color(0xFF006D4C);
+    Color primaryColor = const Color(0xFF2B3A8F);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 36.0),

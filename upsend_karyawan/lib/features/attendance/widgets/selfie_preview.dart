@@ -15,15 +15,22 @@ class SelfiePreview extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         color: Colors.grey.shade100,
       ),
-      child: ClipRRect(
+        child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: photoFile != null
-            ? Image.file(photoFile!, fit: BoxFit.cover)
-            : Image.network(
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000',
-                fit: BoxFit.cover,
-              ),
-      ),
+        child: Builder(builder: (context) {
+          if (photoFile != null) {
+            try {
+              return Image.file(photoFile!, fit: BoxFit.cover);
+            } catch (_) {
+              // Jika file bukan gambar atau korup, tampilkan placeholder
+              return const Center(child: Icon(Icons.broken_image, size: 48, color: Colors.grey));
+            }
+          }
+          return Image.network(
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000',
+            fit: BoxFit.cover,
+          );
+        })),
     );
   }
 }

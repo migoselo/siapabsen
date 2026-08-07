@@ -11,6 +11,10 @@ class HomeRepository {
     return _attendanceRepository.getTodayAttendance();
   }
 
+  Future<List<AttendanceModel>> getHistory() {
+    return _attendanceRepository.getHistory();
+  }
+
   Future<AttendanceModel> checkOut({
     required int attendanceId,
     required double lat,
