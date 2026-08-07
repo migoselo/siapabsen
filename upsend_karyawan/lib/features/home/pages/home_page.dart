@@ -9,6 +9,7 @@ import '../widgets/attendance_status_card.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../auth/bloc/auth_bloc.dart';
+import '../../../core/widgets/custom_snackbar.dart';
 
 const Color kPrimary = Color(0xFF006948);
 const Color kDanger = Color(0xFFE0224E);
@@ -41,12 +42,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackground,
-      bottomNavigationBar: BottomNav(
-        items: const [
-          BottomNavItem(icon: Icons.home_filled, label: 'Beranda'),
-          BottomNavItem(icon: Icons.person, label: 'Profil'),
-        ],
-        activeIndex: _activeNavIndex,
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _activeNavIndex,
         onTap: (index) async {
           if (index == 1) {
             await Navigator.pushNamed(context, '/profile');
@@ -66,9 +63,7 @@ class _HomePageState extends State<HomePage> {
           listener: (context, state) {
             if (state.status == HomeStatus.failure &&
                 state.errorMessage != null) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+              AppSnackbar.error(context, state.errorMessage!);
             }
           },
           builder: (context, state) {

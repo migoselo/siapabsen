@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceAdminController extends Controller
 {
@@ -33,7 +34,21 @@ class AttendanceAdminController extends Controller
 
     public function show(Attendance $attendance)
     {
-        return response()->json($attendance->load(['employee', 'location']));
+        $attendance->load(['employee', 'location']);
+        $attendance->photo_available = (bool) $attendance->check_in_photo
+            && Storage::disk('public')->exists($attendance->check_in_photo);
+
+        return response()->json($attendance);
+    }
+
+    public function photo(Attendance $attendance)
+    {
+        $photoPath = $attendance->check_in_photo;
+        if (! $photoPath || ! Storage::disk('public')->exists($photoPath)) {
+            return response()->json(['message' => 'Foto tidak ditemukan.'], 404);
+        }
+
+        return response()->file(Storage::disk('public')->path($photoPath));
     }
 
     public function approve(Attendance $attendance)
