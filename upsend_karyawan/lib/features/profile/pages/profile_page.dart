@@ -111,17 +111,16 @@ class ProfilePage extends StatelessWidget {
         centerTitle: true,
       ),
       // FutureBuilder sekarang menunggu respons pengecekan dari API Backend
-      bottomNavigationBar: BottomNav(
-        items: const [
-          BottomNavItem(icon: Icons.home_filled, label: 'Beranda'),
-          BottomNavItem(icon: Icons.person, label: 'Profil'),
-        ],
-        activeIndex: 1, // selalu 1, karena ini halaman Profil
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: 4, // Profil = index 4 di struktur navbar baru (5 tab)
         onTap: (index) {
-          if (index == 0) {
-            Navigator.pushReplacementNamed(context, '/home');
+          if (index == 4) {
+            // Sudah di halaman Profil, gak perlu ngapa-ngapain
+            return;
           }
-          // index == 1 (Profil) gak perlu ngapa-ngapain, udah di halaman ini
+          // Index lain (Beranda=0, Izin=1, Presensi=2, Riwayat=3)
+          // sementara semua balik ke Home dulu
+          Navigator.pushReplacementNamed(context, '/home');
         },
       ),
       body: FutureBuilder<String>(

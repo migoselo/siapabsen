@@ -71,7 +71,7 @@ class CustomBottomNavBar extends StatelessWidget {
               _buildNavItem(
                 index: 3,
                 label: 'Riwayat',
-                iconPath: 'assets/images/History.svg',
+                iconPath: 'assets/images/history.svg',
                 activeColor: activeColor,
                 inactiveColor: inactiveColor,
               ),

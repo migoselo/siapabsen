@@ -45,15 +45,26 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _activeNavIndex,
         onTap: (index) async {
-          if (index == 1) {
+          if (index == 2) {
+            // Presensi -> buka CheckinLocationPage
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
+            );
+            if (context.mounted) {
+              setState(() => _activeNavIndex = 0);
+              context.read<HomeBloc>().add(const HomeStarted());
+            }
+          } else if (index == 4) {
+            // Profil
             await Navigator.pushNamed(context, '/profile');
             if (context.mounted) {
               setState(() => _activeNavIndex = 0);
-              // Balik dari Profile → refresh AuthBloc juga, jaga-jaga
-              // kalau ada perubahan data user.
               context.read<AuthBloc>().add(const AuthCheckRequested());
             }
           } else {
+            // Beranda (0), Izin (1), Riwayat (3) — sementara cuma ganti index
+            // TODO: sambungkan ke halaman Izin & Riwayat kalau sudah dibuat
             setState(() => _activeNavIndex = index);
           }
         },
