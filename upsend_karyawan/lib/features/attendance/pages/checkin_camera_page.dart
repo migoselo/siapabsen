@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 
 import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
-import '../widgets/attendance_stepper.dart';
-import '../widgets/selfie_preview.dart';
 import '../../../core/services/camera_service.dart';
-import 'checkin_success_page.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../home/bloc/home_bloc.dart';
+import '../../home/bloc/home_event.dart';
 
 class CheckinCameraPage extends StatefulWidget {
   const CheckinCameraPage({super.key});
@@ -24,9 +25,27 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
   bool _cameraInitialized = false;
   bool _cameraInitInProgress = false;
   bool _cameraPermissionDenied = false;
+  bool _successDialogShown = false;
+
+  // Flag lokal terpisah dari AttendanceStatus.loading, karena proses
+  // "ambil foto + deteksi wajah" itu terjadi SEBELUM SubmitCheckIn
+  // di-dispatch ke bloc, jadi belum tercermin di state.status.
+  bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
 
   @override
   void dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _cameraService.dispose();
     super.dispose();
   }
@@ -60,6 +79,119 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
     }
   }
 
+  // Satu-satunya aksi tombol sekarang: ambil foto -> cek wajah -> langsung submit
+  Future<void> _captureAndSubmit(AttendanceState state) async {
+    if (_isProcessing) return;
+
+    if (!_cameraInitialized || _cameraService.controller == null) {
+      AppSnackbar.error(context, 'Kamera belum siap');
+      return;
+    }
+
+    if (state.selectedLocation == null ||
+        state.latitude == null ||
+        state.longitude == null) {
+      AppSnackbar.error(context, 'Lokasi check-in belum tersedia.');
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final file = await _cameraService.takePictureIfFaceDetected();
+
+      if (file == null) {
+        AppSnackbar.warning(
+          context,
+          'Wajah tidak terdeteksi. Pastikan wajah menghadap kamera.',
+        );
+        return;
+      }
+
+      // Simpan foto ke state bloc, lalu LANGSUNG submit tanpa jeda konfirmasi.
+      // Bloc memproses event secara berurutan, jadi SubmitCheckIn dijamin
+      // jalan setelah PhotoCaptured selesai di-emit.
+      context.read<AttendanceBloc>().add(PhotoCaptured(file));
+      context.read<AttendanceBloc>().add(SubmitCheckIn());
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  void _showSuccessDialog(AttendanceState state) {
+    if (_successDialogShown) return;
+    _successDialogShown = true;
+
+    final checkInTime = state.attendanceResult?.checkInTime.toLocal();
+    final timeText = checkInTime != null
+        ? DateFormat('HH:mm').format(checkInTime)
+        : '--:--';
+    final dateText = checkInTime != null
+        ? DateFormat('d MMMM yyyy', 'id_ID').format(checkInTime)
+        : '-';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Presensi Tersimpan",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Anda masuk pukul",
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                timeText,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 56,
+                  color: Color(0xFF2B3A8F),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Berhasil presensi pada tanggal $dateText",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF2B3A8F),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        context.read<AttendanceBloc>().add(ResetAttendance());
+        context.read<HomeBloc>().add(const HomeStarted());
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    });
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,8 +211,8 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
           "Check In",
           style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
           ),
         ),
       ),
@@ -92,10 +224,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
           if (state.status == AttendanceStatus.success &&
               state.attendanceResult != null &&
               state.currentStep >= 3) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinSuccessPage()),
-            );
+            _showSuccessDialog(state);
           } else if (state.status == AttendanceStatus.failure &&
               state.errorMessage != null) {
             AppSnackbar.error(context, state.errorMessage!);
@@ -105,62 +234,108 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
           builder: (context, state) {
             _ensureCameraInitializedIfNeeded(state);
 
+            // Preview SELALU tampilkan kamera live (tidak ada lagi tahap
+            // preview hasil foto), kecuali saat permission/loading awal.
             Widget previewChild;
 
-            if (state.capturedPhoto != null) {
-              previewChild = SelfiePreview(photoFile: state.capturedPhoto);
-            } else if (!_cameraInitialized) {
+            if (!_cameraInitialized) {
+              Widget placeholder;
               if (_cameraPermissionDenied) {
-                previewChild = const Center(
+                placeholder = const Center(
                   child: Text('Izin kamera diperlukan'),
                 );
               } else if (state.selectedLocation == null &&
                   state.latitude == null) {
-                previewChild = const Center(child: Text('Menunggu lokasi...'));
+                placeholder = const Center(child: Text('Menunggu lokasi...'));
               } else {
-                previewChild = const Center(child: CircularProgressIndicator());
+                placeholder = const Center(child: CircularProgressIndicator());
               }
               previewChild = Container(
                 width: double.infinity,
-                height: MediaQuery.of(context).size.height * 0.45,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   color: Colors.grey.shade100,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: previewChild,
+                  child: placeholder,
                 ),
               );
             } else {
               previewChild = Container(
                 width: double.infinity,
-                height: MediaQuery.of(context).size.height * 0.45,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   color: Colors.grey.shade100,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: _cameraService.controller != null
-                      ? CameraPreview(_cameraService.controller!)
-                      : const Center(child: CircularProgressIndicator()),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _cameraService.controller != null
+                          ? SizedBox.expand(
+                              child: FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: _cameraService
+                                      .controller!
+                                      .value
+                                      .previewSize!
+                                      .height,
+                                  height: _cameraService
+                                      .controller!
+                                      .value
+                                      .previewSize!
+                                      .width,
+                                  child: CameraPreview(
+                                    _cameraService.controller!,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const Center(child: CircularProgressIndicator()),
+                      // Overlay loading saat proses ambil foto / submit berjalan
+                      if (_isProcessing ||
+                          state.status == AttendanceStatus.loading)
+                        Container(
+                          color: Colors.black.withOpacity(0.35),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               );
             }
 
-            final isSubmitting = state.status == AttendanceStatus.loading;
+            final isBusy =
+                _isProcessing || state.status == AttendanceStatus.loading;
 
-            return AttendanceStepper(
-              currentStep: 2,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    Expanded(child: previewChild),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32.0),
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Pastikan wajah Anda terdeteksi",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF9A9A9A),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(child: previewChild),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: SizedBox(
+                      width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2B3A8F),
@@ -170,71 +345,35 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                           ),
                           elevation: 0,
                         ),
-                        onPressed: isSubmitting
+                        onPressed: isBusy
                             ? null
-                            : () async {
-                                if (state.capturedPhoto != null) {
-                                  if (state.selectedLocation == null ||
-                                      state.latitude == null ||
-                                      state.longitude == null) {
-                                    AppSnackbar.error(context, 'Lokasi check-in belum tersedia.');
-                                    return;
-                                  }
-
-                                  context.read<AttendanceBloc>().add(
-                                    SubmitCheckIn(),
-                                  );
-                                  return;
-                                }
-
-                                if (!_cameraInitialized ||
-                                    _cameraService.controller == null) {
-                                  AppSnackbar.error(context, 'Kamera belum siap');
-                                  return;
-                                }
-
-                                final file = await _cameraService
-                                    .takePictureIfFaceDetected();
-                                if (file != null) {
-                                  context.read<AttendanceBloc>().add(
-                                    PhotoCaptured(file),
-                                  );
-                                  AppSnackbar.success(context, 'Foto berhasil diambil');
-                                } else {
-                                  AppSnackbar.warning(context, 'Wajah tidak terdeteksi. Coba lagi.');
-                                }
-                              },
-                        child: isSubmitting
-                            ? const CircularProgressIndicator(
-                                color: Colors.white,
+                            : () => _captureAndSubmit(state),
+                        child: isBusy
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
                               )
-                            : Row(
+                            : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    state.capturedPhoto != null
-                                        ? 'Submit Check-in'
-                                        : 'Ambil Foto',
-                                    style: const TextStyle(
+                                    'Simpan',
+                                    style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  if (state.capturedPhoto == null) ...[
-                                    const SizedBox(width: 8),
-                                    const Icon(
-                                      Icons.camera_alt_outlined,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ],
                                 ],
                               ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },

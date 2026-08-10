@@ -54,8 +54,12 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
       ),
       body: BlocBuilder<AttendanceBloc, AttendanceState>(
         builder: (context, state) {
-          if (state.status == AttendanceStatus.loading &&
-              state.nearbyLocations.isEmpty) {
+          final hasValidLocation =
+              state.selectedLocation != null &&
+              state.selectedLocation!.withinRadius;
+
+          // Masih loading -> tampilkan animasi pencarian
+          if (state.status == AttendanceStatus.loading) {
             return const Column(
               children: [
                 SizedBox(height: 25),
@@ -68,10 +72,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                // Expanded(child: Center(child: _SearchingLocationGate())),
                 Expanded(
                   child: Align(
-                    alignment: const Alignment(0, -0.3),
+                    alignment: Alignment(0, -0.3),
                     child: _SearchingLocationGate(),
                   ),
                 ),
@@ -79,10 +82,18 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
             );
           }
 
-          final hasValidLocation =
-              state.selectedLocation != null &&
-              state.selectedLocation!.withinRadius;
+          // Belum loading, TAPI belum ketemu lokasi valid (gagal / di luar radius / kosong)
+          // -> TETAP di halaman ini, tampilkan pesan + tombol "Coba lagi"
+          if (!hasValidLocation) {
+            return _LocationRetryView(
+              state: state,
+              onRetry: () {
+                context.read<AttendanceBloc>().add(FetchNearbyLocations());
+              },
+            );
+          }
 
+          // Sudah ketemu lokasi valid & dalam radius -> tampilkan peta + tombol Lanjut
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25.0),
             child: Column(
@@ -138,11 +149,11 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
 
                 const SizedBox(height: 15),
 
-                Align(
+                const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    _buildSubtitle(state),
-                    style: const TextStyle(
+                    "Lokasi Anda telah ditemukan",
+                    style: TextStyle(
                       color: Color(0xFF000000),
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -152,101 +163,36 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
 
                 const SizedBox(height: 15),
 
-                if (state.selectedLocation != null)
-                  LocationCard(location: state.selectedLocation!),
+                LocationCard(location: state.selectedLocation!),
 
-                if (state.status == AttendanceStatus.failure)
-                  _ErrorBox(message: state.errorMessage),
-
-                if (state.status == AttendanceStatus.success &&
-                    state.nearbyLocations.isEmpty)
-                  const _EmptyLocationBox(),
-
-                // Box besar "di luar radius" DIHAPUS — cukup card + subtitle
                 const Spacer(),
 
-                // Tombol "Lanjut ke kamera" -> DIKUNCI kalau di luar radius
+                // Tombol "Lanjut" -> TANPA tombol "Coba lagi" lagi di sini
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        (hasValidLocation &&
-                            state.status != AttendanceStatus.loading)
-                        ? const Color(0xFF2F3B69)
-                        : const Color(0xFF9A9A9A),
-                    minimumSize: const Size.fromHeight(60),
+                    backgroundColor: const Color(0xFF2F3B69),
+                    minimumSize: const Size.fromHeight(54),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                     ),
                     elevation: 0,
                   ),
-                  onPressed:
-                      (!hasValidLocation ||
-                          state.status == AttendanceStatus.loading)
-                      ? null
-                      : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CheckinCameraPage(),
-                            ),
-                          );
-                        },
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "Lanjut",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CheckinCameraPage(),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Tombol "Coba lagi" -> memicu FetchNearbyLocations
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.black, width: 1.2),
-                    minimumSize: const Size.fromHeight(54),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                    );
+                  },
+                  child: const Text(
+                    "Lanjut",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  onPressed: state.status == AttendanceStatus.loading
-                      ? null
-                      : () {
-                          context.read<AttendanceBloc>().add(
-                            FetchNearbyLocations(),
-                          );
-                        },
-                  child: state.status == AttendanceStatus.loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFF006D4C),
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.refresh, color: Colors.black, size: 18),
-                            SizedBox(width: 6),
-                            Text(
-                              "Coba lagi",
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
                 ),
                 const SizedBox(height: 32),
               ],
@@ -256,73 +202,109 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
       ),
     );
   }
+}
 
-  String _buildSubtitle(AttendanceState state) {
+// ==========================================================================
+// Tampilan ketika lokasi GAGAL ditemukan / DI LUAR radius / TIDAK ADA lokasi
+// terdeteksi sama sekali. User TETAP di halaman ini, tombol "Coba lagi"
+// ada di sini, BUKAN di halaman peta.
+// ==========================================================================
+class _LocationRetryView extends StatelessWidget {
+  final AttendanceState state;
+  final VoidCallback onRetry;
+
+  const _LocationRetryView({required this.state, required this.onRetry});
+
+  String _title() {
     if (state.status == AttendanceStatus.failure) {
       return "Gagal mendeteksi lokasi";
     }
-    if (state.selectedLocation != null) {
-      return state.selectedLocation!.withinRadius
-          ? "Lokasi Anda telah ditemukan"
-          : "Anda di luar jangkauan lokasi";
+    if (state.selectedLocation != null && !state.selectedLocation!.withinRadius) {
+      return "Anda di luar jangkauan lokasi";
     }
-    return "Mencari lokasi Anda...";
+    return "Lokasi kantor tidak ditemukan";
   }
-}
 
-class _ErrorBox extends StatelessWidget {
-  final String? message;
-  const _ErrorBox({this.message});
+  String _subtitle() {
+    if (state.status == AttendanceStatus.failure) {
+      return state.errorMessage?.replaceFirst('Exception: ', '') ??
+          "Terjadi kesalahan saat mengambil lokasi.";
+    }
+    if (state.selectedLocation != null && !state.selectedLocation!.withinRadius) {
+      final loc = state.selectedLocation!;
+      return "Jarak Anda ${loc.distance.toStringAsFixed(0)}m dari ${loc.name} (radius maksimal ${loc.radiusMeter}m). Mendekatlah ke lokasi kantor.";
+    }
+    return "Tidak ada lokasi kantor yang terdeteksi di sekitar Anda.";
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFECACA)),
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25.0),
+      child: Column(
         children: [
-          const Icon(Icons.error_outline, color: Color(0xFFDC2626)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message ?? "Terjadi kesalahan saat mengambil lokasi.",
-              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13),
+          const SizedBox(height: 40),
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFEF2F2),
+            ),
+            child: const Icon(
+              Icons.location_off_outlined,
+              color: Color(0xFFDC2626),
+              size: 42,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyLocationBox extends StatelessWidget {
-  const _EmptyLocationBox();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.location_off_outlined, color: Color(0xFFB45309)),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              "Tidak ada lokasi kantor yang terdeteksi di sekitar Anda.",
-              style: TextStyle(color: Color(0xFFB45309), fontSize: 13),
+          const SizedBox(height: 24),
+          Text(
+            _title(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            _subtitle(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF9A9A9A),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2F3B69),
+              minimumSize: const Size.fromHeight(54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              elevation: 0,
+            ),
+            onPressed: onRetry,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.refresh, color: Colors.white, size: 18),
+                SizedBox(width: 6),
+                Text(
+                  "Coba lagi",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -399,7 +381,6 @@ class _SearchingLocationViewState extends State<_SearchingLocationView>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Cincin putus-putus (statis, gak ikut denyut)
           DottedBorder(
             options: CircularDottedBorderOptions(
               color: strokeColor,
@@ -415,7 +396,6 @@ class _SearchingLocationViewState extends State<_SearchingLocationView>
               ),
             ),
           ),
-          // Lingkaran dalam + pin utama -> ini yang "berdetak"
           ScaleTransition(
             scale: _scaleAnimation,
             child: Stack(
@@ -446,19 +426,16 @@ class _SearchingLocationViewState extends State<_SearchingLocationView>
               ],
             ),
           ),
-          // Pin kecil kiri atas
           const Positioned(
             top: 20,
             left: 25,
             child: _MiniPinBadge(color: strokeColor),
           ),
-          // Pin kecil kanan atas
           const Positioned(
             top: 30,
             right: 30,
             child: _MiniPinBadge(color: fillColor),
           ),
-          // Pin kecil kanan bawah
           const Positioned(
             bottom: 35,
             right: 20,
