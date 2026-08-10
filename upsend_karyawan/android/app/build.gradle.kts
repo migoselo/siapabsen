@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.upsend_karyawan"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
