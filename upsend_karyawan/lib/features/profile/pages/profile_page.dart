@@ -1,93 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:dio/dio.dart';
-// Sesuaikan dengan path core API milikmu
-import 'package:upsend_karyawan/core/api/api.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../widgets/profile_header.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
+import '../../auth/bloc/auth_bloc.dart';
+import '../../auth/pages/edit_password_page.dart';
+
+const Color kTextPrimary = Color(0xFF0F172A);
+const Color kTextSecondary = Color(0xFF6B7280);
+const Color kDanger = Color(0xFFE11D48);
+const Color kBorder = Color(0xFFE5E7EB);
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
-
-  // FUNGSI UNTUK CHECK DATA LANGSUNG KE BACKEND LARAVEL
-  Future<String> _fetchUserProfile(BuildContext context) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      // Jika token lokal kosong, langsung lempar ke login
-      if (token == null) {
-        throw Exception('Token tidak ditemukan');
-      }
-
-      // Kirim request ke endpoint check user (sesuaikan route backend-mu, misal '/me' atau '/user')
-      final response = await Api.dio.get(
-        '/me',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final data = response.data;
-        // Ambil nama dari object user yang dikirim backend
-        final String nameFromBackend =
-            data['name'] ?? data['data']?['name'] ?? 'User Karyawan';
-
-        // Update data lokal biar sinkron
-        await prefs.setString('user_name', nameFromBackend);
-
-        return nameFromBackend;
-      } else {
-        throw Exception('Gagal memverifikasi user');
-      }
-    } on DioException catch (e) {
-      // Jika token unauthorized (401), hapus session lokal dan balik ke login
-      if (e.response?.statusCode == 401) {
-        _forceLogout(context);
-      }
-
-      // Menggunakan fallback data lokal jika server/koneksi bermasalah sementara
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString('user_name') ?? 'User Karyawan';
-    } catch (e) {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString('user_name') ?? 'User Karyawan';
-    }
-  }
-
-  // Fungsi logout paksa jika token di backend sudah expired
-  Future<void> _forceLogout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('user_name');
-    if (context.mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
-    }
-  }
-
-  // Fungsi untuk handle logout manual dari tombol
-  Future<void> _handleLogout(BuildContext context) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
-
-      // Hit endpoint logout backend jika ada (opsional)
-      if (token != null) {
-        await Api.dio.post(
-          '/logout',
-          options: Options(headers: {'Authorization': 'Bearer $token'}),
-        );
-      }
-    } catch (_) {
-      // Abaikan error logout api agar proses hapus local storage tetap jalan
-    } finally {
-      _forceLogout(context);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,112 +34,245 @@ class ProfilePage extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      // FutureBuilder sekarang menunggu respons pengecekan dari API Backend
       bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 4, // Profil = index 4 di struktur navbar baru (5 tab)
+        currentIndex: 4, // Profil = index 4
         onTap: (index) {
-          if (index == 4) {
-            // Sudah di halaman Profil, gak perlu ngapa-ngapain
-            return;
+          if (index == 4) return; // udah di Profil
+          if (index == 0) {
+            Navigator.pushReplacementNamed(context, '/home');
           }
-          // Index lain (Beranda=0, Izin=1, Presensi=2, Riwayat=3)
-          // sementara semua balik ke Home dulu
-          Navigator.pushReplacementNamed(context, '/home');
+          // TODO: index 1 (Izin), 2 (Presensi), 3 (Riwayat) — arahkan
+          // ke halaman masing-masing kalau udah ada, sementara belum
+          // saya tau route/widget-nya.
         },
       ),
-      body: FutureBuilder<String>(
-        future: _fetchUserProfile(context),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: BlocConsumer<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state.status == AuthStatus.unauthenticated) {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/login',
+              (route) => false,
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state.status == AuthStatus.authenticating ||
+              state.status == AuthStatus.unknown) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF2B3A8F)),
+              child: CircularProgressIndicator(color: Color(0xFF006948)),
             );
           }
 
-          final currentUsername = snapshot.data ?? 'User Karyawan';
+          final user = state.user;
 
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                children: [
-                  const Spacer(),
-
-                  // --- Bagian Tampilan Identicon Avatar & Nama Otomatis ---
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFFD1E7DD),
-                              width: 2,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: IdenticonAvatar(
-                              username:
-                                  currentUsername, // Avatar dinamis mengikuti nama asli backend
-                              size: 120.0,
-                            ),
-                          ),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Column(
+                    children: [
+                      ClipOval(
+                        child: IdenticonAvatar(
+                          username: user?.name ?? '-',
+                          size: 100.0,
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          currentUsername, // Nama real-time dari database backend
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // --- Tombol Keluar Akun ---
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () => _handleLogout(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE11D48),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Text(
-                            'Keluar Akun',
-                            style: TextStyle(
-                              fontFamily: 'PlusJakartaSans',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Icon(Icons.logout, size: 20),
-                        ],
+                      const SizedBox(height: 12),
+                      Text(
+                        user?.name ?? '-',
+                        style: const TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: kTextPrimary,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        user?.email ?? '-',
+                        style: const TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 13,
+                          color: kTextSecondary,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                ],
-              ),
+                ),
+                const SizedBox(height: 28),
+
+                const Text(
+                  'Informasi Akun',
+                  style: TextStyle(
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorder),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start, // <- TAMBAHIN INI
+                    children: [
+                      _InfoRow(
+                        label: 'ID Karyawan',
+                        value: user?.employeeCode ?? '-',
+                      ),
+                      const Divider(height: 1, color: kBorder),
+                      _InfoRow(label: 'Nomor HP', value: user?.noHp ?? '-'),
+                      const Divider(height: 1, color: kBorder),
+                      _InfoRow(
+                        label: 'Lokasi Kerja',
+                        value: user?.homeLocationName ?? '-',
+                        isLast: true,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                const Text(
+                  'Pengaturan',
+                  style: TextStyle(
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorder),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      _SettingRow(
+                        label: 'Edit Password',
+                        showChevron: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const EditPasswordPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1, color: kBorder),
+                      _SettingRow(
+                        label: 'Logout',
+                        textColor: kDanger,
+                        onTap: () {
+                          context.read<AuthBloc>().add(
+                            const AuthLogoutRequested(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isLast;
+
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 11,
+              color: kTextSecondary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: kTextPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingRow extends StatelessWidget {
+  final String label;
+  final bool showChevron;
+  final Color? textColor;
+  final VoidCallback onTap;
+
+  const _SettingRow({
+    required this.label,
+    this.showChevron = false,
+    this.textColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: textColor ?? kTextPrimary,
+              ),
+            ),
+            if (showChevron)
+              const Icon(Icons.chevron_right, color: kTextSecondary, size: 20),
+          ],
+        ),
       ),
     );
   }
