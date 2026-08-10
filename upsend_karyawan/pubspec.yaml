@@ -10,7 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  intl: ^0.19.0
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
   # Perbaikan 1: flutter_svg ditaruh sejajar di sini
   flutter_svg: ^2.3.0
 
@@ -30,6 +32,7 @@ dependencies:
   google_fonts: ^8.2.0
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
+  file_picker: ^8.0.0
 
 flutter:
   uses-material-design: true

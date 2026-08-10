@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class BottomNavItem {
-  final IconData icon;
-  final String label;
-
-  const BottomNavItem({required this.icon, required this.label});
-}
-
 class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
@@ -47,25 +40,21 @@ class CustomBottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               // Item 1: Beranda
-              Expanded(
-                child: _buildNavItem(
-                  index: 0,
-                  label: 'Beranda',
-                  iconPath: 'assets/images/Home.svg',
-                  activeColor: activeColor,
-                  inactiveColor: inactiveColor,
-                ),
+              _buildNavItem(
+                index: 0,
+                label: 'Beranda',
+                iconPath: 'assets/images/Home.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
               ),
 
               // Item 2: Izin
-              Expanded(
-                child: _buildNavItem(
-                  index: 1,
-                  label: 'Izin',
-                  iconPath: 'assets/images/Document.svg',
-                  activeColor: activeColor,
-                  inactiveColor: inactiveColor,
-                ),
+              _buildNavItem(
+                index: 1,
+                label: 'Izin',
+                iconPath: 'assets/images/Document.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
               ),
 
               // Spacer untuk memberi ruang pada Tombol Presensi di tengah
@@ -81,14 +70,12 @@ class CustomBottomNavBar extends StatelessWidget {
               ),
 
               // Item 5: Profil
-              Expanded(
-                child: _buildNavItem(
-                  index: 4,
-                  label: 'Profil',
-                  iconPath: 'assets/images/Profile.svg',
-                  activeColor: activeColor,
-                  inactiveColor: inactiveColor,
-                ),
+              _buildNavItem(
+                index: 4,
+                label: 'Profil',
+                iconPath: 'assets/images/Profile.svg',
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
               ),
             ],
           ),
@@ -112,7 +99,10 @@ class CustomBottomNavBar extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   child: SvgPicture.asset(
                     'assets/images/faceid.svg',
-                    color: Colors.white,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -156,7 +146,7 @@ class CustomBottomNavBar extends StatelessWidget {
             iconPath,
             width: 24,
             height: 24,
-            color: currentColor,
+            colorFilter: ColorFilter.mode(currentColor, BlendMode.srcIn),
           ),
           const SizedBox(height: 4),
           Text(
@@ -170,25 +160,5 @@ class CustomBottomNavBar extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-// Backwards-compatible alias: jika ada kode yang masih memanggil `BottomNav`,
-// kita sediakan wrapper ringan agar pemanggilan lama tidak error.
-class BottomNav extends StatelessWidget {
-  final List<BottomNavItem> items;
-  final int activeIndex;
-  final ValueChanged<int> onTap;
-
-  const BottomNav({
-    super.key,
-    required this.items,
-    required this.activeIndex,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomBottomNavBar(currentIndex: activeIndex, onTap: onTap);
   }
 }
