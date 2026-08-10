@@ -48,6 +48,12 @@ class _HomePageState extends State<HomePage> {
               setState(() => _activeNavIndex = 0);
               context.read<HomeBloc>().add(const HomeStarted());
             }
+          } else if (index == 1) {
+            // Izin
+            await Navigator.pushNamed(context, '/izin');
+            if (context.mounted) {
+              setState(() => _activeNavIndex = 0);
+            }
           } else if (index == 4) {
             // Profil
             await Navigator.pushNamed(context, '/profile');
@@ -56,8 +62,8 @@ class _HomePageState extends State<HomePage> {
               context.read<AuthBloc>().add(const AuthCheckRequested());
             }
           } else {
-            // Beranda (0), Izin (1), Riwayat (3) — sementara cuma ganti index
-            // TODO: sambungkan ke halaman Izin & Riwayat kalau sudah dibuat
+            // Beranda (0), Riwayat (3) — sementara cuma ganti index
+            // TODO: sambungkan ke halaman Riwayat kalau sudah dibuat
             setState(() => _activeNavIndex = index);
           }
         },
@@ -65,14 +71,19 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: BlocConsumer<HomeBloc, HomeState>(
           listener: (context, state) {
-            if (state.status == HomeStatus.failure && state.errorMessage != null) {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+            if (state.status == HomeStatus.failure &&
+                state.errorMessage != null) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
             }
           },
           builder: (context, state) {
-            if (state.status == HomeStatus.initial || state.status == HomeStatus.loading) {
-              return const Center(child: CircularProgressIndicator(color: kDanger));
+            if (state.status == HomeStatus.initial ||
+                state.status == HomeStatus.loading) {
+              return const Center(
+                child: CircularProgressIndicator(color: kDanger),
+              );
             }
 
             final authState = context.watch<AuthBloc>().state;
@@ -99,8 +110,9 @@ class _HomePageState extends State<HomePage> {
                   if (state.isCheckedIn) ...[
                     _CheckOutButton(
                       isSubmitting: state.status == HomeStatus.submitting,
-                      onPressed: () =>
-                          context.read<HomeBloc>().add(const HomeCheckOutRequested()),
+                      onPressed: () => context.read<HomeBloc>().add(
+                        const HomeCheckOutRequested(),
+                      ),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -131,14 +143,19 @@ class _CheckOutButton extends StatelessWidget {
         onPressed: isSubmitting ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF2B3A8F),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
         ),
         child: isSubmitting
             ? const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
               )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,

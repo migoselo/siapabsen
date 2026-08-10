@@ -14,6 +14,8 @@ import '../features/attendance/pages/checkin_location_page.dart';
 import '../features/attendance/bloc/attendance_bloc.dart';
 import '../features/auth/bloc/auth_bloc.dart';
 import '../features/auth/repository/auth_repository.dart';
+import '../features/izin/presentation/pages/riwayat_cuti_screen.dart';
+import '../features/izin/presentation/pages/pengajuan_cuti_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
@@ -68,6 +70,8 @@ class MyApp extends StatelessWidget {
             '/profile': (context) => const ProfilePage(),
             '/home': (context) => const HomePage(),
             '/checkin': (context) => const CheckinLocationPage(),
+            '/izin': (context) => const RiwayatCutiScreen(),
+            '/pengajuan_cuti': (context) => const PengajuanCutiScreen(),
           },
         ),
       ),
