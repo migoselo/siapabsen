@@ -6,8 +6,13 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 class CameraService {
   CameraController? controller;
   CameraDescription? _frontCamera;
-    final FaceDetector _faceDetector =
-      FaceDetector(options: FaceDetectorOptions(performanceMode: FaceDetectorMode.fast));
+  final FaceDetector _faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.accurate,
+      minFaceSize:
+          0.15, // toleransi ukuran wajah minimal dalam frame, biar gak terlalu strict
+    ),
+  );
 
   Future<void> init() async {
     final cameras = await availableCameras();
@@ -39,6 +44,8 @@ class CameraService {
 
   Future<File?> takePictureIfFaceDetected() async {
     if (controller == null || !controller!.value.isInitialized) return null;
+
+    await Future.delayed(const Duration(milliseconds: 300));
 
     final XFile xfile = await controller!.takePicture();
     final inputImage = InputImage.fromFilePath(xfile.path);
