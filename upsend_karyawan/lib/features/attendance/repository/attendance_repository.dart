@@ -124,11 +124,12 @@ class AttendanceRepository {
   }
 
   Future<List<AttendanceModel>> getHistory() async {
-  try {
-    final response = await Api.dio.get('/attendances/my-history');
-    final list = response.data['data'] as List;
-    return list.map((json) => AttendanceModel.fromJson(json)).toList();
-  } catch (e) {
-    rethrow;
+    try {
+      final response = await Api.dio.get('/attendances/my-history');
+      final list = response.data['data'] as List;
+      return list.map((json) => AttendanceModel.fromJson(json)).toList();
+    } catch (e) {
+      rethrow;
+    }
   }
 }
