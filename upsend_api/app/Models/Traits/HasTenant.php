@@ -15,7 +15,8 @@ trait HasTenant
      */
     public function scopeForTenant($query, $tenantId = null)
     {
-        $tenantId = $tenantId ?? (optional(app('currentTenant'))->id ?? app('currentTenant') ?? null);
+        $tenant = app()->bound('currentTenant') ? app('currentTenant') : null;
+        $tenantId = $tenantId ?? (optional($tenant)->id ?? $tenant ?? null);
 
         if ($tenantId) {
             return $query->where('tenant_id', $tenantId);
@@ -31,7 +32,8 @@ trait HasTenant
     {
         static::creating(function ($model) {
             if (empty($model->tenant_id)) {
-                $tenantId = optional(app('currentTenant'))->id ?? app('currentTenant') ?? null;
+                $tenant = app()->bound('currentTenant') ? app('currentTenant') : null;
+                $tenantId = optional($tenant)->id ?? $tenant ?? null;
 
                 if ($tenantId) {
                     $model->tenant_id = $tenantId;

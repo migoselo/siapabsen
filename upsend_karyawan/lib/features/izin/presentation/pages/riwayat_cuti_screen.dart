@@ -104,8 +104,8 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           'Riwayat Cuti',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
           ),
         ),
         centerTitle: true,

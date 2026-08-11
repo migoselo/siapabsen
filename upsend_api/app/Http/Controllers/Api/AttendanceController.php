@@ -72,10 +72,11 @@ class AttendanceController extends Controller
 
     $attendance = Attendance::create([
         'employee_id' => $employeeId,
+        'user_id' => $employeeId,
         'location_id' => $location->id,
         'check_in_time' => now(),
         'check_in_lat' => $data['lat'],
-        'check_in_lng' => $data['lng'],
+        'check_in_long' => $data['lng'],
         'check_in_distance' => $distance,
         'check_in_photo' => $photoPath,
         'status' => 'approved',
@@ -107,7 +108,7 @@ class AttendanceController extends Controller
         $attendance->update([
             'check_out_time' => now(),
             'check_out_lat' => $data['lat'],
-            'check_out_lng' => $data['lng'],
+            'check_out_long' => $data['lng'],
             'check_out_distance' => $distance,
         ]);
 

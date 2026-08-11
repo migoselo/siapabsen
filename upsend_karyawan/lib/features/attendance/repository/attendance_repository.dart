@@ -122,6 +122,7 @@ class AttendanceRepository {
       rethrow;
     }
   }
+
   Future<List<AttendanceModel>> getHistory() async {
   try {
     final response = await Api.dio.get('/attendances/my-history');
@@ -130,5 +131,4 @@ class AttendanceRepository {
   } catch (e) {
     rethrow;
   }
-}
 }
