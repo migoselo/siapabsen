@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
+import 'package:upsend_karyawan/features/history/pages/riwayat_page.dart';
 import 'package:upsend_karyawan/features/onboarding/pages/onboarding_screen.dart';
 import 'package:upsend_karyawan/features/splashscreen/pages/splash_page.dart';
 import 'package:upsend_karyawan/core/theme/app_theme.dart';
@@ -17,6 +18,8 @@ import '../features/auth/repository/auth_repository.dart';
 import '../features/izin/presentation/pages/riwayat_cuti_screen.dart';
 import '../features/izin/presentation/pages/pengajuan_cuti_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import '../features/history/bloc/history_bloc.dart';
+import '../features/history/repository/history_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +45,9 @@ class MyApp extends StatelessWidget {
           create: (_) =>
               HomeRepository(attendanceRepository: attendanceRepository),
         ),
+        RepositoryProvider<HistoryRepository>(
+          create: (_) => HistoryRepository(),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -56,6 +62,10 @@ class MyApp extends StatelessWidget {
             create: (context) =>
                 AuthBloc(authRepository: context.read<AuthRepository>())
                   ..add(const AuthCheckRequested()),
+          ),
+          BlocProvider<HistoryBloc>(
+            create: (context) =>
+                HistoryBloc(repository: context.read<HistoryRepository>()),
           ),
         ],
         child: MaterialApp(
@@ -72,6 +82,7 @@ class MyApp extends StatelessWidget {
             '/checkin': (context) => const CheckinLocationPage(),
             '/izin': (context) => const RiwayatCutiScreen(),
             '/pengajuan_cuti': (context) => const PengajuanCutiScreen(),
+            '/riwayat': (context) => const RiwayatPage(),
           },
         ),
       ),
