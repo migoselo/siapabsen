@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../attendance/models/attendance_model.dart';
 import '../repository/home_repository.dart';
 import 'home_event.dart';
 import 'home_state.dart';
@@ -8,8 +9,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final HomeRepository _homeRepository;
 
   HomeBloc({required HomeRepository homeRepository})
-      : _homeRepository = homeRepository,
-        super(HomeState.initial()) {
+    : _homeRepository = homeRepository,
+      super(HomeState.initial()) {
     on<HomeStarted>(_onStarted);
     on<HomeCheckOutRequested>(_onCheckOutRequested);
   }
@@ -22,17 +23,29 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         _homeRepository.getTodayAttendance(),
         _homeRepository.getHistory(),
       ]);
-      final attendance = results[0] as dynamic;
-      final history = results[1] as List;
+      final attendance = results[0] as AttendanceModel?;
+      final history = results[1] as List<AttendanceModel>;
 
-      emit(state.copyWith(
-        status: HomeStatus.loaded,
-        todayAttendance: attendance,
-        history: history.cast(),
-        errorMessage: null,
-      ));
+      AttendanceModel? todayAttendance = attendance;
+      if (todayAttendance == null) {
+        final openSessions = history.where((item) => item.checkOutTime == null);
+        if (openSessions.isNotEmpty) {
+          todayAttendance = openSessions.first;
+        }
+      }
+
+      emit(
+        state.copyWith(
+          status: HomeStatus.loaded,
+          todayAttendance: todayAttendance,
+          history: history,
+          errorMessage: null,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()));
+      emit(
+        state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()),
+      );
     }
   }
 
@@ -55,14 +68,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       // Refresh history juga biar entry check-out baru langsung muncul
       final history = await _homeRepository.getHistory();
 
-      emit(state.copyWith(
-        status: HomeStatus.loaded,
-        clearAttendance: true,
-        history: history,
-        errorMessage: null,
-      ));
+      emit(
+        state.copyWith(
+          status: HomeStatus.loaded,
+          clearAttendance: true,
+          history: history,
+          errorMessage: null,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()));
+      emit(
+        state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()),
+      );
     }
   }
 }

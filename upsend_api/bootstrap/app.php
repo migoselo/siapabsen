@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
+            'currentTenant' => \App\Http\Middleware\SetTenant::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
