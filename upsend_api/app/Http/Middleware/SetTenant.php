@@ -15,6 +15,12 @@ class SetTenant
      */
     public function handle(Request $request, Closure $next)
     {
+        // Bind a default null value so app('currentTenant') is always safe.
+        if (! app()->bound('currentTenant')) {
+            app()->instance('currentTenant', null);
+        }
+        $request->attributes->set('currentTenant', null);
+
         $tenantId = $request->header('X-Tenant-ID') ?? $request->input('tenant_id');
 
         if ($tenantId) {

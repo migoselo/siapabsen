@@ -24,6 +24,11 @@ class AddTenantIdToTables extends Migration
         ];
 
         foreach ($tables as $tableName) {
+            // skip tenant column addition for the tenants table itself
+            if ($tableName === 'tenants') {
+                continue;
+            }
+
             if (!Schema::hasTable($tableName)) {
                 // skip jika tabel belum ada (aman)
                 continue;
@@ -32,18 +37,10 @@ class AddTenantIdToTables extends Migration
             Schema::table($tableName, function (Blueprint $table) use ($tableName) {
                 // hanya tambahkan jika belum ada kolom tenant_id
                 if (!Schema::hasColumn($tableName, 'tenant_id')) {
+                    // Add tenant_id column and index only. Do NOT create foreign keys here
+                    // because existing column types in the database may differ (SQL Server)
+                    // which causes ALTER TABLE ... ADD CONSTRAINT failures.
                     $table->unsignedBigInteger('tenant_id')->nullable()->index()->after('id');
-
-                    // NOTE: menambahkan foreign key bisa gagal jika constraints naming berbeda
-                    // Kita coba tambahkan FK, tapi jika DB tidak mengizinkan, Anda bisa hapus/comment baris ini.
-                    try {
-                        $table->foreign('tenant_id')
-                            ->references('id')
-                            ->on('tenants')
-                            ->onDelete('set null');
-                    } catch (\Exception $e) {
-                        // jika gagal, biarkan kolom tanpa FK agar migrasi tetap aman
-                    }
                 }
             });
         }
@@ -60,7 +57,6 @@ class AddTenantIdToTables extends Migration
             'locations',
             'users',
             'departments',
-            'tenants',
         ];
 
         foreach ($tables as $tableName) {
