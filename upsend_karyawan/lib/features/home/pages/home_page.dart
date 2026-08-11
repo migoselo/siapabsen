@@ -122,7 +122,15 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 20),
                   ],
 
-                  RecentAttendanceList(history: state.history),
+                  RecentAttendanceList(
+                    history: state.history,
+                    onLihatSemua: () async {
+                      await Navigator.pushNamed(context, '/riwayat');
+                      if (context.mounted) {
+                        setState(() => _activeNavIndex = 0);
+                      }
+                    },
+                  ),
                 ],
               ),
             );
@@ -147,7 +155,7 @@ class _CheckOutButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isSubmitting ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2B3A8F),
+          backgroundColor: const Color(0xFF2B3A67),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

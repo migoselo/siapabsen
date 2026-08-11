@@ -1,11 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/api/api.dart';
 import '../../attendance/models/attendance_model.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class RiwayatDetailPage extends StatelessWidget {
   final AttendanceModel record;
   const RiwayatDetailPage({super.key, required this.record});
+
+  String _resolvePhotoUrl(String photoPath) {
+    final value = photoPath.trim();
+    if (value.isEmpty) return '';
+
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+
+    final normalized = value.startsWith('/') ? value.substring(1) : value;
+    final baseUri = Uri.parse(Api.dio.options.baseUrl);
+    final origin =
+        '${baseUri.scheme}://${baseUri.host}${baseUri.hasPort ? ':${baseUri.port}' : ''}';
+
+    if (normalized.startsWith('storage/')) {
+      return '$origin/$normalized';
+    }
+
+    return '$origin/storage/$normalized';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +40,8 @@ class RiwayatDetailPage extends StatelessWidget {
     final checkOutTime = record.checkOutTime != null
         ? DateFormat('HH:mm').format(record.checkOutTime!.toLocal())
         : null;
+    final checkInPhotoUrl = _resolvePhotoUrl(record.checkInPhoto);
+    final hasValidCheckInPhoto = checkInPhotoUrl.isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -103,51 +126,112 @@ class RiwayatDetailPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                      aspectRatio: 1.4,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            record.checkInPhoto,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                Container(color: Colors.grey.shade200),
-                          ),
-                          Positioned(
-                            bottom: 8,
-                            right: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Row(
+                  GestureDetector(
+                    onTap: hasValidCheckInPhoto
+                        ? () => showDialog(
+                            context: context,
+                            builder: (_) => Dialog(
+                              insetPadding: const EdgeInsets.all(16),
+                              backgroundColor: Colors.black,
+                              child: Stack(
                                 children: [
-                                  Icon(
-                                    Icons.camera_alt,
-                                    color: Colors.white,
-                                    size: 12,
+                                  Center(
+                                    child: InteractiveViewer(
+                                      child: Image.network(
+                                        checkInPhotoUrl,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
                                   ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Verified',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
+                                  Positioned(
+                                    top: 12,
+                                    right: 12,
+                                    child: GestureDetector(
+                                      onTap: () => Navigator.pop(context),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.6),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
+                          )
+                        : null,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: AspectRatio(
+                        aspectRatio: 1.4,
+                        child: hasValidCheckInPhoto
+                            ? Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.network(
+                                    checkInPhotoUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: const Color(0xFFF3F4F6),
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.image_not_supported_outlined,
+                                          color: Color(0xFF9CA3AF),
+                                          size: 32,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.6),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Row(
+                                        children: [
+                                          Icon(
+                                            Icons.camera_alt,
+                                            color: Colors.white,
+                                            size: 12,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Verified',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Container(
+                                color: const Color(0xFFF3F4F6),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.image_not_supported_outlined,
+                                    color: Color(0xFF9CA3AF),
+                                    size: 32,
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
                   ),

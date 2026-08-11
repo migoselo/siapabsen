@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../../core/widgets/custom_bottom_navbar.dart';
+import '../../../attendance/pages/checkin_location_page.dart';
 import '../../models/cuti_model.dart';
 
 class PengajuanCutiScreen extends StatefulWidget {
@@ -159,6 +161,34 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
           ),
         ),
         centerTitle: true,
+      ),
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: 1,
+        onTap: (index) async {
+          if (index == 1) return;
+
+          if (index == 2) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
+            );
+            if (context.mounted) {
+              Navigator.pop(context);
+            }
+          } else if (index == 3) {
+            await Navigator.pushNamed(context, '/riwayat');
+            if (context.mounted) {
+              Navigator.pop(context);
+            }
+          } else if (index == 4) {
+            await Navigator.pushNamed(context, '/profile');
+            if (context.mounted) {
+              Navigator.pop(context);
+            }
+          } else {
+            await Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),

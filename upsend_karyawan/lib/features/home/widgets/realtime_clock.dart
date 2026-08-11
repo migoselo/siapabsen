@@ -45,7 +45,14 @@ class _RealtimeClockCardState extends State<RealtimeClockCard> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
-        color: const Color(0xFF2B3A67),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 47, 59, 105),
+            Color.fromARGB(255, 78, 98, 175),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(

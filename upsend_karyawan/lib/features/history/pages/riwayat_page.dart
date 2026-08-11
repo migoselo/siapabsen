@@ -132,7 +132,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
       ),
       body: BlocBuilder<HistoryBloc, HistoryState>(
         builder: (context, state) {
-          if (state.status == HistoryStatus.loading) {
+          if (state.status == HistoryStatus.loading && state.records.isEmpty) {
             return const Center(
               child: CircularProgressIndicator(color: Color(0xFF1B2559)),
             );
