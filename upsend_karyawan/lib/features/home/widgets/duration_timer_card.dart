@@ -1,9 +1,6 @@
-import 'dart:async';
+/*import 'dart:async';
 import 'package:flutter/material.dart';
 
-/// Kartu gradient biru/ungu tua nampilin durasi kerja live.
-/// Jalan terus (update tiap detik) kalau isCheckedIn true, berhenti &
-/// balik ke 00:00:00 kalau belum/udah check-out.
 class DurationTimerCard extends StatefulWidget {
   final bool isCheckedIn;
   final DateTime? checkInTime;
@@ -116,4 +113,4 @@ class _DurationTimerCardState extends State<DurationTimerCard> {
       ),
     );
   }
-}
+} */

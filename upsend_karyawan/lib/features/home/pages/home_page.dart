@@ -147,7 +147,7 @@ class _CheckOutButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isSubmitting ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2B3A8F),
+          backgroundColor: const Color(0xFF2B3A67),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

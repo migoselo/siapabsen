@@ -55,7 +55,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
   // Function untuk memilih file
   Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
       allowMultiple: false,
