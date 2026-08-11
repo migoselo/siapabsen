@@ -103,7 +103,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
       if (file == null) {
         AppSnackbar.warning(
           context,
-          'Wajah tidak terdeteksi. Pastikan wajah menghadap kamera.',
+          'Wajah tidak terdeteksi. Pastikan Anda menghadap kamera.',
         );
         return;
       }
