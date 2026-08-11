@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api/api.dart';
 import '../../attendance/models/attendance_model.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class RiwayatDetailPage extends StatelessWidget {
   final AttendanceModel record;
@@ -56,8 +57,8 @@ class RiwayatDetailPage extends StatelessWidget {
           'Detail Riwayat',
           style: TextStyle(
             color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
           ),
         ),
       ),
@@ -66,15 +67,22 @@ class RiwayatDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(dateText, style: TextStyle(color: Colors.grey.shade500)),
-            const SizedBox(height: 16),
+            Text(
+              dateText,
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
 
             // CHECK IN CARD
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: const Color(0xFFC6C5D0)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,27 +93,35 @@ class RiwayatDetailPage extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFEAFB),
+                              color: const Color(0xFFDCFCE7),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.login_rounded,
-                              color: Color(0xFF6D5BD0),
-                              size: 18,
+                            child: SvgPicture.asset(
+                              'assets/images/checkin.svg',
+                              width: 22,
+                              height: 22,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF1DB677), // hijau
+                                BlendMode.srcIn,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           const Text(
                             'Check In',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
                       Text(
                         checkInTime,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1DB677),
+                        ),
                       ),
                     ],
                   ),
@@ -222,8 +238,9 @@ class RiwayatDetailPage extends StatelessWidget {
                   const SizedBox(height: 12),
                   _LocationInfo(
                     locationName: record.location?.name ?? '-',
-                    distanceLabel:
-                        'Jarak dari titik presensi: ${record.checkInDistance.toStringAsFixed(0)}m',
+                    distancePrefix: 'Jarak dari titik presensi: ',
+                    distanceValue:
+                        '${record.checkInDistance.toStringAsFixed(0)}m',
                     lat: record.checkInLat,
                     lng: record.checkInLng,
                   ),
@@ -237,8 +254,8 @@ class RiwayatDetailPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: const Color(0xFFC6C5D0)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,29 +266,34 @@ class RiwayatDetailPage extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFDECEC),
+                              color: const Color(0xFFDBEAFE), // biru muda
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.logout_rounded,
-                              color: Color(0xFFDC2626),
-                              size: 18,
+                            child: SvgPicture.asset(
+                              'assets/images/checkout.svg',
+                              width: 22,
+                              height: 22,
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF2F3B69), // biru
+                                BlendMode.srcIn,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           const Text(
                             'Check Out',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
                       Text(
                         checkOutTime ?? '--:--',
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFDC2626),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2F3B69),
                         ),
                       ),
                     ],
@@ -280,8 +302,9 @@ class RiwayatDetailPage extends StatelessWidget {
                     const SizedBox(height: 12),
                     _LocationInfo(
                       locationName: record.location?.name ?? '-',
-                      distanceLabel:
-                          'Jarak dari titik absensi: ${(record.checkOutDistance ?? 0).toStringAsFixed(0)}m',
+                      distancePrefix: 'Jarak dari titik absensi: ',
+                      distanceValue:
+                          '${(record.checkOutDistance ?? 0).toStringAsFixed(0)}m',
                       lat: record.checkOutLat ?? 0,
                       lng: record.checkOutLng ?? 0,
                     ),
@@ -298,13 +321,15 @@ class RiwayatDetailPage extends StatelessWidget {
 
 class _LocationInfo extends StatelessWidget {
   final String locationName;
-  final String distanceLabel;
+  final String distancePrefix;
+  final String distanceValue;
   final double lat;
   final double lng;
 
   const _LocationInfo({
     required this.locationName,
-    required this.distanceLabel,
+    required this.distancePrefix,
+    required this.distanceValue,
     required this.lat,
     required this.lng,
   });
@@ -312,10 +337,11 @@ class _LocationInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFFF8F9FF),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFDCE3F0), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,29 +350,37 @@ class _LocationInfo extends StatelessWidget {
             children: [
               const Icon(
                 Icons.location_on_outlined,
-                size: 16,
-                color: Colors.grey,
+                size: 18,
+                color: const Color(0xFF9A9A9A),
               ),
               const SizedBox(width: 6),
               Text(
                 locationName,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            distanceLabel,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          const SizedBox(height: 10),
+          Text.rich(
+            TextSpan(
+              style: TextStyle(color: const Color(0xFF3D4A42), fontSize: 16),
+              children: [
+                TextSpan(text: distancePrefix),
+                TextSpan(
+                  text: distanceValue,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.my_location, size: 14, color: Colors.grey),
+              const Icon(Icons.my_location, size: 18, color: Color(0xFF9A9A9A)),
               const SizedBox(width: 6),
               Text(
                 '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: TextStyle(color: const Color(0xFF3D4A42), fontSize: 13),
               ),
             ],
           ),
