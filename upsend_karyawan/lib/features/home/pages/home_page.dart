@@ -54,6 +54,12 @@ class _HomePageState extends State<HomePage> {
             if (context.mounted) {
               setState(() => _activeNavIndex = 0);
             }
+          } else if (index == 3) {
+            // Riwayat
+            await Navigator.pushNamed(context, '/riwayat');
+            if (context.mounted) {
+              setState(() => _activeNavIndex = 0);
+            }
           } else if (index == 4) {
             // Profil
             await Navigator.pushNamed(context, '/profile');
@@ -62,8 +68,7 @@ class _HomePageState extends State<HomePage> {
               context.read<AuthBloc>().add(const AuthCheckRequested());
             }
           } else {
-            // Beranda (0), Riwayat (3) — sementara cuma ganti index
-            // TODO: sambungkan ke halaman Riwayat kalau sudah dibuat
+            // Beranda (0)
             setState(() => _activeNavIndex = index);
           }
         },
