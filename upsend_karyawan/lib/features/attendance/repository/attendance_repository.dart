@@ -111,13 +111,31 @@ class AttendanceRepository {
     required int attendanceId,
     required double lat,
     required double lng,
+    File? photo,
   }) async {
     try {
       final response = await Api.dio.patch(
         '/attendances/$attendanceId/check-out',
-        data: {'lat': lat, 'lng': lng},
+        data: FormData.fromMap({
+          'lat': lat,
+          'lng': lng,
+          if (photo != null)
+            'photo': await MultipartFile.fromFile(
+              photo.path,
+              filename: photo.path.split('/').last,
+            ),
+        }),
       );
       return AttendanceModel.fromJson(response.data);
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map) {
+        final message = data['message'] ?? data['errors']?.toString();
+        throw Exception(
+          message ?? 'Gagal melakukan check-out (${e.response?.statusCode})',
+        );
+      }
+      rethrow;
     } catch (e) {
       rethrow;
     }

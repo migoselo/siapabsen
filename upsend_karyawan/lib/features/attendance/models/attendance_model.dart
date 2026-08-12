@@ -9,10 +9,11 @@ class AttendanceModel {
   final double checkInLng;
   final double checkInDistance;
   final String checkInPhoto;
+  final String? checkOutPhoto;
   final DateTime? checkOutTime;
-  final double? checkOutLat;       // BARU
-  final double? checkOutLng;       // BARU
-  final double? checkOutDistance;  // BARU
+  final double? checkOutLat; // BARU
+  final double? checkOutLng; // BARU
+  final double? checkOutDistance; // BARU
   final String status;
   final LocationModel? location;
 
@@ -25,10 +26,11 @@ class AttendanceModel {
     required this.checkInLng,
     required this.checkInDistance,
     required this.checkInPhoto,
+    this.checkOutPhoto,
     this.checkOutTime,
-    this.checkOutLat,       // BARU
-    this.checkOutLng,       // BARU
-    this.checkOutDistance,  // BARU
+    this.checkOutLat, // BARU
+    this.checkOutLng, // BARU
+    this.checkOutDistance, // BARU
     required this.status,
     this.location,
   });
@@ -39,13 +41,16 @@ class AttendanceModel {
       employeeId: _toInt(json['employee_id']),
       locationId: _toInt(json['location_id']),
       checkInTime:
-          (DateTime.tryParse(json['check_in_time']?.toString() ?? '')
-              ?? DateTime.now())
-            .toLocal(),
+          (DateTime.tryParse(json['check_in_time']?.toString() ?? '') ??
+                  DateTime.now())
+              .toLocal(),
       checkInLat: _toDouble(json['check_in_lat']),
       checkInLng: _toDouble(json['check_in_lng']),
       checkInDistance: _toDouble(json['check_in_distance']),
       checkInPhoto: json['check_in_photo']?.toString() ?? '',
+      checkOutPhoto: json['check_out_photo'] == null
+          ? null
+          : json['check_out_photo'].toString(),
       checkOutTime: json['check_out_time'] != null
           ? DateTime.tryParse(json['check_out_time'].toString())?.toLocal()
           : null,

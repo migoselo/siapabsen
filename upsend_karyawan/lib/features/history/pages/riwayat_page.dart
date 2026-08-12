@@ -13,7 +13,14 @@ import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 
 class RiwayatPage extends StatefulWidget {
-  const RiwayatPage({super.key});
+  final bool showBottomNav;
+  final bool showBackButton;
+
+  const RiwayatPage({
+    super.key,
+    this.showBottomNav = true,
+    this.showBackButton = true,
+  });
 
   @override
   State<RiwayatPage> createState() => _RiwayatPageState();
@@ -33,6 +40,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    final historyBloc = context.read<HistoryBloc>();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? _today,
@@ -48,11 +56,12 @@ class _RiwayatPageState extends State<RiwayatPage> {
       },
     );
     if (picked != null) {
+      if (!mounted) return;
       setState(() {
         _selectedDate = picked;
         _isFilterActive = true;
       });
-      context.read<HistoryBloc>().add(
+      historyBloc.add(
         HistoryFetchRequested(startDate: picked, endDate: picked),
       );
     }
@@ -93,10 +102,22 @@ class _RiwayatPageState extends State<RiwayatPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                },
+              )
+            : null,
         title: const Text(
           'Riwayat',
           style: TextStyle(
@@ -106,30 +127,37 @@ class _RiwayatPageState extends State<RiwayatPage> {
           ),
         ),
       ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 3,
-        onTap: (index) async {
-          if (index == 3) return; // sudah di Riwayat, gak perlu apa-apa
+      bottomNavigationBar: widget.showBottomNav
+          ? CustomBottomNavBar(
+              currentIndex: 3,
+              onTap: (index) async {
+                if (index == 3) return;
 
-          if (index == 2) {
-            // Presensi
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
-            );
-            if (context.mounted) Navigator.pop(context);
-          } else if (index == 1) {
-            // Izin
-            Navigator.pushReplacementNamed(context, '/izin');
-          } else if (index == 4) {
-            // Profil
-            Navigator.pushReplacementNamed(context, '/profile');
-          } else {
-            // Beranda (0)
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        },
-      ),
+                if (index == 2) {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const CheckinLocationPage()),
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                } else if (index == 1) {
+                  Navigator.pushReplacementNamed(context, '/izin');
+                } else if (index == 4) {
+                  Navigator.pushReplacementNamed(context, '/profile');
+                } else {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                }
+              },
+            )
+          : null,
       body: BlocBuilder<HistoryBloc, HistoryState>(
         builder: (context, state) {
           if (state.status == HistoryStatus.loading && state.records.isEmpty) {

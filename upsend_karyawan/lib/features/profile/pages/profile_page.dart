@@ -11,7 +11,14 @@ const Color kDanger = Color(0xFFE11D48);
 const Color kBorder = Color(0xFFE5E7EB);
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  final bool showBottomNav;
+  final bool showBackButton;
+
+  const ProfilePage({
+    super.key,
+    this.showBottomNav = true,
+    this.showBackButton = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,10 +27,22 @@ class ProfilePage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                },
+              )
+            : null,
         title: const Text(
           'Profil',
           style: TextStyle(
@@ -34,18 +53,28 @@ class ProfilePage extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 4, // Profil = index 4
-        onTap: (index) {
-          if (index == 4) return; // udah di Profil
-          if (index == 0) {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-          // TODO: index 1 (Izin), 2 (Presensi), 3 (Riwayat) — arahkan
-          // ke halaman masing-masing kalau udah ada, sementara belum
-          // saya tau route/widget-nya.
-        },
-      ),
+      bottomNavigationBar: showBottomNav
+          ? CustomBottomNavBar(
+              currentIndex: 4,
+              onTap: (index) {
+                if (index == 4) return;
+                if (index == 0) {
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                }
+                // TODO: index 1 (Izin), 2 (Presensi), 3 (Riwayat) — arahkan
+                // ke halaman masing-masing kalau udah ada, sementara belum
+                // saya tau route/widget-nya.
+              },
+            )
+          : null,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state.status == AuthStatus.unauthenticated) {

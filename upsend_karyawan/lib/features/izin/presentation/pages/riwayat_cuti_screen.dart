@@ -6,10 +6,18 @@ import 'package:intl/intl.dart';
 import '../../../../core/widgets/custom_bottom_navbar.dart';
 import '../../../attendance/pages/checkin_location_page.dart';
 import '../../models/cuti_model.dart';
+import 'detail_cuti_screen.dart';
 import 'pengajuan_cuti_screen.dart';
 
 class RiwayatCutiScreen extends StatefulWidget {
-  const RiwayatCutiScreen({Key? key}) : super(key: key);
+  final bool showBottomNav;
+  final bool showBackButton;
+
+  const RiwayatCutiScreen({
+    super.key,
+    this.showBottomNav = true,
+    this.showBackButton = true,
+  });
 
   @override
   State<RiwayatCutiScreen> createState() => _RiwayatCutiScreenState();
@@ -102,10 +110,22 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                },
+              )
+            : null,
         title: Text(
           'Riwayat Cuti',
           style: GoogleFonts.plusJakartaSans(
@@ -131,34 +151,45 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 1,
-        onTap: (index) async {
-          if (index == 1) return;
+      bottomNavigationBar: widget.showBottomNav
+          ? CustomBottomNavBar(
+              currentIndex: 1,
+              onTap: (index) async {
+                if (index == 1) return;
 
-          if (index == 2) {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
-            );
-            if (context.mounted) {
-              Navigator.pop(context);
-            }
-          } else if (index == 3) {
-            await Navigator.pushNamed(context, '/riwayat');
-            if (context.mounted) {
-              Navigator.pop(context);
-            }
-          } else if (index == 4) {
-            await Navigator.pushNamed(context, '/profile');
-            if (context.mounted) {
-              Navigator.pop(context);
-            }
-          } else {
-            await Navigator.pushReplacementNamed(context, '/home');
-          }
-        },
-      ),
+                if (index == 2) {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const CheckinLocationPage()),
+                  );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                } else if (index == 3) {
+                  await Navigator.pushNamed(context, '/riwayat');
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                } else if (index == 4) {
+                  await Navigator.pushNamed(context, '/profile');
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                } else {
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    await Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                }
+              },
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
@@ -303,21 +334,33 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
               )
             else
               ..._cutiHistory.map((cuti) {
-                return _buildCutiCard(
-                  svgPath: cuti.svgPath,
-                  iconBgColor: cuti.iconBgColor,
-                  title: cuti.title,
-                  subtitle: cuti.subtitle,
-                  statusText: cuti.statusText,
-                  statusColor: cuti.statusColor,
-                  statusTextColor: cuti.statusTextColor,
-                  dateRange: cuti.dateRange,
-                  duration: cuti.duration,
+                return GestureDetector(
+                  onTap: () => _openDetailCuti(context, cuti),
+                  child: _buildCutiCard(
+                    svgPath: cuti.svgPath,
+                    iconBgColor: cuti.iconBgColor,
+                    title: cuti.title,
+                    subtitle: cuti.subtitle,
+                    statusText: cuti.statusText,
+                    statusColor: cuti.statusColor,
+                    statusTextColor: cuti.statusTextColor,
+                    dateRange: cuti.dateRange,
+                    duration: cuti.duration,
+                  ),
                 );
-              }).toList(),
+              }),
             const SizedBox(height: 80), // Space agar tidak tertutup FAB
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _openDetailCuti(BuildContext context, CutiModel cuti) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetailPermohonanPage(cuti: cuti),
       ),
     );
   }
