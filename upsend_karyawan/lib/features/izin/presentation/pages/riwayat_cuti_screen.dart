@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/widgets/custom_bottom_navbar.dart';
 import '../../../attendance/pages/checkin_location_page.dart';
 import '../../models/cuti_model.dart';
+import 'detail_cuti_screen.dart';
 import 'pengajuan_cuti_screen.dart';
 
 class RiwayatCutiScreen extends StatefulWidget {
@@ -333,21 +334,33 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
               )
             else
               ..._cutiHistory.map((cuti) {
-                return _buildCutiCard(
-                  svgPath: cuti.svgPath,
-                  iconBgColor: cuti.iconBgColor,
-                  title: cuti.title,
-                  subtitle: cuti.subtitle,
-                  statusText: cuti.statusText,
-                  statusColor: cuti.statusColor,
-                  statusTextColor: cuti.statusTextColor,
-                  dateRange: cuti.dateRange,
-                  duration: cuti.duration,
+                return GestureDetector(
+                  onTap: () => _openDetailCuti(context, cuti),
+                  child: _buildCutiCard(
+                    svgPath: cuti.svgPath,
+                    iconBgColor: cuti.iconBgColor,
+                    title: cuti.title,
+                    subtitle: cuti.subtitle,
+                    statusText: cuti.statusText,
+                    statusColor: cuti.statusColor,
+                    statusTextColor: cuti.statusTextColor,
+                    dateRange: cuti.dateRange,
+                    duration: cuti.duration,
+                  ),
                 );
               }),
             const SizedBox(height: 80), // Space agar tidak tertutup FAB
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _openDetailCuti(BuildContext context, CutiModel cuti) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DetailPermohonanPage(cuti: cuti),
       ),
     );
   }
