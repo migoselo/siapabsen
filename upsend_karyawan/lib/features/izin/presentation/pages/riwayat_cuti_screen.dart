@@ -9,7 +9,14 @@ import '../../models/cuti_model.dart';
 import 'pengajuan_cuti_screen.dart';
 
 class RiwayatCutiScreen extends StatefulWidget {
-  const RiwayatCutiScreen({Key? key}) : super(key: key);
+  final bool showBottomNav;
+  final bool showBackButton;
+
+  const RiwayatCutiScreen({
+    super.key,
+    this.showBottomNav = true,
+    this.showBackButton = true,
+  });
 
   @override
   State<RiwayatCutiScreen> createState() => _RiwayatCutiScreenState();
@@ -102,10 +109,22 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                },
+              )
+            : null,
         title: Text(
           'Riwayat Cuti',
           style: GoogleFonts.plusJakartaSans(
@@ -131,34 +150,45 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: 1,
-        onTap: (index) async {
-          if (index == 1) return;
+      bottomNavigationBar: widget.showBottomNav
+          ? CustomBottomNavBar(
+              currentIndex: 1,
+              onTap: (index) async {
+                if (index == 1) return;
 
-          if (index == 2) {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
-            );
-            if (context.mounted) {
-              Navigator.pop(context);
-            }
-          } else if (index == 3) {
-            await Navigator.pushNamed(context, '/riwayat');
-            if (context.mounted) {
-              Navigator.pop(context);
-            }
-          } else if (index == 4) {
-            await Navigator.pushNamed(context, '/profile');
-            if (context.mounted) {
-              Navigator.pop(context);
-            }
-          } else {
-            await Navigator.pushReplacementNamed(context, '/home');
-          }
-        },
-      ),
+                if (index == 2) {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const CheckinLocationPage()),
+                  );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                } else if (index == 3) {
+                  await Navigator.pushNamed(context, '/riwayat');
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                } else if (index == 4) {
+                  await Navigator.pushNamed(context, '/profile');
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                } else {
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, ModalRoute.withName('/home'));
+                  } else {
+                    await Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
+                  }
+                }
+              },
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
@@ -314,7 +344,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   dateRange: cuti.dateRange,
                   duration: cuti.duration,
                 );
-              }).toList(),
+              }),
             const SizedBox(height: 80), // Space agar tidak tertutup FAB
           ],
         ),

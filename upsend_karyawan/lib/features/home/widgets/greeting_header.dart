@@ -7,8 +7,13 @@ const Color kTextSecondary = Color(0xFF6B7280);
 
 class GreetingHeader extends StatelessWidget {
   final String userName;
+  final VoidCallback? onProfileTap;
 
-  const GreetingHeader({super.key, required this.userName});
+  const GreetingHeader({
+    super.key,
+    required this.userName,
+    this.onProfileTap,
+  });
 
   String _greetingByTime() {
     final hour = DateTime.now().hour;
@@ -49,7 +54,7 @@ class GreetingHeader extends StatelessWidget {
           ),
         ),
         GestureDetector(
-          onTap: () => Navigator.pushNamed(context, '/profile'),
+          onTap: onProfileTap ?? () => Navigator.pushNamed(context, '/profile'),
           child: ClipOval(
             child: IdenticonAvatar(username: userName, size: 44.0),
           ),
