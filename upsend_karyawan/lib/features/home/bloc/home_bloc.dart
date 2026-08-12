@@ -18,7 +18,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> _onStarted(HomeStarted event, Emitter<HomeState> emit) async {
     emit(state.copyWith(status: HomeStatus.loading));
     try {
-      // Ambil status hari ini & history bareng-bareng
       final results = await Future.wait([
         _homeRepository.getTodayAttendance(),
         _homeRepository.getHistory(),
@@ -26,13 +25,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       final attendance = results[0] as AttendanceModel?;
       final history = results[1] as List<AttendanceModel>;
 
-      AttendanceModel? todayAttendance = attendance;
-      if (todayAttendance == null) {
-        final openSessions = history.where((item) => item.checkOutTime == null);
-        if (openSessions.isNotEmpty) {
-          todayAttendance = openSessions.first;
-        }
-      }
+      final todayAttendance = _resolveTodayAttendance(attendance, history);
 
       emit(
         state.copyWith(
@@ -40,6 +33,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           todayAttendance: todayAttendance,
           history: history,
           errorMessage: null,
+          clearAttendance: todayAttendance == null,
         ),
       );
     } catch (e) {
@@ -65,15 +59,22 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         lng: position.longitude,
       );
 
-      // Refresh history juga biar entry check-out baru langsung muncul
-      final history = await _homeRepository.getHistory();
+      final results = await Future.wait([
+        _homeRepository.getTodayAttendance(),
+        _homeRepository.getHistory(),
+      ]);
+      final attendance = results[0] as AttendanceModel?;
+      final history = results[1] as List<AttendanceModel>;
+
+      final todayAttendance = _resolveTodayAttendance(attendance, history);
 
       emit(
         state.copyWith(
           status: HomeStatus.loaded,
-          clearAttendance: true,
+          todayAttendance: todayAttendance,
           history: history,
           errorMessage: null,
+          clearAttendance: todayAttendance == null,
         ),
       );
     } catch (e) {
@@ -81,5 +82,23 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()),
       );
     }
+  }
+
+  AttendanceModel? _resolveTodayAttendance(
+    AttendanceModel? attendance,
+    List<AttendanceModel> history,
+  ) {
+    if (attendance != null && attendance.checkOutTime == null)
+      return attendance;
+
+    final now = DateTime.now();
+    final openSessions = history.where((item) {
+      final checkIn = item.checkInTime.toLocal();
+      return item.checkOutTime == null &&
+          checkIn.year == now.year &&
+          checkIn.month == now.month &&
+          checkIn.day == now.day;
+    });
+    return openSessions.isNotEmpty ? openSessions.first : null;
   }
 }
