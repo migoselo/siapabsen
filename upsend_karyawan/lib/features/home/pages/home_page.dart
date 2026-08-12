@@ -10,8 +10,9 @@ import '../widgets/recent_attendances_list.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
-import '../../attendance/pages/checkout_location_page.dart';
-// TODO: import BottomNav punya kamu yang udah jadi, saya gak nyentuh itu.
+import '../../history/pages/riwayat_page.dart';
+import '../../izin/presentation/pages/riwayat_cuti_screen.dart';
+import '../../profile/pages/profile_page.dart';
 
 const Color kDanger = Color(0xFFE11D48);
 const Color kBackground = Color(0xFFFFFFFF);
@@ -38,116 +39,80 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: kBackground,
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _activeNavIndex,
-        onTap: (index) async {
-          if (index == 2) {
-            // Presensi -> buka CheckinLocationPage
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
-            );
-            if (context.mounted) {
-              setState(() => _activeNavIndex = 0);
-              context.read<HomeBloc>().add(const HomeStarted());
-            }
-          } else if (index == 1) {
-            // Izin
-            await Navigator.pushNamed(context, '/izin');
-            if (context.mounted) {
-              setState(() => _activeNavIndex = 0);
-            }
-          } else if (index == 3) {
-            // Riwayat
-            await Navigator.pushNamed(context, '/riwayat');
-            if (context.mounted) {
-              setState(() => _activeNavIndex = 0);
-            }
-          } else if (index == 4) {
-            // Profil
-            await Navigator.pushNamed(context, '/profile');
-            if (context.mounted) {
-              setState(() => _activeNavIndex = 0);
-              context.read<AuthBloc>().add(const AuthCheckRequested());
-            }
-          } else {
-            // Beranda (0)
-            setState(() => _activeNavIndex = index);
-          }
+        onTap: (index) {
+          setState(() => _activeNavIndex = index);
         },
       ),
-      body: SafeArea(
-        child: BlocConsumer<HomeBloc, HomeState>(
-          listener: (context, state) {
-            if (state.status == HomeStatus.failure &&
-                state.errorMessage != null) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
-            }
-          },
-          builder: (context, state) {
-            if (state.status == HomeStatus.initial ||
-                state.status == HomeStatus.loading) {
-              return const Center(
-                child: CircularProgressIndicator(color: kDanger),
-              );
-            }
+      body: IndexedStack(
+        index: _activeNavIndex,
+        children: [
+          SafeArea(
+            child: BlocConsumer<HomeBloc, HomeState>(
+              listener: (context, state) {
+                if (state.status == HomeStatus.failure &&
+                    state.errorMessage != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(state.errorMessage!)),
+                  );
+                }
+              },
+              builder: (context, state) {
+                if (state.status == HomeStatus.initial ||
+                    state.status == HomeStatus.loading) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: kDanger),
+                  );
+                }
 
-            final authState = context.watch<AuthBloc>().state;
-            final userName = authState.user?.name ?? '-';
+                final authState = context.watch<AuthBloc>().state;
+                final userName = authState.user?.name ?? '-';
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GreetingHeader(userName: userName),
-                  const SizedBox(height: 20),
-
-                  const RealtimeClockCard(),
-                  const SizedBox(height: 16),
-
-                  AttendanceInfoBoxes(
-                    checkInTime: state.checkInTime,
-                    locationName: state.locationName,
-                    checkOutTime: state.checkOutTime,
-                  ),
-                  const SizedBox(height: 16),
-
-                  if (state.isCheckedIn) ...[
-                    _CheckOutButton(
-                      isSubmitting: state.status == HomeStatus.submitting,
-                      onPressed: () async {
-                        if (state.todayAttendance == null) return;
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => CheckoutLocationPage(
-                              attendanceId: state.todayAttendance!.id,
-                            ),
+                return SingleChildScrollView(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GreetingHeader(
+                        userName: userName,
+                        onProfileTap: () => setState(() => _activeNavIndex = 4),
+                      ),
+                      const SizedBox(height: 20),
+                      const RealtimeClockCard(),
+                      const SizedBox(height: 16),
+                      AttendanceInfoBoxes(
+                        checkInTime: state.checkInTime,
+                        locationName: state.locationName,
+                        checkOutTime: null,
+                      ),
+                      const SizedBox(height: 16),
+                      if (state.isCheckedIn) ...[
+                        _CheckOutButton(
+                          isSubmitting:
+                              state.status == HomeStatus.submitting,
+                          onPressed: () => context.read<HomeBloc>().add(
+                            const HomeCheckOutRequested(),
                           ),
-                        );
-                        if (context.mounted) {
-                          context.read<HomeBloc>().add(const HomeStarted());
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-
-                  RecentAttendanceList(
-                    history: state.history,
-                    onLihatSemua: () async {
-                      await Navigator.pushNamed(context, '/riwayat');
-                      if (context.mounted) {
-                        setState(() => _activeNavIndex = 0);
-                      }
-                    },
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      RecentAttendanceList(
+                        history: state.history,
+                        onLihatSemua: () {
+                          setState(() => _activeNavIndex = 3);
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                );
+              },
+            ),
+          ),
+          const RiwayatCutiScreen(showBottomNav: false, showBackButton: true),
+          const CheckinLocationPage(),
+          const RiwayatPage(showBottomNav: false, showBackButton: true),
+          const ProfilePage(showBottomNav: false, showBackButton: true),
+        ],
       ),
     );
   }
