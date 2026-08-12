@@ -116,12 +116,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   _currentIndex < _items.length - 1
                       ? TextButton(
-                          onPressed: () {
-                            _pageController.animateToPage(
-                              _items.length - 1,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('has_seen_onboarding', true);
+                            if (context.mounted) {
+                              Navigator.pushReplacementNamed(context, '/login');
+                            }
                           },
                           child: Text(
                             'Lewati',
@@ -167,7 +167,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         )
                       : TextButton(
-                          onPressed: () async{
+                          onPressed: () async {
                             final prefs = await SharedPreferences.getInstance();
                             await prefs.setBool('has_seen_onboarding', true);
                             if (context.mounted) {

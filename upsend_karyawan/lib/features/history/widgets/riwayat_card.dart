@@ -20,26 +20,28 @@ class RiwayatCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(15),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(100),
               ),
               padding: const EdgeInsets.all(
                 11,
               ), // atur jarak SVG dari tepi container
               child: SvgPicture.asset(
                 'assets/images/checkin.svg',
+                width: 24,
+                height: 24,
                 colorFilter: const ColorFilter.mode(
                   Color(0xFF16A34A),
                   BlendMode.srcIn,
@@ -54,19 +56,19 @@ class RiwayatCard extends StatelessWidget {
                   Text(
                     record.location?.name ?? '-',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '$checkIn\u2013$checkOut',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                    style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 13, fontWeight: FontWeight.w400),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
+            const Icon(Icons.chevron_right, color: Color(0xFF9A9A9A)),
           ],
         ),
       ),

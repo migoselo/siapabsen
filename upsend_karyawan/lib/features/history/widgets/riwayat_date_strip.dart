@@ -14,7 +14,10 @@ class RiwayatDateStrip extends StatelessWidget {
   });
 
   List<DateTime> _generateDateList(DateTime centerDate) {
-    return List.generate(7, (index) => centerDate.add(Duration(days: index - 3)));
+    return List.generate(
+      7,
+      (index) => centerDate.add(Duration(days: index - 3)),
+    );
   }
 
   @override
@@ -24,7 +27,8 @@ class RiwayatDateStrip extends StatelessWidget {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: _generateDateList(selectedDate).map((date) {
-          final isSameDay = date.year == selectedDate.year &&
+          final isSameDay =
+              date.year == selectedDate.year &&
               date.month == selectedDate.month &&
               date.day == selectedDate.day;
           final isFutureDate = date.isAfter(
@@ -37,12 +41,14 @@ class RiwayatDateStrip extends StatelessWidget {
               width: 55,
               margin: const EdgeInsets.only(right: 10),
               decoration: BoxDecoration(
-                color: isSameDay ? const Color(0xFF1B2559) : Colors.transparent,
+                color: isSameDay ? const Color(0xFF2F3B69) : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isFutureDate
                       ? Colors.grey.shade300
-                      : (isSameDay ? const Color(0xFF1B2559) : Colors.grey.shade300),
+                      : (isSameDay
+                            ? const Color(0xFF2F3B69)
+                            : Colors.grey.shade300),
                 ),
               ),
               child: Column(
@@ -62,10 +68,12 @@ class RiwayatDateStrip extends StatelessWidget {
                     date.day.toString(),
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: isFutureDate
                           ? Colors.grey.shade400
-                          : (isSameDay ? Colors.white : const Color(0xFF1B2559)),
+                          : (isSameDay
+                                ? Colors.white
+                                : const Color(0xFF1B2559)),
                     ),
                   ),
                 ],
