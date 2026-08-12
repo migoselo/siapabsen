@@ -10,6 +10,7 @@ import '../widgets/recent_attendances_list.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
+import '../../attendance/pages/checkout_location_page.dart';
 import '../../history/pages/riwayat_page.dart';
 import '../../izin/presentation/pages/riwayat_cuti_screen.dart';
 import '../../profile/pages/profile_page.dart';
@@ -51,9 +52,9 @@ class _HomePageState extends State<HomePage> {
               listener: (context, state) {
                 if (state.status == HomeStatus.failure &&
                     state.errorMessage != null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(state.errorMessage!)),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
                 }
               },
               builder: (context, state) {
@@ -68,8 +69,10 @@ class _HomePageState extends State<HomePage> {
                 final userName = authState.user?.name ?? '-';
 
                 return SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -88,11 +91,20 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 16),
                       if (state.isCheckedIn) ...[
                         _CheckOutButton(
-                          isSubmitting:
-                              state.status == HomeStatus.submitting,
-                          onPressed: () => context.read<HomeBloc>().add(
-                            const HomeCheckOutRequested(),
-                          ),
+                          isSubmitting: state.status == HomeStatus.submitting,
+                          onPressed: () {
+                            final attendanceId = state.todayAttendance?.id;
+                            if (attendanceId == null) return;
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CheckoutLocationPage(
+                                  attendanceId: attendanceId,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 20),
                       ],

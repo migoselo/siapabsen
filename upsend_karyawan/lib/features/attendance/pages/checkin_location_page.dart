@@ -219,10 +219,11 @@ class _LocationRetryView extends StatelessWidget {
     if (state.status == AttendanceStatus.failure) {
       return "Gagal mendeteksi lokasi";
     }
-    if (state.selectedLocation != null && !state.selectedLocation!.withinRadius) {
+    if (state.selectedLocation != null &&
+        !state.selectedLocation!.withinRadius) {
       return "Anda di luar jangkauan lokasi";
     }
-    return "Lokasi kantor tidak ditemukan";
+    return "Gagal mendeteksi lokasi";
   }
 
   String _subtitle() {
@@ -230,11 +231,12 @@ class _LocationRetryView extends StatelessWidget {
       return state.errorMessage?.replaceFirst('Exception: ', '') ??
           "Terjadi kesalahan saat mengambil lokasi.";
     }
-    if (state.selectedLocation != null && !state.selectedLocation!.withinRadius) {
+    if (state.selectedLocation != null &&
+        !state.selectedLocation!.withinRadius) {
       final loc = state.selectedLocation!;
       return "Jarak Anda ${loc.distance.toStringAsFixed(0)}m dari ${loc.name} (radius maksimal ${loc.radiusMeter}m). Mendekatlah ke lokasi kantor.";
     }
-    return "Tidak ada lokasi kantor yang terdeteksi di sekitar Anda.";
+    return "Gagal mendeteksi lokasi kantor di sekitar Anda.";
   }
 
   @override

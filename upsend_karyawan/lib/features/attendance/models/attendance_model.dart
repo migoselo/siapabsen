@@ -45,7 +45,7 @@ class AttendanceModel {
                   DateTime.now())
               .toLocal(),
       checkInLat: _toDouble(json['check_in_lat']),
-      checkInLng: _toDouble(json['check_in_lng']),
+      checkInLng: _toDouble(json['check_in_lng'] ?? json['check_in_long']),
       checkInDistance: _toDouble(json['check_in_distance']),
       checkInPhoto: json['check_in_photo']?.toString() ?? '',
       checkOutPhoto: json['check_out_photo'] == null
@@ -58,7 +58,9 @@ class AttendanceModel {
           ? _toDouble(json['check_out_lat'])
           : null,
       checkOutLng: json['check_out_lng'] != null
-          ? _toDouble(json['check_out_lng'])
+          ? _toDouble(json['check_out_lng'] ?? json['check_out_long'])
+          : json['check_out_long'] != null
+          ? _toDouble(json['check_out_long'])
           : null,
       checkOutDistance: json['check_out_distance'] != null
           ? _toDouble(json['check_out_distance'])

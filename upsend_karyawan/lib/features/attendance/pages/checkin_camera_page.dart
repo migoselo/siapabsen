@@ -10,6 +10,8 @@ import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
 import '../../../core/services/camera_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../history/bloc/history_bloc.dart';
+import '../../history/bloc/history_event.dart';
 import '../../home/bloc/home_bloc.dart';
 import '../../home/bloc/home_event.dart';
 
@@ -181,6 +183,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
       if (mounted) {
         context.read<AttendanceBloc>().add(ResetAttendance());
         context.read<HomeBloc>().add(const HomeStarted());
+        context.read<HistoryBloc>().add(const HistoryFetchRequested());
         Navigator.popUntil(context, (route) => route.isFirst);
       }
     });
