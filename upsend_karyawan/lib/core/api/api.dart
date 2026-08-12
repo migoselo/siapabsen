@@ -5,11 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Api {
   static final Dio dio = Dio(
     BaseOptions(
-      // baseUrl: 'http://192.168.44.8:8010/api',
-      // baseUrl: 'http://siapabsensi.siapsoft.com',
-      // baseUrl: 'https://26.214.138.24/api',
-      baseUrl: 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
-      // baseUrl: 'https://siapabsensi.siapsoft.com/api',
+      // Gunakan backend lokal saat debug, karena data di database lokal harus sama dengan yang muncul di app.
+      baseUrl: kDebugMode
+          ? 'http://127.0.0.1:8010/api'
+          : 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
 
       headers: {
         'Accept': 'application/json',

@@ -17,14 +17,19 @@ class HomeState extends Equatable {
   });
 
   factory HomeState.initial() => const HomeState(
-        status: HomeStatus.initial,
-        todayAttendance: null,
-        history: [],
-      );
+    status: HomeStatus.initial,
+    todayAttendance: null,
+    history: [],
+  );
 
-  bool get isCheckedIn => todayAttendance?.checkInTime != null;
-  String? get locationName => todayAttendance?.location?.name;
-  DateTime? get checkInTime => todayAttendance?.checkInTime;
+  bool get isCheckedIn =>
+      todayAttendance != null && todayAttendance!.checkOutTime == null;
+  String? get locationName =>
+      isCheckedIn ? todayAttendance?.location?.name : null;
+  DateTime? get checkInTime =>
+      isCheckedIn ? todayAttendance?.checkInTime : null;
+
+  DateTime? get checkOutTime => todayAttendance?.checkOutTime;
 
   HomeState copyWith({
     HomeStatus? status,
@@ -33,9 +38,13 @@ class HomeState extends Equatable {
     bool clearAttendance = false,
     String? errorMessage,
   }) {
+    final resolvedTodayAttendance = clearAttendance
+        ? null
+        : (todayAttendance ?? this.todayAttendance);
+
     return HomeState(
       status: status ?? this.status,
-      todayAttendance: clearAttendance ? null : (todayAttendance ?? this.todayAttendance),
+      todayAttendance: resolvedTodayAttendance,
       history: history ?? this.history,
       errorMessage: errorMessage,
     );

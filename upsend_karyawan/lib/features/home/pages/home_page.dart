@@ -10,6 +10,7 @@ import '../widgets/recent_attendances_list.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
+import '../../attendance/pages/checkout_location_page.dart';
 // TODO: import BottomNav punya kamu yang udah jadi, saya gak nyentuh itu.
 
 const Color kDanger = Color(0xFFE11D48);
@@ -108,16 +109,27 @@ class _HomePageState extends State<HomePage> {
                   AttendanceInfoBoxes(
                     checkInTime: state.checkInTime,
                     locationName: state.locationName,
-                    checkOutTime: null,
+                    checkOutTime: state.checkOutTime,
                   ),
                   const SizedBox(height: 16),
 
                   if (state.isCheckedIn) ...[
                     _CheckOutButton(
                       isSubmitting: state.status == HomeStatus.submitting,
-                      onPressed: () => context.read<HomeBloc>().add(
-                        const HomeCheckOutRequested(),
-                      ),
+                      onPressed: () async {
+                        if (state.todayAttendance == null) return;
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CheckoutLocationPage(
+                              attendanceId: state.todayAttendance!.id,
+                            ),
+                          ),
+                        );
+                        if (context.mounted) {
+                          context.read<HomeBloc>().add(const HomeStarted());
+                        }
+                      },
                     ),
                     const SizedBox(height: 20),
                   ],
