@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingModel {
   final String image;
@@ -34,7 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     OnboardingModel(
       image: 'assets/images/on2.svg',
-      title: 'Check-in di kantor cabang manapun',
+      title: 'Check-in di Kantor Cabang Manapun',
       description:
           'Lakukan presensi di seluruh cabang perusahaan, sesuai lokasi terdekat.',
     ),
@@ -49,7 +50,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF2D365C);
-    const Color textSecondaryColor = Color(0xFF6C757D);
+    const Color textSecondaryColor = Color(0xFF9A9A9A);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -83,7 +84,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w700,
                             color: Colors.black,
                           ),
                         ),
@@ -92,9 +93,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           _items[index].description,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                             height: 1.5,
-                            color: textSecondaryColor,
+                            color: Colors.black,
                           ),
                         ),
                         const Spacer(),
@@ -114,12 +116,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 children: [
                   _currentIndex < _items.length - 1
                       ? TextButton(
-                          onPressed: () {
-                            _pageController.animateToPage(
-                              _items.length - 1,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('has_seen_onboarding', true);
+                            if (context.mounted) {
+                              Navigator.pushReplacementNamed(context, '/login');
+                            }
                           },
                           child: Text(
                             'Lewati',
@@ -165,8 +167,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         )
                       : TextButton(
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(context, '/login');
+                          onPressed: () async {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('has_seen_onboarding', true);
+                            if (context.mounted) {
+                              Navigator.pushReplacementNamed(context, '/login');
+                            }
                           },
                           child: Text(
                             'Login',

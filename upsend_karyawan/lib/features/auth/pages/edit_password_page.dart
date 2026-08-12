@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repository/auth_repository.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-const Color kDarkBlue = Color(0xFF2B3A8F);
+const Color kDarkBlue = Color(0xFF2F3B69);
 const Color kTextSecondary = Color(0xFF6B7280);
 const Color kBorder = Color(0xFFD9D9D9);
 const String kFontFamily = 'PlusJakartaSans';
@@ -55,10 +56,10 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
     setState(() => _isLoading = true);
     try {
       await context.read<AuthRepository>().changePassword(
-            oldPassword: oldPassword,
-            newPassword: newPassword,
-            newPasswordConfirmation: confirmPassword,
-          );
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+        newPasswordConfirmation: confirmPassword,
+      );
       if (!mounted) return;
       _showSnackBar('Password berhasil diubah.');
       Navigator.pop(context);
@@ -152,7 +153,8 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                       hint: 'Masukkan password lama',
                       controller: _oldPasswordController,
                       obscure: _obscureOld,
-                      onToggle: () => setState(() => _obscureOld = !_obscureOld),
+                      onToggle: () =>
+                          setState(() => _obscureOld = !_obscureOld),
                     ),
                     const SizedBox(height: 16),
 
@@ -161,7 +163,8 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                       hint: 'Masukkan password baru',
                       controller: _newPasswordController,
                       obscure: _obscureNew,
-                      onToggle: () => setState(() => _obscureNew = !_obscureNew),
+                      onToggle: () =>
+                          setState(() => _obscureNew = !_obscureNew),
                     ),
                     const SizedBox(height: 16),
 
@@ -170,7 +173,8 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                       hint: 'Masukkan ulang password baru',
                       controller: _confirmPasswordController,
                       obscure: _obscureConfirm,
-                      onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                      onToggle: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
                     ),
                     const SizedBox(height: 28),
 
@@ -279,13 +283,23 @@ class _PasswordField extends StatelessWidget {
             ),
             suffixIcon: GestureDetector(
               onTap: onToggle,
-              child: Icon(
-                obscure ? Icons.visibility_off : Icons.visibility,
-                color: kDarkBlue,
-                size: 20,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: SvgPicture.asset(
+                  obscure
+                      ? 'assets/images/Eye.svg'
+                      : 'assets/images/Eye_Closed.svg',
+                  colorFilter: const ColorFilter.mode(
+                    kDarkBlue,
+                    BlendMode.srcIn,
+                  ),
+                ),
               ),
             ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 14,
+              horizontal: 14,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: kBorder),

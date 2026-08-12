@@ -1,5 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:svg_path_parser/svg_path_parser.dart';
 
 class SplashPage extends StatefulWidget {
@@ -44,6 +48,12 @@ class _SplashPageState extends State<SplashPage>
 
     _parsedPaths = _svgPathsData.map((d) => parseSvgPath(d)).toList();
 
+    // 3. Pindah halaman tepat di detik ke 3
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        _navigateNext();
+      }
+    });
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -83,6 +93,28 @@ class _SplashPageState extends State<SplashPage>
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _navigateNext() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // aktifkan jika ingin debug on boarding
+    // if (kDebugMode) {
+    //   await prefs.remove('has_seen_onboarding');
+    // }
+
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+    await prefs.remove('auth_token');
+    await prefs.remove('user_name');
+
+    if (!mounted) return;
+
+    if (!hasSeenOnboarding) {
+      Navigator.pushReplacementNamed(context, '/onboarding');
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override

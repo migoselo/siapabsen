@@ -24,9 +24,9 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  static const Color primaryColor = Color(0xFF2D365C);
+  static const Color primaryColor = Color(0xFF2F3B69);
   static const Color textColor = Color(0xFF0F172A);
-  static const Color subtitleColor = Color(0xFF8A94A6);
+  static const Color subtitleColor = Color(0xFF9A9A9A);
   static const Color borderColor = Color(0xFFCBD5E1);
 
   TextStyle _jakartaStyle({
@@ -70,8 +70,35 @@ class _LoginPageState extends State<LoginPage> {
     final identifier = _getLoginIdentifier();
     final password = _passwordController.text;
 
-    if (identifier.isEmpty || password.isEmpty) {
-      _showSnackBar('Email/ID/nomor HP dan password wajib diisi!');
+    final identifierEmpty = identifier.isEmpty;
+    final passwordEmpty = password.isEmpty;
+
+    // 1. Cek kosong dulu (kombinasi & satu-satu)
+    if (identifierEmpty && passwordEmpty) {
+      AppSnackbar.warning(context, _getBothEmptyMessage());
+      return;
+    }
+
+    if (identifierEmpty) {
+      AppSnackbar.warning(context, _getIdentifierOnlyMessage());
+      return;
+    }
+
+    if (passwordEmpty) {
+      AppSnackbar.warning(context, 'Password wajib diisi!');
+      return;
+    }
+
+    // 2. Cek format identifier sesuai tab aktif
+    final formatError = _validateIdentifierFormat(identifier);
+    if (formatError != null) {
+      AppSnackbar.warning(context, formatError);
+      return;
+    }
+
+    // 3. Cek panjang minimum password
+    if (password.length < 6) {
+      AppSnackbar.warning(context, 'Password minimal 6 karakter!');
       return;
     }
 
@@ -80,74 +107,159 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+  /// Balikin pesan error kalau format identifier gak valid, null kalau valid
+  String? _validateIdentifierFormat(String identifier) {
+    switch (_currentLoginType) {
+      case LoginType.email:
+        if (!_isValidEmail(identifier)) {
+          return 'Format email tidak valid!';
+        }
+        return null;
+
+      case LoginType.employeeId:
+        final company = _companyController.text.trim();
+        final employeeId = _employeeIdController.text.trim();
+        if (company.isNotEmpty && !_isValidEmail(company)) {
+          return 'Format nama pengguna tidak valid!';
+        }
+        if (employeeId.isEmpty) {
+          return 'ID karyawan wajib diisi!';
+        }
+        return null;
+
+      case LoginType.phone:
+        if (!_isValidPhone(identifier)) {
+          return 'Format nomor telepon tidak valid! Gunakan angka saja, 9-15 digit.';
+        }
+        return null;
+    }
   }
+
+  bool _isValidEmail(String email) {
+    final regex = RegExp(r'^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$');
+    return regex.hasMatch(email);
+  }
+
+  bool _isValidPhone(String phone) {
+    final regex = RegExp(r'^[0-9]{9,15}$');
+    return regex.hasMatch(phone);
+  }
+
+  String _getFailureMessage(String? backendMessage) {
+    final cleaned = (backendMessage ?? '').replaceFirst('Exception: ', '');
+
+    final isInvalidCredential =
+        cleaned.toLowerCase().contains('salah') ||
+        cleaned.toLowerCase().contains('invalid') ||
+        cleaned.toLowerCase().contains('tidak ditemukan') ||
+        cleaned.isEmpty;
+
+    if (isInvalidCredential) {
+      switch (_currentLoginType) {
+        case LoginType.email:
+          return 'Email atau Password salah.';
+        case LoginType.employeeId:
+          return 'Nama Pengguna, ID Karyawan, atau Password salah.';
+        case LoginType.phone:
+          return 'Nomor Telepon atau Password salah.';
+      }
+    }
+
+    return cleaned.isEmpty ? 'Gagal masuk, silakan coba lagi.' : cleaned;
+  }
+
+  String _getBothEmptyMessage() {
+    switch (_currentLoginType) {
+      case LoginType.email:
+        return 'Email dan Password wajib diisi!';
+      case LoginType.employeeId:
+        return 'Nama Pengguna, ID Karyawan, dan Password wajib diisi!';
+      case LoginType.phone:
+        return 'Nomor Telepon dan Password wajib diisi!';
+    }
+  }
+
+  String _getIdentifierOnlyMessage() {
+    switch (_currentLoginType) {
+      case LoginType.email:
+        return 'Email wajib diisi!';
+      case LoginType.employeeId:
+        return 'Nama Pengguna dan ID Karyawan wajib diisi!';
+      case LoginType.phone:
+        return 'Nomor Telepon wajib diisi!';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state.status == AuthStatus.authenticated) {
-          _showSnackBar('Login Berhasil!');
+          AppSnackbar.success(context, 'Login Berhasil!');
           Navigator.pushReplacementNamed(context, '/home');
         } else if (state.status == AuthStatus.failure) {
-          AppSnackbar.error(context, (
-            state.errorMessage ?? 'Gagal masuk, silakan coba lagi.'
-          ).replaceFirst('Exception: ', ''));
+          AppSnackbar.error(context, _getFailureMessage(state.errorMessage));
         }
       },
       child: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 24.0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: SvgPicture.asset(
-                      'assets/images/Logo.svg',
-                      height: 72,
-                      width: 72,
-                      placeholderBuilder: (context) => const Icon(
-                        Icons.navigation_rounded,
-                        size: 72,
-                        color: primaryColor,
+          child: Column(
+            children: [
+              // Bagian atas: BISA DI-SCROLL (logo, judul, form)
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 24.0,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 40),
+                      Center(
+                        child: SvgPicture.asset(
+                          'assets/images/Logo2.svg',
+                          height: 100,
+                          width: 100,
+                          placeholderBuilder: (context) => const Icon(
+                            Icons.navigation_rounded,
+                            size: 72,
+                            color: primaryColor,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 28),
+                      Text(
+                        'Masuk ke Akun',
+                        textAlign: TextAlign.center,
+                        style: _jakartaStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Masukkan detail Anda untuk melanjutkan',
+                        textAlign: TextAlign.center,
+                        style: _jakartaStyle(
+                          fontSize: 16,
+                          color: subtitleColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      _buildFormByLoginType(),
+                    ],
                   ),
-                  const SizedBox(height: 28),
-                  Text(
-                    'Masuk ke Akun',
-                    textAlign: TextAlign.center,
-                    style: _jakartaStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Masukkan detail Anda untuk melanjutkan',
-                    textAlign: TextAlign.center,
-                    style: _jakartaStyle(
-                      fontSize: 14,
-                      color: subtitleColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildFormByLoginType(),
-                  const SizedBox(height: 32),
-                  _buildActionButtons(),
-                ],
+                ),
               ),
-            ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 5),
+                child: _buildActionButtons(),
+              ),
+            ],
           ),
         ),
       ),
@@ -164,7 +276,8 @@ class _LoginPageState extends State<LoginPage> {
             _buildInputField(
               controller: _emailController,
               hintText: 'Masukkan Email',
-              prefixIcon: Icons.mail_outline_rounded,
+              prefixIconAsset: 'assets/images/Message.svg',
+              prefixIconSize: const Size(16, 16),
             ),
             const SizedBox(height: 18),
             _buildLabel('Password'),
@@ -177,17 +290,20 @@ class _LoginPageState extends State<LoginPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('Nama pengguna perusahaan'),
+            _buildLabel('Nama Pengguna'),
             _buildInputField(
               controller: _companyController,
               hintText: 'Masukkan Email',
-              prefixIcon: Icons.mail_outline_rounded,
+              prefixIconAsset: 'assets/images/Message.svg',
+              prefixIconSize: const Size(16, 16),
             ),
             const SizedBox(height: 18),
-            _buildLabel('ID karyawan'),
+            _buildLabel('ID Karyawan'),
             _buildInputField(
               controller: _employeeIdController,
               hintText: 'Masukkan ID karyawan',
+              prefixIconAsset: 'assets/images/ID.svg',
+              prefixIconSize: const Size(22, 22),
             ),
             const SizedBox(height: 18),
             _buildLabel('Password'),
@@ -260,7 +376,8 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildInputField({
     required TextEditingController controller,
     required String hintText,
-    IconData? prefixIcon,
+    String? prefixIconAsset,
+    Size? prefixIconSize,
     TextInputType keyboardType = TextInputType.text,
     bool isPhonePrefix = false,
   }) {
@@ -271,8 +388,19 @@ class _LoginPageState extends State<LoginPage> {
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: _jakartaStyle(color: subtitleColor, fontSize: 14),
-        prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, color: subtitleColor, size: 20)
+        prefixIcon: prefixIconAsset != null
+            ? Padding(
+                padding: const EdgeInsets.all(14),
+                child: SvgPicture.asset(
+                  prefixIconAsset,
+                  width: prefixIconSize?.width,
+                  height: prefixIconSize?.height,
+                  colorFilter: const ColorFilter.mode(
+                    subtitleColor,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              )
             : null,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -308,18 +436,23 @@ class _LoginPageState extends State<LoginPage> {
       decoration: InputDecoration(
         hintText: 'Masukkan Kata Sandi',
         hintStyle: _jakartaStyle(color: subtitleColor, fontSize: 14),
-        prefixIcon: const Icon(
-          Icons.lock_outline_rounded,
-          color: subtitleColor,
-          size: 20,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.all(14),
+          child: SvgPicture.asset(
+            'assets/images/Lock.svg',
+            width: 20,
+            height: 20,
+            colorFilter: const ColorFilter.mode(subtitleColor, BlendMode.srcIn),
+          ),
         ),
         suffixIcon: IconButton(
-          icon: Icon(
+          icon: SvgPicture.asset(
             _obscurePassword
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
-            color: primaryColor,
-            size: 20,
+                ? 'assets/images/Eye.svg'
+                : 'assets/images/Eye_Closed.svg',
+            width: 24,
+            height: 24,
+            colorFilter: const ColorFilter.mode(primaryColor, BlendMode.srcIn),
           ),
           onPressed: () {
             setState(() {
@@ -402,7 +535,7 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 12),
         if (_currentLoginType != LoginType.employeeId)
           _buildSecondaryButton(
-            text: 'Masuk dengan ID Karyawan',
+            text: 'Masuk dengan ID karyawan',
             onPressed: () {
               setState(() {
                 _currentLoginType = LoginType.employeeId;

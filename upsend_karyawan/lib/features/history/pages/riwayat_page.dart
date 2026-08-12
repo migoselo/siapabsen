@@ -196,7 +196,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                         width: 24,
                         height: 24,
                         colorFilter: const ColorFilter.mode(
-                          Color(0xFF2E3A6E),
+                          Color(0xFF2F3B69),
                           BlendMode.srcIn,
                         ),
                       ),
@@ -219,7 +219,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Text(
                       'Belum ada riwayat presensi.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: const TextStyle(color: Color(0xFF9A9A9A)),
                     ),
                   )
                 else
@@ -231,7 +231,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
                           entry.key,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF000000),
                           ),
                         ),
                         const SizedBox(height: 8),
