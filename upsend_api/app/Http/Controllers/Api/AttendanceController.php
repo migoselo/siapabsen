@@ -97,6 +97,7 @@ class AttendanceController extends Controller
         $data = $request->validate([
             'lat' => 'required|numeric|between:-90,90',
             'lng' => 'required|numeric|between:-180,180',
+            'photo' => 'nullable|image|max:5120',
         ]);
 
         $location = $attendance->location;
@@ -105,11 +106,17 @@ class AttendanceController extends Controller
             $data['lat'], $data['lng'], $location->latitude, $location->longitude
         );
 
+        $checkOutPhotoPath = null;
+        if ($request->hasFile('photo')) {
+            $checkOutPhotoPath = $request->file('photo')->store('attendance-photos', 'public');
+        }
+
         $attendance->update([
             'check_out_time' => now(),
             'check_out_lat' => $data['lat'],
             'check_out_long' => $data['lng'],
             'check_out_distance' => $distance,
+            'check_out_photo' => $checkOutPhotoPath ?? $attendance->check_out_photo,
         ]);
 
         return response()->json($attendance->fresh()->load('location'));

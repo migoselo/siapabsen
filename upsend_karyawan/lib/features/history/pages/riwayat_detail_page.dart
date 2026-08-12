@@ -8,8 +8,8 @@ class RiwayatDetailPage extends StatelessWidget {
   final AttendanceModel record;
   const RiwayatDetailPage({super.key, required this.record});
 
-  String _resolvePhotoUrl(String photoPath) {
-    final value = photoPath.trim();
+  String _resolvePhotoUrl(String? photoPath) {
+    final value = photoPath?.trim() ?? '';
     if (value.isEmpty) return '';
 
     if (value.startsWith('http://') || value.startsWith('https://')) {
@@ -42,6 +42,8 @@ class RiwayatDetailPage extends StatelessWidget {
         : null;
     final checkInPhotoUrl = _resolvePhotoUrl(record.checkInPhoto);
     final hasValidCheckInPhoto = checkInPhotoUrl.isNotEmpty;
+    final checkOutPhotoUrl = _resolvePhotoUrl(record.checkOutPhoto);
+    final hasValidCheckOutPhoto = checkOutPhotoUrl.isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -111,7 +113,10 @@ class RiwayatDetailPage extends StatelessWidget {
                           const SizedBox(width: 10),
                           const Text(
                             'Check In',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -284,7 +289,10 @@ class RiwayatDetailPage extends StatelessWidget {
                           const SizedBox(width: 10),
                           const Text(
                             'Check Out',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -298,7 +306,122 @@ class RiwayatDetailPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (checkOutTime != null) ...[
+                  if (checkOutTime != null || hasValidCheckOutPhoto) ...[
+                    const SizedBox(height: 12),
+                    if (hasValidCheckOutPhoto)
+                      GestureDetector(
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (_) => Dialog(
+                            insetPadding: const EdgeInsets.all(16),
+                            backgroundColor: Colors.black,
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: InteractiveViewer(
+                                    child: Image.network(
+                                      checkOutPhotoUrl,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 12,
+                                  right: 12,
+                                  child: GestureDetector(
+                                    onTap: () => Navigator.pop(context),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.6),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: AspectRatio(
+                            aspectRatio: 1.4,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.network(
+                                  checkOutPhotoUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: const Color(0xFFF3F4F6),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.image_not_supported_outlined,
+                                        color: Color(0xFF9CA3AF),
+                                        size: 32,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 8,
+                                  right: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.6),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.camera_alt,
+                                          color: Colors.white,
+                                          size: 12,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Foto Checkout',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Foto checkout belum tersedia',
+                            style: TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     _LocationInfo(
                       locationName: record.location?.name ?? '-',
@@ -356,7 +479,10 @@ class _LocationInfo extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 locationName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -368,7 +494,10 @@ class _LocationInfo extends StatelessWidget {
                 TextSpan(text: distancePrefix),
                 TextSpan(
                   text: distanceValue,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
