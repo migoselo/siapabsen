@@ -1,8 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/api/api.dart';
 import '../../../../core/widgets/custom_bottom_navbar.dart';
 import '../../../attendance/pages/checkin_location_page.dart';
 import '../../models/cuti_model.dart';
@@ -28,41 +30,43 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   bool _isFilterActive = false;
 
   final DateTime _today = DateTime.now();
+  List<CutiModel> _cutiHistory = [];
 
-  final List<CutiModel> _cutiHistory = [
-    CutiModel(
-      svgPath: 'assets/images/Calendar.svg',
-      iconBgColor: const Color(0xFFE8EEFF),
-      title: 'Cuti Tahunan',
-      subtitle: 'Liburan Akhir Tahun',
-      statusText: 'DISETUJUI',
-      statusColor: const Color(0xFFE6F7ED),
-      statusTextColor: const Color(0xFF27AE60),
-      dateRange: '24 Jul - 27 Jul 2026',
-      duration: '4 Hari',
-    ),
-    CutiModel(
-      svgPath: 'assets/images/Medical.svg',
-      iconBgColor: const Color(0xFFFFF7E6),
-      title: 'Cuti Sakit',
-      subtitle: 'Sakit demam',
-      statusText: 'DIPROSES',
-      statusColor: const Color(0xFFFFF8E1),
-      statusTextColor: const Color(0xFFE2B93B),
-      dateRange: '24 Jul - 27 Jul 2026',
-      duration: '4 Hari',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCutiHistory();
+  }
+
+  Future<void> _loadCutiHistory() async {
+    try {
+      final response = await Api.dio.get('/leave-requests');
+      final data = response.data as List;
+      setState(() {
+        _cutiHistory = data.map((json) => CutiModel.fromJson(json)).toList();
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _cutiHistory = [];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.response?.data['message'] ?? 'Gagal memuat riwayat cuti.',
+          ),
+        ),
+      );
+    }
+  }
 
   Future<void> _openPengajuanCuti() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const PengajuanCutiScreen()),
     );
-    if (result is CutiModel) {
-      setState(() {
-        _cutiHistory.insert(0, result);
-      });
+    if (result == true) {
+      await _loadCutiHistory();
     }
   }
 
@@ -161,7 +165,8 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const CheckinLocationPage()),
+                      builder: (_) => const CheckinLocationPage(),
+                    ),
                   );
                   if (context.mounted) {
                     Navigator.pop(context);
@@ -359,9 +364,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   Future<void> _openDetailCuti(BuildContext context, CutiModel cuti) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => DetailPermohonanPage(cuti: cuti),
-      ),
+      MaterialPageRoute(builder: (_) => DetailPermohonanPage(cuti: cuti)),
     );
   }
 

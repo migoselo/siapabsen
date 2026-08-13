@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-open-session', [AttendanceController::class, 'myOpenSession']);
         Route::get('/my-history', [AttendanceController::class, 'myHistory']);
     });
+
+    Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
+    Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
 
     // ==== Khusus admin ====
     Route::middleware('role:admin')->group(function () {

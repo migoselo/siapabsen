@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\LeaveType;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,11 +15,15 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Seed Leave Types
+        $leaveTypes = [
+            ['name' => 'Cuti Tahunan'],
+            ['name' => 'Cuti Sakit'],
+            ['name' => 'Cuti Penting'],
+        ];
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        foreach ($leaveTypes as $type) {
+            LeaveType::firstOrCreate($type);
+        }
     }
 }
