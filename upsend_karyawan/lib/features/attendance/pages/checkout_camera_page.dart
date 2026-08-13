@@ -1,18 +1,18 @@
 import 'dart:io';
-
+import 'package:intl/intl.dart';
+import '../../history/bloc/history_bloc.dart';
+import '../../history/bloc/history_event.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 import '../../../core/services/camera_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../attendance/repository/attendance_repository.dart';
 import '../../home/bloc/home_bloc.dart';
 import '../../home/bloc/home_event.dart';
-import 'checkout_success_page.dart';
 
 class CheckoutCameraPage extends StatefulWidget {
   final int attendanceId;
@@ -108,20 +108,84 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
       );
 
       if (!mounted) return;
-      context.read<HomeBloc>().add(const HomeStarted());
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CheckoutSuccessPage(
-            checkOutTime: attendance.checkOutTime ?? DateTime.now(),
-          ),
-        ),
-      );
+      _showSuccessDialog(attendance.checkOutTime ?? DateTime.now());
     } catch (e) {
       AppSnackbar.error(context, e.toString());
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  bool _successDialogShown = false;
+
+  void _showSuccessDialog(DateTime checkOutTime) {
+    if (_successDialogShown) return;
+    _successDialogShown = true;
+
+    final local = checkOutTime.toLocal();
+    final timeText = DateFormat('HH:mm').format(local);
+    final dateText = DateFormat('d MMMM yyyy', 'id_ID').format(local);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Checkout Tersimpan",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Anda pulang pukul",
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                timeText,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 56,
+                  color: Color(0xFF2B3A8F),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Berhasil checkout pada tanggal $dateText",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF2B3A8F),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        context.read<HomeBloc>().add(const HomeStarted());
+        context.read<HistoryBloc>().add(const HistoryFetchRequested());
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    });
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
+    });
   }
 
   @override

@@ -82,11 +82,6 @@ class _SplashPageState extends State<SplashPage>
     await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
     setState(() => _fadeOut = true);
-
-    // 4. Navigasi ke halaman Onboarding
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/onboarding');
   }
 
   @override
@@ -141,7 +136,10 @@ class _SplashPageState extends State<SplashPage>
                     animation: _drawingAnimation,
                     builder: (context, child) {
                       return CustomPaint(
-                        size: Size(size.width * 0.35, (size.width * 0.35) * (153 / 141)),
+                        size: Size(
+                          size.width * 0.35,
+                          (size.width * 0.35) * (153 / 141),
+                        ),
                         painter: MultiSvgPathPainter(
                           paths: _parsedPaths,
                           progress: _drawingAnimation.value,
@@ -224,10 +222,14 @@ class MultiSvgPathPainter extends CustomPainter {
     final List<Rect> pathBounds = paths
         .map((path) => path.transform(matrix.storage).getBounds())
         .toList();
-    final double minY = pathBounds.fold<double>(double.infinity,
-        (value, rect) => value < rect.top ? value : rect.top);
-    final double maxY = pathBounds.fold<double>(-double.infinity,
-        (value, rect) => value > rect.bottom ? value : rect.bottom);
+    final double minY = pathBounds.fold<double>(
+      double.infinity,
+      (value, rect) => value < rect.top ? value : rect.top,
+    );
+    final double maxY = pathBounds.fold<double>(
+      -double.infinity,
+      (value, rect) => value > rect.bottom ? value : rect.bottom,
+    );
     final double height = (maxY - minY).clamp(1.0, double.infinity);
 
     for (int i = 0; i < paths.length; i++) {
@@ -246,8 +248,10 @@ class MultiSvgPathPainter extends CustomPainter {
       if (progress >= end) {
         canvas.drawPath(scaledPath, isAccent ? accentFillPaint : fillPaint);
       } else if (progress > start) {
-        final double pathProgress =
-            ((progress - start) / (end - start)).clamp(0.0, 1.0);
+        final double pathProgress = ((progress - start) / (end - start)).clamp(
+          0.0,
+          1.0,
+        );
 
         for (final PathMetric metric in scaledPath.computeMetrics()) {
           final double extractLength = metric.length * pathProgress;
@@ -260,7 +264,8 @@ class MultiSvgPathPainter extends CustomPainter {
               ? const Color(0xFFF5F7FC)
               : Colors.white;
           final Color fillWithOpacity = fillColor.withAlpha(
-              (pathProgress * 0.7 * 255).clamp(0, 255).toInt());
+            (pathProgress * 0.7 * 255).clamp(0, 255).toInt(),
+          );
           final Paint currentFillPaint = Paint()
             ..color = fillWithOpacity
             ..style = PaintingStyle.fill;

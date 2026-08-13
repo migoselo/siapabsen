@@ -341,7 +341,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2B3A8F),
+                          backgroundColor: const Color(0xFF2F3B69),
                           minimumSize: const Size.fromHeight(54),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

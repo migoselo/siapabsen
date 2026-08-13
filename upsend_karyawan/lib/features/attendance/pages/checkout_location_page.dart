@@ -3,10 +3,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlong;
-
 import '../../attendance/models/location_model.dart';
 import '../../attendance/repository/attendance_repository.dart';
 import '../../attendance/widgets/location_card.dart';
+import '../../attendance/widgets/searching_location_view.dart';
+import '../../attendance/widgets/map_control_button.dart';
 import 'checkout_camera_page.dart';
 
 class CheckoutLocationPage extends StatefulWidget {
@@ -24,6 +25,9 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
   double? _latitude;
   double? _longitude;
   LocationModel? _selectedLocation;
+
+  final MapController _mapController = MapController();
+  bool _isSatelliteView = false;
 
   @override
   void initState() {
@@ -102,9 +106,12 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 20.0),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ),
         title: const Text(
           'Check Out',
@@ -115,35 +122,34 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
           ),
         ),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: _buildBody(context),
-        ),
-      ),
+      body: SafeArea(child: _buildBody(context)),
     );
   }
 
   Widget _buildBody(BuildContext context) {
     if (_isLoading) {
-      return const Column(
-        children: [
-          SizedBox(height: 25),
-          Text(
-            'Sedang mencari lokasi Anda...',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF9A9A9A),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 25.0), // <-- TAMBAHKAN
+        child: Column(
+          children: [
+            const SizedBox(height: 25),
+            const Text(
+              'Sedang mencari lokasi Anda...',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF9A9A9A),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          Expanded(
-            child: Center(
-              child: CircularProgressIndicator(color: Color(0xFFE11D48)),
+            const Expanded(
+              child: Align(
+                alignment: Alignment(0, -0.3),
+                child: SearchingLocationGate(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -154,87 +160,133 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
       );
     }
 
-    return Column(
-      children: [
-        if (_latitude != null && _longitude != null)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
-              height: 220,
-              width: double.infinity,
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: latlong.LatLng(_latitude!, _longitude!),
-                  initialZoom: 16,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.upsend.karyawan',
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: latlong.LatLng(_latitude!, _longitude!),
-                        width: 40,
-                        height: 40,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Color(0xFFE11D48),
-                          size: 40,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25.0),
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          if (_latitude != null && _longitude != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                height: 220,
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: latlong.LatLng(_latitude!, _longitude!),
+                        initialZoom: 16,
+                        interactionOptions: const InteractionOptions(
+                          flags:
+                              InteractiveFlag.pinchZoom | InteractiveFlag.drag,
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                      children: [
+                        _isSatelliteView
+                            ? TileLayer(
+                                urlTemplate:
+                                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                                userAgentPackageName: 'com.upsend.karyawan',
+                              )
+                            : TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.upsend.karyawan',
+                              ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: latlong.LatLng(_latitude!, _longitude!),
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.location_on,
+                                color: Color(0xFFE11D48),
+                                size: 40,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: MapControlButton(
+                        icon: _isSatelliteView
+                            ? Icons.map_outlined
+                            : Icons.satellite,
+                        onTap: () {
+                          setState(() {
+                            _isSatelliteView = !_isSatelliteView;
+                          });
+                        },
+                      ),
+                    ),
+                    Positioned(
+                      top: 58,
+                      right: 10,
+                      child: MapControlButton(
+                        icon: Icons.my_location,
+                        onTap: () {
+                          _mapController.move(
+                            latlong.LatLng(_latitude!, _longitude!),
+                            16,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 15),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Lokasi Anda telah ditemukan',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
-        const SizedBox(height: 16),
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Lokasi Anda telah ditemukan',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        LocationCard(location: _selectedLocation!),
-        const Spacer(),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2F3B69),
-            minimumSize: const Size.fromHeight(54),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            elevation: 0,
-          ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    CheckoutCameraPage(attendanceId: widget.attendanceId),
+          const SizedBox(height: 15),
+          LocationCard(location: _selectedLocation!),
+          const Spacer(),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2F3B69),
+              minimumSize: const Size.fromHeight(54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
               ),
-            );
-          },
-          child: const Text(
-            'Lanjut',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              elevation: 0,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      CheckoutCameraPage(attendanceId: widget.attendanceId),
+                ),
+              );
+            },
+            child: const Text(
+              "Lanjut",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-      ],
+          const SizedBox(height: 32),
+        ],
+      ),
     );
   }
 }
@@ -247,53 +299,58 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 40),
-        Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFFEF2F2),
-          ),
-          child: const Icon(
-            Icons.location_off_outlined,
-            color: Color(0xFFDC2626),
-            size: 42,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF4B4B4B),
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2F3B69),
-            minimumSize: const Size.fromHeight(54),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+    return Padding(
+      // <-- BARU: bungkus dengan Padding sendiri
+      padding: const EdgeInsets.symmetric(horizontal: 25.0),
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFEF2F2),
             ),
-            elevation: 0,
+            child: const Icon(
+              Icons.location_off_outlined,
+              color: Color(0xFFDC2626),
+              size: 42,
+            ),
           ),
-          onPressed: onRetry,
-          child: const Text(
-            'Coba lagi',
-            style: TextStyle(
-              color: Colors.white,
+          const SizedBox(height: 24),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF4B4B4B),
               fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        ),
-      ],
+          const Spacer(), // <-- UBAH: dari SizedBox(16) jadi Spacer, biar tombol selalu nempel bawah, samakan pola dgn checkin
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2F3B69),
+              minimumSize: const Size.fromHeight(54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              elevation: 0,
+            ),
+            onPressed: onRetry,
+            child: const Text(
+              'Coba lagi',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 32), // <-- BARU: samakan dengan checkin
+        ],
+      ),
     );
   }
 }
