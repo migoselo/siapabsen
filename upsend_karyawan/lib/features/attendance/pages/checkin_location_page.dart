@@ -170,7 +170,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                             child: _MapControlButton(
                               icon: _isSatelliteView
                                   ? Icons.map_outlined
-                                  : Icons.satellite_alt_outlined,
+                                  : Icons.satellite,
                               onTap: () {
                                 setState(() {
                                   _isSatelliteView = !_isSatelliteView;
@@ -437,6 +437,7 @@ class _SearchingLocationViewState extends State<_SearchingLocationView>
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // Cincin putus-putus -> TETAP STATIS
           DottedBorder(
             options: CircularDottedBorderOptions(
               color: strokeColor,
@@ -452,50 +453,56 @@ class _SearchingLocationViewState extends State<_SearchingLocationView>
               ),
             ),
           ),
+
+          // Semua yang lain -> IKUT BERDENYUT bersamaan
           ScaleTransition(
             scale: _scaleAnimation,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: fillColor.withOpacity(0.15),
+            child: SizedBox(
+              width: 220,
+              height: 220,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: fillColor.withOpacity(0.15),
+                    ),
                   ),
-                ),
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    border: Border.all(color: strokeColor, width: 2),
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(color: strokeColor, width: 2),
+                    ),
+                    child: Icon(
+                      Icons.location_on_outlined,
+                      color: strokeColor,
+                      size: 30,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.location_on_outlined,
-                    color: strokeColor,
-                    size: 30,
+                  const Positioned(
+                    top: 20,
+                    left: 25,
+                    child: _MiniPinBadge(color: strokeColor),
                   ),
-                ),
-              ],
+                  const Positioned(
+                    top: 30,
+                    right: 30,
+                    child: _MiniPinBadge(color: fillColor),
+                  ),
+                  const Positioned(
+                    bottom: 35,
+                    right: 20,
+                    child: _MiniPinBadge(color: Color(0xFF06B6D4)),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Positioned(
-            top: 20,
-            left: 25,
-            child: _MiniPinBadge(color: strokeColor),
-          ),
-          const Positioned(
-            top: 30,
-            right: 30,
-            child: _MiniPinBadge(color: fillColor),
-          ),
-          const Positioned(
-            bottom: 35,
-            right: 20,
-            child: _MiniPinBadge(color: Color(0xFF06B6D4)),
           ),
         ],
       ),
