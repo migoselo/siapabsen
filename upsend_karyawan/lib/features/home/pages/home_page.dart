@@ -34,17 +34,36 @@ class _HomePageState extends State<HomePage> {
     context.read<HomeBloc>().add(const HomeStarted());
   }
 
+  Future<void> _handleNavTap(int index) async {
+    if (index == 2) {
+      // Presensi -> buka sebagai halaman TERPISAH (bukan tab IndexedStack)
+      // supaya navbar hilang & fokus penuh ke flow check-in/out.
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
+      );
+      if (mounted) {
+        setState(() => _activeNavIndex = 0);
+        context.read<HomeBloc>().add(const HomeStarted());
+      }
+      return;
+    }
+
+    setState(() => _activeNavIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackground,
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _activeNavIndex,
-        onTap: (index) {
-          setState(() => _activeNavIndex = index);
-        },
+        onTap: _handleNavTap,
       ),
       body: IndexedStack(
+        // _activeNavIndex TIDAK PERNAH bernilai 2 (Presensi ditangani
+        // secara terpisah via push di atas), jadi child index 2 di bawah
+        // ini gak pernah benar-benar ditampilkan -- aman diisi placeholder.
         index: _activeNavIndex,
         children: [
           SafeArea(
@@ -121,7 +140,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const RiwayatCutiScreen(showBottomNav: false, showBackButton: true),
-          const CheckinLocationPage(),
+          const SizedBox.shrink(), // placeholder index 2, gak pernah tampil
           const RiwayatPage(showBottomNav: false, showBackButton: true),
           const ProfilePage(showBottomNav: false, showBackButton: true),
         ],
@@ -165,7 +184,7 @@ class _CheckOutButton extends StatelessWidget {
                   Icon(Icons.logout, size: 18, color: Colors.white),
                   SizedBox(width: 8),
                   Text(
-                    'Check Out sekarang',
+                    'Check Out',
                     style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 15,
