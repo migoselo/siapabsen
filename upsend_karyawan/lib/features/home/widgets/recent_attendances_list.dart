@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../attendance/models/attendance_model.dart';
 
 const Color kTextPrimary = Color(0xFF0F172A);
-const Color kTextSecondary = Color(0xFF6B7280);
+const Color kTextSecondary = Color(0xFF9A9A9A);
 const Color kPrimary = Color(0xFF2B3A8F);
 
 class _HistoryEntry {
@@ -100,8 +100,8 @@ class _HistoryTile extends StatelessWidget {
         ? 'assets/images/checkin.svg'
         : 'assets/images/checkout.svg';
     final bgColor = entry.isCheckIn
-        ? const Color(0xFFE7EBF5)
-        : const Color(0xFFE8EFFB);
+        ? const Color(0xFFDCFCE7)
+        : const Color(0xFFDBEAFE);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
