@@ -53,6 +53,11 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  double get _secondaryButtonsHeight {
+    int count = 2;
+    return (count * 50) + (count * 12) + 5;
+  }
+
   String _getLoginIdentifier() {
     switch (_currentLoginType) {
       case LoginType.email:
@@ -202,62 +207,82 @@ class _LoginPageState extends State<LoginPage> {
         }
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              // Bagian atas: BISA DI-SCROLL (logo, judul, form)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 24.0,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 40),
-                      Center(
-                        child: SvgPicture.asset(
-                          'assets/images/Logo2.svg',
-                          height: 100,
-                          width: 100,
-                          placeholderBuilder: (context) => const Icon(
-                            Icons.navigation_rounded,
-                            size: 72,
-                            color: primaryColor,
+              Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24.0,
+                        vertical: 24.0,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 40),
+                          Center(
+                            child: SvgPicture.asset(
+                              'assets/images/Logo2.svg',
+                              height: 100,
+                              width: 100,
+                              placeholderBuilder: (context) => const Icon(
+                                Icons.navigation_rounded,
+                                size: 72,
+                                color: primaryColor,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 28),
+                          Text(
+                            'Masuk ke Akun',
+                            textAlign: TextAlign.center,
+                            style: _jakartaStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Masukkan detail Anda untuk melanjutkan',
+                            textAlign: TextAlign.center,
+                            style: _jakartaStyle(
+                              fontSize: 16,
+                              color: subtitleColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          _buildFormByLoginType(),
+                          const SizedBox(
+                            height: 74,
+                          ), // <-- BARU: ruang kosong seukuran tombol "Masuk" biar konten scroll ga ketutup
+                        ],
                       ),
-                      const SizedBox(height: 28),
-                      Text(
-                        'Masuk ke Akun',
-                        textAlign: TextAlign.center,
-                        style: _jakartaStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Masukkan detail Anda untuk melanjutkan',
-                        textAlign: TextAlign.center,
-                        style: _jakartaStyle(
-                          fontSize: 16,
-                          color: subtitleColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      _buildFormByLoginType(),
-                    ],
+                    ),
                   ),
-                ),
+
+                  // Tombol sekunder: DIAM, tidak ikut naik
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 5),
+                    child:
+                        _buildSecondaryButtons(), // <-- UBAH: dari _buildActionButtons()
+                  ),
+                ],
               ),
 
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 5),
-                child: _buildActionButtons(),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                left: 24,
+                right: 24,
+                bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                    ? MediaQuery.of(context).viewInsets.bottom + 12
+                    : _secondaryButtonsHeight + 17,
+                child: _buildPrimaryButton(),
               ),
             ],
           ),
@@ -493,46 +518,48 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildPrimaryButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          final isLoading = state.status == AuthStatus.authenticating;
+          return ElevatedButton(
+            onPressed: isLoading ? null : _login,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(
+                    'Masuk',
+                    style: _jakartaStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSecondaryButtons() {
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: BlocBuilder<AuthBloc, AuthState>(
-            builder: (context, state) {
-              final isLoading = state.status == AuthStatus.authenticating;
-              return ElevatedButton(
-                onPressed: isLoading ? null : _login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(
-                        'Masuk',
-                        style: _jakartaStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
         if (_currentLoginType != LoginType.employeeId)
           _buildSecondaryButton(
             text: 'Masuk dengan ID karyawan',
@@ -569,7 +596,6 @@ class _LoginPageState extends State<LoginPage> {
               });
             },
           ),
-        const SizedBox(height: 12),
       ],
     );
   }

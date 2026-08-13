@@ -6,7 +6,6 @@ class Api {
   static final Dio dio = Dio(
     BaseOptions(
       baseUrl: 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
-
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',

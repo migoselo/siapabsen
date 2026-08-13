@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../widgets/profile_header.dart';
-import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/pages/edit_password_page.dart';
+import '../../../core/widgets/custom_bottom_navbar.dart';
+import '../../attendance/pages/checkin_location_page.dart';
+import 'biodata_page.dart';
 
+const Color kNavy = Color(0xFF2E3A6E);
 const Color kTextPrimary = Color(0xFF0F172A);
 const Color kTextSecondary = Color(0xFF6B7280);
 const Color kDanger = Color(0xFFE11D48);
 const Color kBorder = Color(0xFFE5E7EB);
+const String kFontFamily = 'PlusJakartaSans';
 
 class ProfilePage extends StatelessWidget {
   final bool showBottomNav;
@@ -34,11 +38,7 @@ class ProfilePage extends StatelessWidget {
                   if (Navigator.canPop(context)) {
                     Navigator.popUntil(context, ModalRoute.withName('/home'));
                   } else {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (route) => false,
-                    );
+                    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
                   }
                 },
               )
@@ -46,8 +46,9 @@ class ProfilePage extends StatelessWidget {
         title: const Text(
           'Profil',
           style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
+            fontFamily: kFontFamily,
             fontWeight: FontWeight.bold,
+            fontSize: 18,
             color: Colors.black,
           ),
         ),
@@ -55,45 +56,47 @@ class ProfilePage extends StatelessWidget {
       ),
       bottomNavigationBar: showBottomNav
           ? CustomBottomNavBar(
-              currentIndex: 4,
-              onTap: (index) {
+              currentIndex: 4, // Profil
+              onTap: (index) async {
                 if (index == 4) return;
-                if (index == 0) {
+
+                if (index == 2) {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                } else if (index == 1) {
+                  await Navigator.pushNamed(context, '/riwayat_cuti');
+                  if (context.mounted) Navigator.pop(context);
+                } else if (index == 3) {
+                  await Navigator.pushNamed(context, '/riwayat');
+                  if (context.mounted) Navigator.pop(context);
+                } else {
                   if (Navigator.canPop(context)) {
                     Navigator.popUntil(context, ModalRoute.withName('/home'));
                   } else {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (route) => false,
-                    );
+                    await Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
                   }
                 }
-                // TODO: index 1 (Izin), 2 (Presensi), 3 (Riwayat) — arahkan
-                // ke halaman masing-masing kalau udah ada, sementara belum
-                // saya tau route/widget-nya.
               },
             )
           : null,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state.status == AuthStatus.unauthenticated) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/login',
-              (route) => false,
-            );
+            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
           }
         },
         builder: (context, state) {
           if (state.status == AuthStatus.authenticating ||
               state.status == AuthStatus.unknown) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF006948)),
-            );
+            return const Center(child: CircularProgressIndicator(color: kNavy));
           }
 
           final user = state.user;
+          final userName = user?.name ?? '-';
+          final userEmail = user?.email ?? '-';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -103,17 +106,12 @@ class ProfilePage extends StatelessWidget {
                 Center(
                   child: Column(
                     children: [
-                      ClipOval(
-                        child: IdenticonAvatar(
-                          username: user?.name ?? '-',
-                          size: 100.0,
-                        ),
-                      ),
+                      ClipOval(child: IdenticonAvatar(username: userName, size: 100.0)),
                       const SizedBox(height: 12),
                       Text(
-                        user?.name ?? '-',
+                        userName,
                         style: const TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: kFontFamily,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: kTextPrimary,
@@ -121,85 +119,89 @@ class ProfilePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        user?.email ?? '-',
+                        userEmail,
                         style: const TextStyle(
-                          fontFamily: 'PlusJakartaSans',
+                          fontFamily: kFontFamily,
                           fontSize: 13,
                           color: kTextSecondary,
                         ),
                       ),
+                      const SizedBox(height: 6),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Full time developer', // TODO: dummy
+                            style: TextStyle(fontFamily: kFontFamily, fontSize: 12, color: kTextSecondary),
+                          ),
+                          SizedBox(width: 12),
+                          Icon(Icons.location_on_outlined, size: 14, color: kTextSecondary),
+                          SizedBox(width: 2),
+                          Text(
+                            'Kantor Pusat', // TODO: dummy
+                            style: TextStyle(fontFamily: kFontFamily, fontSize: 12, color: kTextSecondary),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
 
-                const Text(
-                  'Informasi Akun',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kTextSecondary,
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BiodataPage(userName: userName, userEmail: userEmail),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kNavy,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Lihat Biodata Lengkap',
+                      style: TextStyle(fontFamily: kFontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                const Text('Informasi Akun', style: TextStyle(fontFamily: kFontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: kBorder),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(border: Border.all(color: kBorder), borderRadius: BorderRadius.circular(12)),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start, // <- TAMBAHIN INI
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _InfoRow(
-                        label: 'ID Karyawan',
-                        value: user?.employeeCode ?? '-',
-                      ),
+                      _InfoRow(label: 'ID karyawan', value: user?.employeeCode ?? '-'),
                       const Divider(height: 1, color: kBorder),
                       _InfoRow(label: 'Nomor HP', value: user?.noHp ?? '-'),
                       const Divider(height: 1, color: kBorder),
-                      _InfoRow(
-                        label: 'Lokasi Kerja',
-                        value: user?.homeLocationName ?? '-',
-                        isLast: true,
-                      ),
+                      const _InfoRow(label: 'Departemen', value: 'Developer'), // TODO: dummy
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                const Text(
-                  'Pengaturan',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kTextSecondary,
-                  ),
-                ),
+                const Text('Pengaturan', style: TextStyle(fontFamily: kFontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
                 const SizedBox(height: 10),
                 Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: kBorder),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(border: Border.all(color: kBorder), borderRadius: BorderRadius.circular(12)),
                   child: Column(
                     children: [
                       _SettingRow(
                         label: 'Edit Password',
                         showChevron: true,
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const EditPasswordPage(),
-                            ),
-                          );
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const EditPasswordPage()));
                         },
                       ),
                       const Divider(height: 1, color: kBorder),
@@ -207,9 +209,7 @@ class ProfilePage extends StatelessWidget {
                         label: 'Logout',
                         textColor: kDanger,
                         onTap: () {
-                          context.read<AuthBloc>().add(
-                            const AuthLogoutRequested(),
-                          );
+                          context.read<AuthBloc>().add(const AuthLogoutRequested());
                         },
                       ),
                     ],
@@ -228,13 +228,7 @@ class ProfilePage extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
-  final bool isLast;
-
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.isLast = false,
-  });
+  const _InfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -243,24 +237,9 @@ class _InfoRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 11,
-              color: kTextSecondary,
-            ),
-          ),
+          Text(label, style: const TextStyle(fontFamily: kFontFamily, fontSize: 11, color: kTextSecondary)),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: kTextPrimary,
-            ),
-          ),
+          Text(value, style: const TextStyle(fontFamily: kFontFamily, fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary)),
         ],
       ),
     );
@@ -273,12 +252,7 @@ class _SettingRow extends StatelessWidget {
   final Color? textColor;
   final VoidCallback onTap;
 
-  const _SettingRow({
-    required this.label,
-    this.showChevron = false,
-    this.textColor,
-    required this.onTap,
-  });
+  const _SettingRow({required this.label, this.showChevron = false, this.textColor, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -289,17 +263,8 @@ class _SettingRow extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: textColor ?? kTextPrimary,
-              ),
-            ),
-            if (showChevron)
-              const Icon(Icons.chevron_right, color: kTextSecondary, size: 20),
+            Text(label, style: TextStyle(fontFamily: kFontFamily, fontSize: 15, fontWeight: FontWeight.w600, color: textColor ?? kTextPrimary)),
+            if (showChevron) const Icon(Icons.chevron_right, color: kTextSecondary, size: 20),
           ],
         ),
       ),
