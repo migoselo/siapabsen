@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../attendance/models/attendance_model.dart';
+import '../../history/pages/riwayat_detail_page.dart';
 
 const Color kTextPrimary = Color(0xFF0F172A);
-const Color kTextSecondary = Color(0xFF6B7280);
+const Color kTextSecondary = Color(0xFF9A9A9A);
 const Color kPrimary = Color(0xFF2B3A8F);
 
 class _HistoryEntry {
+  final AttendanceModel record;
   final bool isCheckIn;
   final DateTime time;
-  const _HistoryEntry({required this.isCheckIn, required this.time});
+  const _HistoryEntry({
+    required this.record,
+    required this.isCheckIn,
+    required this.time,
+  });
 }
 
 class RecentAttendanceList extends StatelessWidget {
@@ -27,9 +33,13 @@ class RecentAttendanceList extends StatelessWidget {
   List<_HistoryEntry> _buildEntries() {
     final entries = <_HistoryEntry>[];
     for (final r in history) {
-      entries.add(_HistoryEntry(isCheckIn: true, time: r.checkInTime));
+      entries.add(
+        _HistoryEntry(record: r, isCheckIn: true, time: r.checkInTime),
+      );
       if (r.checkOutTime != null) {
-        entries.add(_HistoryEntry(isCheckIn: false, time: r.checkOutTime!));
+        entries.add(
+          _HistoryEntry(record: r, isCheckIn: false, time: r.checkOutTime!),
+        );
       }
     }
     entries.sort((a, b) => b.time.compareTo(a.time));
@@ -100,60 +110,72 @@ class _HistoryTile extends StatelessWidget {
         ? 'assets/images/checkin.svg'
         : 'assets/images/checkout.svg';
     final bgColor = entry.isCheckIn
-        ? const Color(0xFFE7EBF5)
-        : const Color(0xFFE8EFFB);
+        ? const Color(0xFFDCFCE7)
+        : const Color(0xFFDBEAFE);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
-            child: Center(child: SvgPicture.asset(iconAsset, width: 16, height: 16)),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RiwayatDetailPage(record: entry.record),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kTextPrimary,
-                  ),
-                ),
-                Text(
-                  _formatDate(entry.time),
-                  style: const TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 11,
-                    color: kTextSecondary,
-                  ),
-                ),
-              ],
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+              child: Center(
+                child: SvgPicture.asset(iconAsset, width: 16, height: 16),
+              ),
             ),
-          ),
-          Text(
-            _formatTime(entry.time),
-            style: const TextStyle(
-              fontFamily: 'PlusJakartaSans',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: kTextPrimary,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary,
+                    ),
+                  ),
+                  Text(
+                    _formatDate(entry.time),
+                    style: const TextStyle(
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 11,
+                      color: kTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            Text(
+              _formatTime(entry.time),
+              style: const TextStyle(
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kTextPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -165,10 +187,28 @@ class _HistoryTile extends StatelessWidget {
   }
 
   String _formatDate(DateTime value) {
-    const hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    const hari = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
     const bulan = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
     return '${hari[value.weekday - 1]}, ${bulan[value.month - 1]} ${value.day}, ${value.year}';
   }

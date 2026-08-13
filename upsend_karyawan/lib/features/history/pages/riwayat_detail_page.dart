@@ -215,7 +215,7 @@ class RiwayatDetailPage extends StatelessWidget {
                                           ),
                                           SizedBox(width: 4),
                                           Text(
-                                            'Verified',
+                                            'Terverifikasi',
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 11,
@@ -390,7 +390,7 @@ class RiwayatDetailPage extends StatelessWidget {
                                         ),
                                         SizedBox(width: 4),
                                         Text(
-                                          'Foto Checkout',
+                                          'Terverifikasi',
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 11,

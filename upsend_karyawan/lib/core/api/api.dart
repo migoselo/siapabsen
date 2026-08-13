@@ -5,9 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Api {
   static final Dio dio = Dio(
     BaseOptions(
-      // Gunakan backend lokal saat debug, karena data di database lokal harus sama dengan yang muncul di app.
-      baseUrl:'https://dipodic-burlily-roxie.ngrok-free.dev/api',
-
+      baseUrl: 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
