@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../../history/bloc/history_bloc.dart';
+import '../../history/bloc/history_event.dart';
 import '../../home/bloc/home_bloc.dart';
 import '../../home/bloc/home_event.dart';
 import '../widgets/attendance_stepper.dart';
@@ -122,6 +124,9 @@ class CheckoutSuccessPage extends StatelessWidget {
                 ),
                 onPressed: () {
                   context.read<HomeBloc>().add(const HomeStarted());
+                  context.read<HistoryBloc>().add(
+                    const HistoryFetchRequested(),
+                  );
                   Navigator.popUntil(context, (route) => route.isFirst);
                 },
                 child: const Text(

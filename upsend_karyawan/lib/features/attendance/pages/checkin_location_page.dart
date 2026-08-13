@@ -277,7 +277,7 @@ class _LocationRetryView extends StatelessWidget {
         !state.selectedLocation!.withinRadius) {
       return "Anda di luar jangkauan lokasi";
     }
-    return "Lokasi kantor tidak ditemukan";
+    return "Gagal mendeteksi lokasi";
   }
 
   String _subtitle() {
@@ -290,7 +290,7 @@ class _LocationRetryView extends StatelessWidget {
       final loc = state.selectedLocation!;
       return "Jarak Anda ${loc.distance.toStringAsFixed(0)}m dari ${loc.name} (radius maksimal ${loc.radiusMeter}m). Mendekatlah ke lokasi kantor.";
     }
-    return "Tidak ada lokasi kantor yang terdeteksi di sekitar Anda.";
+    return "Gagal mendeteksi lokasi kantor di sekitar Anda.";
   }
 
   @override
@@ -531,32 +531,6 @@ class _MiniPinBadge extends StatelessWidget {
         ],
       ),
       child: Icon(Icons.location_on, color: color, size: 16),
-    );
-  }
-}
-
-class _MapControlButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _MapControlButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 3,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          child: Icon(icon, color: const Color(0xFF2F3B69), size: 20),
-        ),
-      ),
     );
   }
 }
