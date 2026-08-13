@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('attendances')) {
+            return;
+        }
+
         // If the application already uses 'employee_id' do nothing
         if (Schema::hasColumn('attendances', 'employee_id')) {
             return;
@@ -61,6 +65,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('attendances')) {
+            return;
+        }
+
         // Add user_id back if missing and copy data from employee_id
         if (!Schema::hasColumn('attendances', 'user_id')) {
             Schema::table('attendances', function (Blueprint $table) {

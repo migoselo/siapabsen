@@ -1,9 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../models/cuti_model.dart';
+import '../../../../core/api/api.dart';
 
 class PengajuanCutiScreen extends StatefulWidget {
   const PengajuanCutiScreen({super.key});
@@ -81,7 +82,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     super.dispose();
   }
 
-  void _saveCuti() {
+  Future<void> _saveCuti() async {
     if (_tanggalMulai == null || _tanggalSelesai == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pilih tanggal mulai dan selesai.')),
@@ -111,32 +112,52 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       'Cuti Penting',
     ];
     final String tipeLabel = tipeLabels[_selectedTipeCuti];
-    final String dateRange =
-        '${DateFormat('dd MMM yyyy', 'id_ID').format(_tanggalMulai!)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(_tanggalSelesai!)}';
-    final int durationDays =
-        _tanggalSelesai!.difference(_tanggalMulai!).inDays + 1;
 
-    final newCuti = CutiModel(
-      svgPath: _selectedTipeCuti == 1
-          ? 'assets/images/Medical.svg'
-          : _selectedTipeCuti == 2
-          ? 'assets/images/seru.svg'
-          : 'assets/images/Calendar.svg',
-      iconBgColor: _selectedTipeCuti == 1
-          ? const Color(0xFFFFF7E6)
-          : _selectedTipeCuti == 2
-          ? const Color(0xFFFFEAEA)
-          : const Color(0xFFE8EEFF),
-      title: tipeLabel,
-      subtitle: _alasanController.text.trim(),
-      statusText: 'DIPROSES',
-      statusColor: const Color(0xFFFFF8E1),
-      statusTextColor: const Color(0xFFE2B93B),
-      dateRange: dateRange,
-      duration: '$durationDays Hari',
-    );
+    try {
+      await Api.dio.post(
+        '/leave-requests',
+        data: {
+          'type': tipeLabel,
+          'leave_type_id': _selectedTipeCuti + 1,
+          'start_date': _tanggalMulai!.toIso8601String().split('T').first,
+          'end_date': _tanggalSelesai!.toIso8601String().split('T').first,
+          'reason': _alasanController.text.trim(),
+        },
+      );
 
-    Navigator.pop(context, newCuti);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pengajuan cuti berhasil dikirim.')),
+      );
+      Navigator.pop(context, true);
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      String message = 'Gagal mengirim pengajuan cuti.';
+
+      if (data is Map) {
+        // Try to get custom message first
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+        // Then try to extract validation errors
+        else if (data['errors'] is Map) {
+          final errors = data['errors'] as Map;
+          final errorMessages = errors.values
+              .whereType<List>()
+              .expand((list) => list)
+              .map((e) => e.toString())
+              .toList();
+          if (errorMessages.isNotEmpty) {
+            message = errorMessages.join('\n');
+          }
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   @override
