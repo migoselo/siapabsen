@@ -10,6 +10,8 @@ import 'checkin_success_page.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlong;
+import 'package:flutter_map/flutter_map.dart' hide MapController;
+import 'package:flutter_map/flutter_map.dart' show MapController;
 
 class CheckinLocationPage extends StatefulWidget {
   const CheckinLocationPage({super.key});
@@ -19,6 +21,9 @@ class CheckinLocationPage extends StatefulWidget {
 }
 
 class _CheckinLocationPageState extends State<CheckinLocationPage> {
+  final MapController _mapController = MapController();
+  bool _isSatelliteView = false;
+
   @override
   void initState() {
     super.initState();
@@ -106,41 +111,90 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                     child: SizedBox(
                       height: 220,
                       width: double.infinity,
-                      child: FlutterMap(
-                        options: MapOptions(
-                          initialCenter: latlong.LatLng(
-                            state.latitude!,
-                            state.longitude!,
-                          ),
-                          initialZoom: 16,
-                          interactionOptions: const InteractionOptions(
-                            flags:
-                                InteractiveFlag.pinchZoom |
-                                InteractiveFlag.drag,
-                          ),
-                        ),
+                      child: Stack(
                         children: [
-                          TileLayer(
-                            urlTemplate:
-                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.upsend.karyawan',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: latlong.LatLng(
-                                  state.latitude!,
-                                  state.longitude!,
-                                ),
-                                width: 40,
-                                height: 40,
-                                child: const Icon(
-                                  Icons.location_on,
-                                  color: Color(0xFFE11D48),
-                                  size: 40,
-                                ),
+                          FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: latlong.LatLng(
+                                state.latitude!,
+                                state.longitude!,
+                              ),
+                              initialZoom: 16,
+                              interactionOptions: const InteractionOptions(
+                                flags:
+                                    InteractiveFlag.pinchZoom |
+                                    InteractiveFlag.drag,
+                              ),
+                            ),
+                            children: [
+                              // Tampilan jalan (OpenStreetMap) atau satelit (Esri),
+                              // tergantung _isSatelliteView
+                              _isSatelliteView
+                                  ? TileLayer(
+                                      urlTemplate:
+                                          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                                      userAgentPackageName:
+                                          'com.upsend.karyawan',
+                                    )
+                                  : TileLayer(
+                                      urlTemplate:
+                                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                      userAgentPackageName:
+                                          'com.upsend.karyawan',
+                                    ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: latlong.LatLng(
+                                      state.latitude!,
+                                      state.longitude!,
+                                    ),
+                                    width: 40,
+                                    height: 40,
+                                    child: const Icon(
+                                      Icons.location_on,
+                                      color: Color(0xFFE11D48),
+                                      size: 40,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
+                          ),
+
+                          // Tombol toggle jalan/satelit (pojok kanan atas)
+                          Positioned(
+                            top: 10,
+                            right: 10,
+                            child: _MapControlButton(
+                              icon: _isSatelliteView
+                                  ? Icons.map_outlined
+                                  : Icons.satellite_alt_outlined,
+                              onTap: () {
+                                setState(() {
+                                  _isSatelliteView = !_isSatelliteView;
+                                });
+                              },
+                            ),
+                          ),
+
+                          // Tombol "lokasi saya" (di bawah tombol toggle)
+                          Positioned(
+                            top: 58,
+                            right: 10,
+                            child: _MapControlButton(
+                              icon: Icons.my_location,
+                              onTap: () {
+                                _mapController.move(
+                                  latlong.LatLng(
+                                    state.latitude!,
+                                    state.longitude!,
+                                  ),
+                                  16,
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -219,7 +273,8 @@ class _LocationRetryView extends StatelessWidget {
     if (state.status == AttendanceStatus.failure) {
       return "Gagal mendeteksi lokasi";
     }
-    if (state.selectedLocation != null && !state.selectedLocation!.withinRadius) {
+    if (state.selectedLocation != null &&
+        !state.selectedLocation!.withinRadius) {
       return "Anda di luar jangkauan lokasi";
     }
     return "Lokasi kantor tidak ditemukan";
@@ -230,7 +285,8 @@ class _LocationRetryView extends StatelessWidget {
       return state.errorMessage?.replaceFirst('Exception: ', '') ??
           "Terjadi kesalahan saat mengambil lokasi.";
     }
-    if (state.selectedLocation != null && !state.selectedLocation!.withinRadius) {
+    if (state.selectedLocation != null &&
+        !state.selectedLocation!.withinRadius) {
       final loc = state.selectedLocation!;
       return "Jarak Anda ${loc.distance.toStringAsFixed(0)}m dari ${loc.name} (radius maksimal ${loc.radiusMeter}m). Mendekatlah ke lokasi kantor.";
     }
@@ -468,6 +524,32 @@ class _MiniPinBadge extends StatelessWidget {
         ],
       ),
       child: Icon(Icons.location_on, color: color, size: 16),
+    );
+  }
+}
+
+class _MapControlButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _MapControlButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 3,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          child: Icon(icon, color: const Color(0xFF2F3B69), size: 20),
+        ),
+      ),
     );
   }
 }
