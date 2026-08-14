@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Location;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -120,6 +121,33 @@ class AttendanceController extends Controller
         ]);
 
         return response()->json($attendance->fresh()->load('location'));
+    }
+
+    public function photo(Request $request)
+    {
+        $path = trim((string) $request->query('path', ''));
+
+        if ($path === '') {
+            return response()->json(['message' => 'Path foto wajib diisi.'], 400);
+        }
+
+        $cleanPath = str_replace(['\\', '../', '..\\'], '/', $path);
+        $cleanPath = ltrim($cleanPath, '/');
+
+        if (! str_starts_with($cleanPath, 'attendance-photos/')) {
+            return response()->json(['message' => 'Path foto tidak valid.'], 400);
+        }
+
+        if (! Storage::disk('public')->exists($cleanPath)) {
+            return response()->json(['message' => 'Foto tidak ditemukan.'], 404);
+        }
+
+        $file = Storage::disk('public')->path($cleanPath);
+
+        return response()->file($file)
+            ->header('Access-Control-Allow-Origin', '*')
+            ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+            ->header('Access-Control-Allow-Headers', '*');
     }
 
     public function myOpenSession(Request $request)
