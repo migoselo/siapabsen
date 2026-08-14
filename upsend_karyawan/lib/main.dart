@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:upsend_karyawan/core/api/api.dart';
 import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
 import 'package:upsend_karyawan/features/history/pages/riwayat_page.dart';
 import 'package:upsend_karyawan/features/onboarding/pages/onboarding_screen.dart';
@@ -10,7 +11,6 @@ import '../features/home/repository/home_repository.dart';
 import '../features/attendance/repository/attendance_repository.dart';
 import '../features/home/pages/home_page.dart';
 import '../features/profile/pages/profile_page.dart';
-import 'package:upsend_karyawan/features/profile/widgets/minidenticon_generator.dart';
 import '../features/attendance/pages/checkin_location_page.dart';
 import '../features/attendance/bloc/attendance_bloc.dart';
 import '../features/auth/bloc/auth_bloc.dart';
@@ -23,6 +23,7 @@ import '../features/history/repository/history_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Api.init();
   await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }

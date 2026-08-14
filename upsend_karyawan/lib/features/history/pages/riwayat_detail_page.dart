@@ -17,15 +17,15 @@ class RiwayatDetailPage extends StatelessWidget {
     }
 
     final normalized = value.startsWith('/') ? value.substring(1) : value;
+    final sanitized = normalized.startsWith('storage/')
+        ? normalized.replaceFirst('storage/', '')
+        : normalized;
+
     final baseUri = Uri.parse(Api.dio.options.baseUrl);
     final origin =
         '${baseUri.scheme}://${baseUri.host}${baseUri.hasPort ? ':${baseUri.port}' : ''}';
 
-    if (normalized.startsWith('storage/')) {
-      return '$origin/$normalized';
-    }
-
-    return '$origin/storage/$normalized';
+    return '$origin/api/attendance-photo?path=${Uri.encodeComponent(sanitized)}';
   }
 
   @override
@@ -479,7 +479,10 @@ class _LocationInfo extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 locationName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
