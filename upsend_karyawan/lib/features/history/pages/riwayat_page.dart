@@ -5,7 +5,9 @@ import '../bloc/history_bloc.dart';
 import '../bloc/history_event.dart';
 import '../bloc/history_state.dart';
 import '../widgets/riwayat_card.dart';
-import '../widgets/riwayat_date_strip.dart';
+import '../widgets/riwayat_periode_toggle.dart';
+import '../widgets/riwayat_periode_strip.dart';
+import '../widgets/riwayat_category_chart.dart';
 import '../../attendance/models/attendance_model.dart';
 import 'riwayat_detail_page.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -27,25 +29,76 @@ class RiwayatPage extends StatefulWidget {
 }
 
 class _RiwayatPageState extends State<RiwayatPage> {
-  DateTime? _selectedDate;
-  bool _isFilterActive = false;
   final DateTime _today = DateTime.now();
+  PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
+  late DateTime _anchorDate = _today;
+  String? _selectedKategori;
+  DateTimeRange? _customRange; // aktif kalau user pilih rentang manual lewat kalender
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<HistoryBloc>().add(const HistoryFetchRequested());
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchForPeriode());
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final historyBloc = context.read<HistoryBloc>();
-    final picked = await showDatePicker(
+  // Hitung rentang tanggal (dari custom range, atau dari periode aktif), lalu fetch ke bloc
+  void _fetchForPeriode() {
+    late DateTime start;
+    late DateTime end;
+
+    if (_customRange != null) {
+      start = _customRange!.start;
+      end = _customRange!.end;
+    } else {
+      switch (_periode) {
+        case PeriodeRiwayat.mingguan:
+          start =
+              _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
+          end = start.add(const Duration(days: 6));
+          break;
+        case PeriodeRiwayat.bulanan:
+          start = DateTime(_anchorDate.year, _anchorDate.month, 1);
+          end = DateTime(_anchorDate.year, _anchorDate.month + 1, 0);
+          break;
+        case PeriodeRiwayat.tahunan:
+          start = DateTime(_anchorDate.year, 1, 1);
+          end = DateTime(_anchorDate.year, 12, 31);
+          break;
+      }
+    }
+
+    context.read<HistoryBloc>().add(
+          HistoryFetchRequested(startDate: start, endDate: end),
+        );
+  }
+
+  void _onPeriodeChanged(PeriodeRiwayat p) {
+    setState(() {
+      _periode = p;
+      _selectedKategori = null;
+      _customRange = null;
+    });
+    _fetchForPeriode();
+  }
+
+  void _onStripSelected(DateTime date) {
+    setState(() {
+      _anchorDate = date;
+      _customRange = null;
+    });
+    _fetchForPeriode();
+  }
+
+  Future<void> _pickDateRange(BuildContext context) async {
+    final picked = await showDateRangePicker(
       context: context,
-      initialDate: _selectedDate ?? _today,
       firstDate: DateTime(2020),
       lastDate: _today,
+      initialDateRange: _customRange ??
+          DateTimeRange(
+            start: _anchorDate.subtract(const Duration(days: 6)),
+            end: _anchorDate,
+          ),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -56,25 +109,32 @@ class _RiwayatPageState extends State<RiwayatPage> {
       },
     );
     if (picked != null) {
-      if (!mounted) return;
       setState(() {
-        _selectedDate = picked;
-        _isFilterActive = true;
+        _customRange = picked;
+        _selectedKategori = null;
       });
-      historyBloc.add(
-        HistoryFetchRequested(startDate: picked, endDate: picked),
-      );
+      _fetchForPeriode();
     }
   }
 
-  void _onDateStripSelected(DateTime date) {
-    setState(() => _selectedDate = date);
-    context.read<HistoryBloc>().add(
-      HistoryFetchRequested(startDate: date, endDate: date),
-    );
+  String get _currentHeader {
+    if (_customRange != null) {
+      final start = _customRange!.start;
+      final end = _customRange!.end;
+      final sameMonth = start.month == end.month && start.year == end.year;
+      if (sameMonth) {
+        return '${DateFormat('d', 'id_ID').format(start)} - '
+            '${DateFormat('d MMMM yyyy', 'id_ID').format(end)}';
+      }
+      return '${DateFormat('d MMM', 'id_ID').format(start)} - '
+          '${DateFormat('d MMM yyyy', 'id_ID').format(end)}';
+    }
+    final headerFormat = _periode == PeriodeRiwayat.tahunan
+        ? DateFormat('yyyy', 'id_ID')
+        : DateFormat('MMMM yyyy', 'id_ID');
+    return headerFormat.format(_anchorDate);
   }
 
-  /// Kelompokkan record berdasarkan tanggal check-in (buat header "23 Oktober 2026")
   Map<String, List<AttendanceModel>> _groupByDate(
     List<AttendanceModel> records,
   ) {
@@ -91,11 +151,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentMonthYear = DateFormat(
-      'MMMM yyyy',
-      'id_ID',
-    ).format(_selectedDate ?? _today);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -132,7 +187,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
               currentIndex: 3,
               onTap: (index) async {
                 if (index == 3) return;
-
                 if (index == 2) {
                   await Navigator.push(
                     context,
@@ -172,7 +226,14 @@ class _RiwayatPageState extends State<RiwayatPage> {
             );
           }
 
-          final grouped = _groupByDate(state.records);
+          final filteredRecords = _selectedKategori == null
+              ? state.records
+              : state.records
+                  .where((r) =>
+                      r.status.toLowerCase() ==
+                      _selectedKategori!.toLowerCase())
+                  .toList();
+          final grouped = _groupByDate(filteredRecords);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -183,14 +244,14 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      currentMonthYear,
+                      _currentHeader,
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     GestureDetector(
-                      onTap: () => _selectDate(context),
+                      onTap: () => _pickDateRange(context),
                       child: SvgPicture.asset(
                         'assets/images/Calendar.svg',
                         width: 24,
@@ -203,23 +264,67 @@ class _RiwayatPageState extends State<RiwayatPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                if (_isFilterActive && _selectedDate != null) ...[
-                  RiwayatDateStrip(
-                    selectedDate: _selectedDate!,
-                    today: _today,
-                    onDateSelected: _onDateStripSelected,
+                if (_customRange == null) ...[
+                  RiwayatPeriodeToggle(
+                    selected: _periode,
+                    onChanged: _onPeriodeChanged,
                   ),
                   const SizedBox(height: 16),
-                ],
-
-                if (state.records.isEmpty)
+                  RiwayatPeriodeStrip(
+                    periode: _periode,
+                    anchorDate: _anchorDate,
+                    today: _today,
+                    onSelected: _onStripSelected,
+                  ),
+                  const SizedBox(height: 16),
+                ] else
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _customRange = null);
+                        _fetchForPeriode();
+                      },
+                      child: Row(
+                        children: const [
+                          Icon(Icons.close,
+                              size: 16, color: Color(0xFF9A9A9A)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Hapus filter rentang tanggal',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF9A9A9A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                RiwayatCategoryChart(
+                  records: state.records,
+                  selectedKategori: _selectedKategori,
+                  onKategoriTap: (key) {
+                    setState(() => _selectedKategori = key);
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Data Presensi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+
+                if (filteredRecords.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
                     child: Text(
                       'Belum ada riwayat presensi.',
-                      style: const TextStyle(color: Color(0xFF9A9A9A)),
+                      style: TextStyle(color: Color(0xFF9A9A9A)),
                     ),
                   )
                 else
@@ -229,10 +334,10 @@ class _RiwayatPageState extends State<RiwayatPage> {
                       children: [
                         Text(
                           entry.key,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF000000),
+                            color: Colors.black,
                           ),
                         ),
                         const SizedBox(height: 8),
