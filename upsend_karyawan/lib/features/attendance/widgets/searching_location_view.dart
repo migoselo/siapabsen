@@ -111,7 +111,7 @@ class _SearchingLocationViewState extends State<_SearchingLocationView>
                       border: Border.all(color: strokeColor, width: 2),
                     ),
                     child: Icon(
-                      Icons.location_on_outlined,
+                      Icons.location_on,
                       color: strokeColor,
                       size: 30,
                     ),
