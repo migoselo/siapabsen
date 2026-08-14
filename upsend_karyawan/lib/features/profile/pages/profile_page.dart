@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../widgets/profile_header.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/pages/edit_password_page.dart';
+import '../../face_regist/pages/face_registration_intro.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import 'biodata_page.dart';
@@ -206,7 +207,18 @@ class ProfilePage extends StatelessWidget {
                       ),
                       const Divider(height: 1, color: kBorder),
                       _SettingRow(
-                        label: 'Logout',
+                        label: 'Daftarkan Wajah',
+                        showChevron: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const FaceRegistrationIntroPage()),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1, color: kBorder),
+                      _SettingRow(
+                        label: 'Log Out',
                         textColor: kDanger,
                         onTap: () {
                           context.read<AuthBloc>().add(const AuthLogoutRequested());
