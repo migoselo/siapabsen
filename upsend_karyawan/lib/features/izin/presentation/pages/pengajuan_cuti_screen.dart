@@ -18,9 +18,10 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   DateTime? _tanggalMulai;
   DateTime? _tanggalSelesai;
   final TextEditingController _alasanController = TextEditingController();
+  int _alasanLength = 0;
   PlatformFile? _selectedFile; // Untuk menyimpan file yang dipilih
 
-  final Color _primaryColor = const Color(0xFF2E3A6E);
+  final Color _primaryColor = const Color(0xFF2F3B69);
 
   // Function untuk memilih tanggal
   Future<void> _selectDate(BuildContext context, bool isMulai) async {
@@ -74,6 +75,16 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
         );
       }
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _alasanController.addListener(() {
+      setState(() {
+        _alasanLength = _alasanController.text.length;
+      });
+    });
   }
 
   @override
@@ -351,17 +362,30 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
             const SizedBox(height: 20),
 
             // 4. Alasan Cuti
-            Text(
-              'Alasan Cuti',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Alasan Cuti',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '$_alasanLength/250',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _alasanController,
               maxLines: 4,
+              maxLength: 250,
               style: GoogleFonts.plusJakartaSans(fontSize: 14),
               decoration: InputDecoration(
                 hintText:
@@ -371,6 +395,8 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                   fontSize: 13,
                 ),
                 contentPadding: const EdgeInsets.all(14),
+                counterText:
+                    '', // <-- ini yang matiin counter bawaan di bawah field
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -419,7 +445,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Klik untuk unggah dokumen pendukung\n(PDF, JPG, PNG)',
+                        'Klik untuk unggah file \n Format PDF, JPG, PNG (max 5MB)',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
@@ -581,12 +607,18 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
               child: Text(
                 date != null
                     ? DateFormat('dd/MM/yyyy').format(date)
-                    : 'mm/dd/yyyy',
+                    : '/dd/mm/yyyy',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   color: date != null ? Colors.black : Colors.grey.shade400,
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            SvgPicture.asset(
+              'assets/images/Calendar_Grey.svg',
+              width: 18,
+              height: 18,
             ),
           ],
         ),
