@@ -14,9 +14,14 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   LoginType _currentLoginType = LoginType.email;
   bool _obscurePassword = true;
+
+  static const double _keyboardScrollOffset = 140.0;
+
+  final ScrollController _scrollController = ScrollController();
+  bool _keyboardWasOpen = false;
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _companyController = TextEditingController();
@@ -44,18 +49,47 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _applyScrollPosition() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+
+      final target = _keyboardWasOpen ? _keyboardScrollOffset : 0.0;
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  void didChangeMetrics() {
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
+    if (keyboardOpen && !_keyboardWasOpen) {
+      _keyboardWasOpen = true;
+      _applyScrollPosition();
+    } else if (!keyboardOpen && _keyboardWasOpen) {
+      _keyboardWasOpen = false;
+      _applyScrollPosition();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
     _emailController.dispose();
     _companyController.dispose();
     _employeeIdController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  double get _secondaryButtonsHeight {
-    int count = 2;
-    return (count * 50) + (count * 12) + 5;
   }
 
   String _getLoginIdentifier() {
@@ -197,6 +231,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state.status == AuthStatus.authenticated) {
@@ -207,82 +243,68 @@ class _LoginPageState extends State<LoginPage> {
         }
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: Stack(
+          child: Column(
             children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24.0,
-                        vertical: 24.0,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(height: 40),
-                          Center(
-                            child: SvgPicture.asset(
-                              'assets/images/Logo2.svg',
-                              height: 100,
-                              width: 100,
-                              placeholderBuilder: (context) => const Icon(
-                                Icons.navigation_rounded,
-                                size: 72,
-                                color: primaryColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          Text(
-                            'Masuk ke Akun',
-                            textAlign: TextAlign.center,
-                            style: _jakartaStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Masukkan detail Anda untuk melanjutkan',
-                            textAlign: TextAlign.center,
-                            style: _jakartaStyle(
-                              fontSize: 16,
-                              color: subtitleColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          _buildFormByLoginType(),
-                          const SizedBox(
-                            height: 74,
-                          ), // <-- BARU: ruang kosong seukuran tombol "Masuk" biar konten scroll ga ketutup
-                        ],
-                      ),
-                    ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    24.0,
+                    24.0,
+                    24.0,
+                    24.0 + keyboardInset,
                   ),
-
-                  // Tombol sekunder: DIAM, tidak ikut naik
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 5),
-                    child:
-                        _buildSecondaryButtons(), // <-- UBAH: dari _buildActionButtons()
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 5),
+                      Center(
+                        child: SvgPicture.asset(
+                          'assets/images/Logo2.svg',
+                          height: 100,
+                          width: 100,
+                          placeholderBuilder: (context) => const Icon(
+                            Icons.navigation_rounded,
+                            size: 72,
+                            color: primaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Masuk ke Akun',
+                        textAlign: TextAlign.center,
+                        style: _jakartaStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Masukkan detail Anda untuk melanjutkan',
+                        textAlign: TextAlign.center,
+                        style: _jakartaStyle(
+                          fontSize: 16,
+                          color: subtitleColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      _buildFormByLoginType(),
+                      const SizedBox(height: 24),
+                    ],
                   ),
-                ],
+                ),
               ),
-
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                left: 24,
-                right: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                    ? MediaQuery.of(context).viewInsets.bottom + 12
-                    : _secondaryButtonsHeight + 17,
-                child: _buildPrimaryButton(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 10),
+                child: _buildActionButtons(),
               ),
             ],
           ),
@@ -410,6 +432,7 @@ class _LoginPageState extends State<LoginPage> {
       controller: controller,
       keyboardType: keyboardType,
       style: _jakartaStyle(fontSize: 14),
+      scrollPadding: const EdgeInsets.all(20),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: _jakartaStyle(color: subtitleColor, fontSize: 14),
@@ -458,6 +481,7 @@ class _LoginPageState extends State<LoginPage> {
       controller: _passwordController,
       obscureText: _obscurePassword,
       style: _jakartaStyle(fontSize: 14),
+      scrollPadding: const EdgeInsets.all(20),
       decoration: InputDecoration(
         hintText: 'Masukkan Kata Sandi',
         hintStyle: _jakartaStyle(color: subtitleColor, fontSize: 14),
@@ -557,45 +581,79 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildSecondaryButtons() {
+  Widget _buildActionButtons() {
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Column(
       children: [
-        if (_currentLoginType != LoginType.employeeId)
-          _buildSecondaryButton(
-            text: 'Masuk dengan ID karyawan',
-            onPressed: () {
-              setState(() {
-                _currentLoginType = LoginType.employeeId;
-              });
-            },
-          ),
-        if (_currentLoginType == LoginType.employeeId)
-          _buildSecondaryButton(
-            text: 'Masuk dengan email',
-            onPressed: () {
-              setState(() {
-                _currentLoginType = LoginType.email;
-              });
-            },
-          ),
-        if (_currentLoginType != LoginType.phone)
-          _buildSecondaryButton(
-            text: 'Masuk dengan nomor telepon',
-            onPressed: () {
-              setState(() {
-                _currentLoginType = LoginType.phone;
-              });
-            },
-          ),
-        if (_currentLoginType == LoginType.phone)
-          _buildSecondaryButton(
-            text: 'Masuk dengan email',
-            onPressed: () {
-              setState(() {
-                _currentLoginType = LoginType.email;
-              });
-            },
-          ),
+        _buildPrimaryButton(),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          child: keyboardOpen
+              ? const SizedBox.shrink()
+              : Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    if (_currentLoginType != LoginType.employeeId)
+                      _buildSecondaryButton(
+                        text: 'Masuk dengan ID karyawan',
+                        onPressed: () {
+                          setState(() {
+                            _currentLoginType = LoginType.employeeId;
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_keyboardWasOpen) {
+                              _applyScrollPosition();
+                            }
+                          });
+                        },
+                      ),
+                    if (_currentLoginType == LoginType.employeeId)
+                      _buildSecondaryButton(
+                        text: 'Masuk dengan email',
+                        onPressed: () {
+                          setState(() {
+                            _currentLoginType = LoginType.email;
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_keyboardWasOpen) {
+                              _applyScrollPosition();
+                            }
+                          });
+                        },
+                      ),
+                    if (_currentLoginType != LoginType.phone)
+                      _buildSecondaryButton(
+                        text: 'Masuk dengan nomor telepon',
+                        onPressed: () {
+                          setState(() {
+                            _currentLoginType = LoginType.phone;
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_keyboardWasOpen) {
+                              _applyScrollPosition();
+                            }
+                          });
+                        },
+                      ),
+                    if (_currentLoginType == LoginType.phone)
+                      _buildSecondaryButton(
+                        text: 'Masuk dengan email',
+                        onPressed: () {
+                          setState(() {
+                            _currentLoginType = LoginType.email;
+                          });
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_keyboardWasOpen) {
+                              _applyScrollPosition();
+                            }
+                          });
+                        },
+                      ),
+                  ],
+                ),
+        ),
       ],
     );
   }
