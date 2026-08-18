@@ -20,6 +20,7 @@ import '../features/izin/presentation/pages/pengajuan_cuti_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../features/history/bloc/history_bloc.dart';
 import '../features/history/repository/history_repository.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,6 +74,20 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'Attendance App',
           theme: AppTheme.lightTheme,
+
+          // BARU — daftarin localization, dibutuhin buat locale: Locale('id','ID')
+          // di showDateRangePicker/showDatePicker supaya bahasanya Indonesia.
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('id', 'ID'),
+            Locale('en', 'US'),
+          ],
+          locale: const Locale('id', 'ID'), // default bahasa app
+
           initialRoute: '/splash',
           routes: {
             '/splash': (context) => const SplashPage(),

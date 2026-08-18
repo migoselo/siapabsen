@@ -51,17 +51,20 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
   List<DateTime> _buildItems() {
     switch (widget.periode) {
       case PeriodeRiwayat.mingguan:
-        final startOfWeek = widget.anchorDate
-            .subtract(Duration(days: widget.anchorDate.weekday - 1));
+        final startOfWeek = widget.anchorDate.subtract(
+          Duration(days: widget.anchorDate.weekday - 1),
+        );
         return List.generate(7, (i) => startOfWeek.add(Duration(days: i)));
       case PeriodeRiwayat.bulanan:
-        final daysInMonth =
-            DateTime(widget.anchorDate.year, widget.anchorDate.month + 1, 0)
-                .day;
+        final daysInMonth = DateTime(
+          widget.anchorDate.year,
+          widget.anchorDate.month + 1,
+          0,
+        ).day;
         return List.generate(
           daysInMonth,
-          (i) => DateTime(
-              widget.anchorDate.year, widget.anchorDate.month, i + 1),
+          (i) =>
+              DateTime(widget.anchorDate.year, widget.anchorDate.month, i + 1),
         );
       case PeriodeRiwayat.tahunan:
         return List.generate(
@@ -80,18 +83,18 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
       return isYearly
           ? item.month == widget.today.month && item.year == widget.today.year
           : item.year == widget.today.year &&
-              item.month == widget.today.month &&
-              item.day == widget.today.day;
+                item.month == widget.today.month &&
+                item.day == widget.today.day;
     });
     if (todayIndex != -1) return todayIndex;
 
     final anchorIndex = items.indexWhere((item) {
       return isYearly
           ? item.month == widget.anchorDate.month &&
-              item.year == widget.anchorDate.year
+                item.year == widget.anchorDate.year
           : item.year == widget.anchorDate.year &&
-              item.month == widget.anchorDate.month &&
-              item.day == widget.anchorDate.day;
+                item.month == widget.anchorDate.month &&
+                item.day == widget.anchorDate.day;
     });
     return anchorIndex == -1 ? 0 : anchorIndex;
   }
@@ -102,9 +105,8 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
     final index = _findCenterIndex(items);
     final viewportWidth = _controller.position.viewportDimension;
 
-    final targetOffset = (index * _itemExtent) -
-        (viewportWidth / 2) +
-        (_itemWidth / 2);
+    final targetOffset =
+        (index * _itemExtent) - (viewportWidth / 2) + (_itemWidth / 2);
 
     final clamped = targetOffset.clamp(
       0.0,
@@ -132,10 +134,10 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
           final item = items[index];
           final isSelected = isYearly
               ? item.month == widget.anchorDate.month &&
-                  item.year == widget.anchorDate.year
+                    item.year == widget.anchorDate.year
               : item.year == widget.anchorDate.year &&
-                  item.month == widget.anchorDate.month &&
-                  item.day == widget.anchorDate.day;
+                    item.month == widget.anchorDate.month &&
+                    item.day == widget.anchorDate.day;
           final isFuture = item.isAfter(widget.today);
 
           return GestureDetector(
@@ -152,37 +154,50 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
                 ),
               ),
               alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    isYearly
-                        ? monthLabelFormat.format(item)
-                        : dayLabelFormat.format(item),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isSelected
-                          ? Colors.white70
-                          : (isFuture
-                              ? const Color(0xFFC9C9C9)
-                              : const Color(0xFF9A9A9A)),
+              child: isYearly
+                  ? Text(
+                      monthLabelFormat.format(
+                        item,
+                      ), // "Agu" doang, gak ada tahun lagi
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected
+                            ? Colors.white
+                            : (isFuture
+                                  ? const Color(0xFFC9C9C9)
+                                  : Colors.black),
+                      ),
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          dayLabelFormat.format(item),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isSelected
+                                ? Colors.white70
+                                : (isFuture
+                                      ? const Color(0xFFC9C9C9)
+                                      : const Color(0xFF9A9A9A)),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.day.toString().padLeft(2, '0'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isSelected
+                                ? Colors.white
+                                : (isFuture
+                                      ? const Color(0xFFC9C9C9)
+                                      : Colors.black),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isYearly
-                        ? item.year.toString()
-                        : item.day.toString().padLeft(2, '0'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: isSelected
-                          ? Colors.white
-                          : (isFuture ? const Color(0xFFC9C9C9) : Colors.black),
-                    ),
-                  ),
-                ],
-              ),
             ),
           );
         },
