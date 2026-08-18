@@ -15,17 +15,16 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/login-web', [AuthController::class, 'loginWeb']);  // BARU, dipakai dashboard web (email)
 Route::post('/register', [AuthController::class, 'register']);
-Route::get('/attendance-photo', [AttendanceController::class, 'photo']);
-Route::options('/attendance-photo', function () {
-    return response('', 204)
-        ->header('Access-Control-Allow-Origin', '*')
-        ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        ->header('Access-Control-Allow-Headers', '*');
-});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    Route::prefix('face')->group(function () {
+        Route::post('/register', [\App\Http\Controllers\Api\FaceRecognitionController::class, 'register']);
+        Route::post('/verify', [\App\Http\Controllers\Api\FaceRecognitionController::class, 'verify']);
+        Route::get('/status', [\App\Http\Controllers\Api\FaceRecognitionController::class, 'status']);
+    });
 
     // ==== Attendance - sisi karyawan (semua role login bisa akses) ====
     Route::prefix('attendances')->group(function () {

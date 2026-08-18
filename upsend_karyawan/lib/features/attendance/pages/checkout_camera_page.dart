@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:intl/intl.dart';
 import '../../history/bloc/history_bloc.dart';
 import '../../history/bloc/history_event.dart';
@@ -9,8 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/services/camera_service.dart';
+import '../../../core/services/face_registration_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
-import '../../attendance/repository/attendance_repository.dart';
+import '../repository/attendance_repository.dart';
 import '../../home/bloc/home_bloc.dart';
 import '../../home/bloc/home_event.dart';
 
@@ -98,9 +98,46 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
         return;
       }
 
+      // Gunakan AttendanceRepository untuk backend API calls
+      final attendanceRepository = AttendanceRepository();
+
+      // Check apakah user sudah mendaftar wajah
+      final isRegistered = await attendanceRepository
+          .checkFaceRegistrationStatus();
+      if (!isRegistered) {
+        AppSnackbar.error(
+          context,
+          'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
+        );
+        return;
+      }
+
+      final faceService = FaceRegistrationService();
+      final localMatch = await faceService.isFaceMatch(file);
+      if (!localMatch) {
+        AppSnackbar.error(
+          context,
+          'Wajah tidak cocok dengan wajah yang sudah didaftarkan.',
+        );
+        return;
+      }
+
+      // Verifikasi wajah dengan backend sebagai lapisan keamanan tambahan
+      final verificationResult = await attendanceRepository.verifyFace(file);
+      final matched = verificationResult['matched'] as bool? ?? false;
+
+      if (!matched) {
+        AppSnackbar.error(
+          context,
+          verificationResult['message'] ??
+              'Wajah tidak cocok dengan wajah yang sudah didaftarkan.',
+        );
+        return;
+      }
+
+      // Wajah cocok, lanjut proses check-out
       final position = await Geolocator.getCurrentPosition();
-      final repository = RepositoryProvider.of<AttendanceRepository>(context);
-      final attendance = await repository.checkOut(
+      final attendance = await attendanceRepository.checkOut(
         attendanceId: widget.attendanceId,
         lat: position.latitude,
         lng: position.longitude,
@@ -110,7 +147,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
       if (!mounted) return;
       _showSuccessDialog(attendance.checkOutTime ?? DateTime.now());
     } catch (e) {
-      AppSnackbar.error(context, e.toString());
+      AppSnackbar.error(context, 'Gagal melakukan checkout: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }

@@ -17,15 +17,15 @@ class RiwayatDetailPage extends StatelessWidget {
     }
 
     final normalized = value.startsWith('/') ? value.substring(1) : value;
-    final sanitized = normalized.startsWith('storage/')
-        ? normalized.replaceFirst('storage/', '')
-        : normalized;
-
     final baseUri = Uri.parse(Api.dio.options.baseUrl);
     final origin =
         '${baseUri.scheme}://${baseUri.host}${baseUri.hasPort ? ':${baseUri.port}' : ''}';
 
-    return '$origin/api/attendance-photo?path=${Uri.encodeComponent(sanitized)}';
+    if (normalized.startsWith('storage/')) {
+      return '$origin/$normalized';
+    }
+
+    return '$origin/storage/$normalized';
   }
 
   @override

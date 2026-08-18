@@ -1,17 +1,15 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as latlong;
 import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
+import '../repository/attendance_repository.dart';
 import '../widgets/location_card.dart';
 import '../widgets/searching_location_view.dart';
 import '../widgets/map_control_button.dart';
 import 'checkin_camera_page.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart' as latlong;
-import 'package:flutter_map/flutter_map.dart' hide MapController;
-import 'package:flutter_map/flutter_map.dart' show MapController;
 
 class CheckinLocationPage extends StatefulWidget {
   const CheckinLocationPage({super.key});
@@ -219,7 +217,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                 LocationCard(location: state.selectedLocation!),
 
                 const Spacer(),
-                
+
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2F3B69),
@@ -229,13 +227,30 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CheckinCameraPage(),
-                      ),
-                    );
+                  onPressed: () async {
+                    final attendanceRepository = AttendanceRepository();
+                    final hasRegisteredFace = await attendanceRepository
+                        .checkFaceRegistrationStatus();
+
+                    if (!hasRegisteredFace && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CheckinCameraPage(),
+                        ),
+                      );
+                    }
                   },
                   child: const Text(
                     "Lanjut",

@@ -8,7 +8,9 @@ import 'package:flutter/services.dart';
 import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
+import '../repository/attendance_repository.dart';
 import '../../../core/services/camera_service.dart';
+import '../../../core/services/face_registration_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../history/bloc/history_bloc.dart';
 import '../../history/bloc/history_event.dart';
@@ -81,7 +83,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
     }
   }
 
-  // Satu-satunya aksi tombol sekarang: ambil foto -> cek wajah -> langsung submit
+  // Satu-satunya aksi tombol sekarang: ambil foto -> cek wajah via backend -> langsung submit
   Future<void> _captureAndSubmit(AttendanceState state) async {
     if (_isProcessing) return;
 
@@ -110,11 +112,48 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
         return;
       }
 
-      // Simpan foto ke state bloc, lalu LANGSUNG submit tanpa jeda konfirmasi.
-      // Bloc memproses event secara berurutan, jadi SubmitCheckIn dijamin
-      // jalan setelah PhotoCaptured selesai di-emit.
+      // Gunakan AttendanceRepository untuk backend API calls
+      final attendanceRepository = AttendanceRepository();
+
+      // Check apakah user sudah mendaftar wajah
+      final isRegistered = await attendanceRepository
+          .checkFaceRegistrationStatus();
+      if (!isRegistered) {
+        AppSnackbar.error(
+          context,
+          'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
+        );
+        return;
+      }
+
+      final faceService = FaceRegistrationService();
+      final localMatch = await faceService.isFaceMatch(file);
+      if (!localMatch) {
+        AppSnackbar.error(
+          context,
+          'Wajah tidak cocok dengan wajah yang sudah didaftarkan.',
+        );
+        return;
+      }
+
+      // Verifikasi wajah dengan backend sebagai lapisan keamanan tambahan
+      final verificationResult = await attendanceRepository.verifyFace(file);
+      final matched = verificationResult['matched'] as bool? ?? false;
+
+      if (!matched) {
+        AppSnackbar.error(
+          context,
+          verificationResult['message'] ??
+              'Wajah tidak cocok dengan wajah yang sudah didaftarkan.',
+        );
+        return;
+      }
+
+      // Wajah cocok, simpan foto ke state bloc dan submit
       context.read<AttendanceBloc>().add(PhotoCaptured(file));
       context.read<AttendanceBloc>().add(SubmitCheckIn());
+    } catch (e) {
+      AppSnackbar.error(context, 'Gagal memverifikasi wajah: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }

@@ -150,4 +150,79 @@ class AttendanceRepository {
       rethrow;
     }
   }
+
+  // ========== FACE RECOGNITION METHODS ==========
+
+  /// GET /face/status
+  /// Check if user has registered face
+  Future<bool> checkFaceRegistrationStatus() async {
+    try {
+      final response = await Api.dio.get('/face/status');
+      return response.data['registered'] ?? false;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// POST /face/register
+  /// Register user's face with a photo
+  Future<Map<String, dynamic>> registerFace(File photo) async {
+    try {
+      String fileName = photo.path.split('/').last;
+      FormData formData = FormData.fromMap({
+        'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
+      });
+
+      final response = await Api.dio.post('/face/register', data: formData);
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map) {
+        final message = data['message'] ?? data['errors']?.toString();
+        throw Exception(
+          message ?? 'Gagal mendaftarkan wajah (${e.response?.statusCode})',
+        );
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// POST /face/verify
+  /// Verify user's current face against registered face
+  /// Returns: { matched: bool, message: string, score?: double, best_distance?: double }
+  Future<Map<String, dynamic>> verifyFace(File photo) async {
+    try {
+      String fileName = photo.path.split('/').last;
+      FormData formData = FormData.fromMap({
+        'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
+      });
+
+      final response = await Api.dio.post('/face/verify', data: formData);
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      // Face verification mungkin return 403 (matched: false)
+      // atau 422 (error). Handle both cases.
+      final data = e.response?.data;
+      if (data is Map) {
+        // If 403, it's a valid response indicating face mismatch
+        if (e.response?.statusCode == 403) {
+          return {
+            'matched': false,
+            'message': data['message'] ?? 'Wajah tidak cocok',
+            'best_distance': data['best_distance'] ?? 1.0,
+          };
+        }
+        // For other errors
+        final message = data['message'] ?? data['errors']?.toString();
+        throw Exception(
+          message ?? 'Gagal memverifikasi wajah (${e.response?.statusCode})',
+        );
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
