@@ -131,7 +131,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
               )
             : null,
         title: Text(
-          'Riwayat Cuti',
+          'Izin Cuti',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.black,
             fontWeight: FontWeight.w600,
