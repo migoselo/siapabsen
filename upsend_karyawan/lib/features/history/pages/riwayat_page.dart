@@ -33,7 +33,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
   PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
   late DateTime _anchorDate = _today;
   String? _selectedKategori;
-  DateTimeRange? _customRange; // aktif kalau user pilih rentang manual lewat kalender
+  DateTimeRange?
+  _customRange; // aktif kalau user pilih rentang manual lewat kalender
 
   @override
   void initState() {
@@ -52,8 +53,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
     } else {
       switch (_periode) {
         case PeriodeRiwayat.mingguan:
-          start =
-              _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
+          start = _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
           end = start.add(const Duration(days: 6));
           break;
         case PeriodeRiwayat.bulanan:
@@ -68,8 +68,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
     }
 
     context.read<HistoryBloc>().add(
-          HistoryFetchRequested(startDate: start, endDate: end),
-        );
+      HistoryFetchRequested(startDate: start, endDate: end),
+    );
   }
 
   void _onPeriodeChanged(PeriodeRiwayat p) {
@@ -92,9 +92,11 @@ class _RiwayatPageState extends State<RiwayatPage> {
   Future<void> _pickDateRange(BuildContext context) async {
     final picked = await showDateRangePicker(
       context: context,
+      locale: const Locale('id', 'ID'),
       firstDate: DateTime(2020),
       lastDate: _today,
-      initialDateRange: _customRange ??
+      initialDateRange:
+          _customRange ??
           DateTimeRange(
             start: _anchorDate.subtract(const Duration(days: 6)),
             end: _anchorDate,
@@ -102,7 +104,14 @@ class _RiwayatPageState extends State<RiwayatPage> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFF1B2559)),
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF1B2559),
+              primaryContainer: Color(0xFFB7C0DF),
+              onPrimaryContainer: Colors.white,
+            ),
+            datePickerTheme: const DatePickerThemeData(
+              rangeSelectionBackgroundColor: Color(0xFFB7C0DF),
+            ),
           ),
           child: child!,
         );
@@ -191,7 +200,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const CheckinLocationPage()),
+                      builder: (_) => const CheckinLocationPage(),
+                    ),
                   );
                   if (context.mounted) Navigator.pop(context);
                 } else if (index == 1) {
@@ -229,10 +239,12 @@ class _RiwayatPageState extends State<RiwayatPage> {
           final filteredRecords = _selectedKategori == null
               ? state.records
               : state.records
-                  .where((r) =>
-                      r.status.toLowerCase() ==
-                      _selectedKategori!.toLowerCase())
-                  .toList();
+                    .where(
+                      (r) =>
+                          r.status.toLowerCase() ==
+                          _selectedKategori!.toLowerCase(),
+                    )
+                    .toList();
           final grouped = _groupByDate(filteredRecords);
 
           return SingleChildScrollView(
@@ -289,8 +301,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                       },
                       child: Row(
                         children: const [
-                          Icon(Icons.close,
-                              size: 16, color: Color(0xFF9A9A9A)),
+                          Icon(Icons.close, size: 16, color: Color(0xFF9A9A9A)),
                           SizedBox(width: 4),
                           Text(
                             'Hapus filter rentang tanggal',
