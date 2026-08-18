@@ -266,14 +266,31 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
               ),
               elevation: 0,
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      CheckoutCameraPage(attendanceId: widget.attendanceId),
-                ),
-              );
+            onPressed: () async {
+              final attendanceRepository = AttendanceRepository();
+              final hasRegisteredFace = await attendanceRepository
+                  .checkFaceRegistrationStatus();
+
+              if (!hasRegisteredFace && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
+                    ),
+                  ),
+                );
+                return;
+              }
+
+              if (mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        CheckoutCameraPage(attendanceId: widget.attendanceId),
+                  ),
+                );
+              }
             },
             child: const Text(
               "Lanjut",
