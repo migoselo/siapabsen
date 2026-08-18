@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../core/api/api.dart';
+import '../../../../core/widgets/custom_snackbar.dart';
+import 'dart:async';
 
 class PengajuanCutiScreen extends StatefulWidget {
   const PengajuanCutiScreen({super.key});
@@ -14,17 +16,22 @@ class PengajuanCutiScreen extends StatefulWidget {
 }
 
 class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
-  int _selectedTipeCuti = 0; // 0: Tahunan, 1: Sakit, 2: Penting
+  int _selectedTipeCuti = 0; // 0: Tahunan, 1: Sakit, 2: Khusus
   DateTime? _tanggalMulai;
   DateTime? _tanggalSelesai;
   final TextEditingController _alasanController = TextEditingController();
   int _alasanLength = 0;
-  PlatformFile? _selectedFile; // Untuk menyimpan file yang dipilih
+
+  PlatformFile? _selectedFile;
+  bool _isSubmitting = false;
+  double _uploadProgress = 0.0;
 
   final Color _primaryColor = const Color(0xFF2F3B69);
 
   // Function untuk memilih tanggal
   Future<void> _selectDate(BuildContext context, bool isMulai) async {
+    FocusScope.of(context).unfocus();
+
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -55,6 +62,19 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     }
   }
 
+  bool get _isDateRangeInvalid {
+    if (_tanggalMulai == null || _tanggalSelesai == null) return false;
+    return _tanggalSelesai!.isBefore(_tanggalMulai!);
+  }
+
+  bool get _isFormValid {
+    return !_isSubmitting &&
+        _tanggalMulai != null &&
+        _tanggalSelesai != null &&
+        !_isDateRangeInvalid &&
+        _alasanController.text.trim().isNotEmpty;
+  }
+
   // Function untuk memilih file
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -70,9 +90,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       });
     } else if (result != null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File terlalu besar (max 5MB)')),
-        );
+        AppSnackbar.warning(context, 'File terlalu besar (maks 5MB)');
       }
     }
   }
@@ -94,64 +112,83 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   }
 
   Future<void> _saveCuti() async {
-    if (_tanggalMulai == null || _tanggalSelesai == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih tanggal mulai dan selesai.')),
-      );
-      return;
-    }
-
-    if (_tanggalSelesai!.isBefore(_tanggalMulai!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanggal selesai harus setelah tanggal mulai.'),
-        ),
-      );
-      return;
-    }
-
-    if (_alasanController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi alasan cuti terlebih dahulu.')),
-      );
-      return;
-    }
+    setState(() {
+      _isSubmitting = true;
+      _uploadProgress = 0.0;
+    });
 
     final List<String> tipeLabels = [
       'Cuti Tahunan',
       'Cuti Sakit',
-      'Cuti Penting',
+      'Cuti Khusus',
     ];
     final String tipeLabel = tipeLabels[_selectedTipeCuti];
 
+    final bool hasAttachment =
+        _selectedFile != null && _selectedFile!.path != null;
+
+    Timer? simulationTimer;
+    if (!hasAttachment) {
+      simulationTimer = Timer.periodic(const Duration(milliseconds: 120), (
+        timer,
+      ) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          if (_uploadProgress < 0.9) {
+            _uploadProgress += 0.08;
+          }
+        });
+      });
+    }
+
     try {
+      final formData = FormData.fromMap({
+        'type': tipeLabel,
+        'leave_type_id': _selectedTipeCuti + 1,
+        'start_date': _tanggalMulai!.toIso8601String().split('T').first,
+        'end_date': _tanggalSelesai!.toIso8601String().split('T').first,
+        'reason': _alasanController.text.trim(),
+        if (hasAttachment)
+          'attachment': await MultipartFile.fromFile(
+            _selectedFile!.path!,
+            filename: _selectedFile!.name,
+          ),
+      });
+
       await Api.dio.post(
         '/leave-requests',
-        data: {
-          'type': tipeLabel,
-          'leave_type_id': _selectedTipeCuti + 1,
-          'start_date': _tanggalMulai!.toIso8601String().split('T').first,
-          'end_date': _tanggalSelesai!.toIso8601String().split('T').first,
-          'reason': _alasanController.text.trim(),
-        },
+        data: formData,
+        onSendProgress: hasAttachment
+            ? (sent, total) {
+                if (total <= 0) return;
+                if (mounted) {
+                  setState(() => _uploadProgress = sent / total);
+                }
+              }
+            : null,
       );
 
+      simulationTimer?.cancel();
+      if (mounted) setState(() => _uploadProgress = 1.0);
+
+      await Future.delayed(const Duration(milliseconds: 250));
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pengajuan cuti berhasil dikirim.')),
-      );
+      AppSnackbar.success(context, 'Pengajuan cuti berhasil dikirim.');
       Navigator.pop(context, true);
     } on DioException catch (e) {
+      simulationTimer?.cancel();
+
       final data = e.response?.data;
       String message = 'Gagal mengirim pengajuan cuti.';
 
       if (data is Map) {
-        // Try to get custom message first
         if (data['message'] != null) {
           message = data['message'].toString();
-        }
-        // Then try to extract validation errors
-        else if (data['errors'] is Map) {
+        } else if (data['errors'] is Map) {
           final errors = data['errors'] as Map;
           final errorMessages = errors.values
               .whereType<List>()
@@ -165,9 +202,15 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      AppSnackbar.error(context, message);
+    } finally {
+      simulationTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _uploadProgress = 0.0;
+        });
+      }
     }
   }
 
@@ -192,345 +235,488 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Card Sisa Cuti dengan Background Gradient
-            Container(
-              width: double.infinity,
-              height: 160,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF2E3A6E), Color(0xFF5163B7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Card Sisa Cuti dengan Background Gradient
+              Container(
+                width: double.infinity,
+                height: 160,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2E3A6E), Color(0xFF5163B7)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sisa Cuti Tahunan',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFFC5CEE0),
-                        fontSize: 14,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sisa Cuti Tahunan',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: const Color(0xFFC5CEE0),
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    RichText(
-                      text: TextSpan(
+                      const SizedBox(height: 4),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '12 ',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'Hari Kerja',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: const Color(0xFFC5CEE0),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      const Divider(color: Colors.white24, height: 1),
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
-                          TextSpan(
-                            text: '12 ',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                          SvgPicture.asset(
+                            'assets/images/Calendar.svg',
+                            width: 16,
+                            height: 16,
+                            colorFilter: const ColorFilter.mode(
+                              Color(0xFFC5CEE0),
+                              BlendMode.srcIn,
                             ),
                           ),
-                          TextSpan(
-                            text: 'Hari Kerja',
+                          const SizedBox(width: 8),
+                          Text(
+                            'Berlaku s/d 31 Des 2026',
                             style: GoogleFonts.plusJakartaSans(
                               color: const Color(0xFFC5CEE0),
-                              fontSize: 14,
+                              fontSize: 12,
                             ),
                           ),
                         ],
                       ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 2. Tipe Cuti
+              Text(
+                'Tipe Cuti',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTipeCutiItem(
+                      index: 0,
+                      label: 'Tahunan',
+                      svgAsset: 'assets/images/Calendar.svg',
                     ),
-                    const Spacer(),
-                    const Divider(color: Colors.white24, height: 1),
-                    const SizedBox(height: 12),
-                    Row(
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTipeCutiItem(
+                      index: 1,
+                      label: 'Sakit',
+                      svgAsset: 'assets/images/Medical.svg',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTipeCutiItem(
+                      index: 2,
+                      label: 'Khusus',
+                      svgAsset: 'assets/images/seru.svg',
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // 3. Tanggal Mulai & Tanggal Selesai
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SvgPicture.asset(
-                          'assets/images/Calendar.svg',
-                          width: 16,
-                          height: 16,
-                          colorFilter: const ColorFilter.mode(
-                            Color(0xFFC5CEE0),
-                            BlendMode.srcIn,
+                        Text(
+                          'Tanggal Mulai',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Berlaku s/d 31 Des 2026',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFFC5CEE0),
-                            fontSize: 12,
-                          ),
+                        const SizedBox(height: 8),
+                        _buildDateField(
+                          date: _tanggalMulai,
+                          onTap: () => _selectDate(context, true),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // 2. Tipe Cuti
-            Text(
-              'Tipe Cuti',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTipeCutiItem(
-                    index: 0,
-                    label: 'Tahunan',
-                    svgAsset: 'assets/images/Calendar.svg',
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTipeCutiItem(
-                    index: 1,
-                    label: 'Sakit',
-                    svgAsset: 'assets/images/Medical.svg',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildTipeCutiItem(
-                    index: 2,
-                    label: 'Penting',
-                    svgAsset: 'assets/images/seru.svg',
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // 3. Tanggal Mulai & Tanggal Selesai
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tanggal Mulai',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildDateField(
-                        date: _tanggalMulai,
-                        onTap: () => _selectDate(context, true),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tanggal Selesai',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildDateField(
-                        date: _tanggalSelesai,
-                        onTap: () => _selectDate(context, false),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // 4. Alasan Cuti
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Alasan Cuti',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  '$_alasanLength/250',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _alasanController,
-              maxLines: 4,
-              maxLength: 250,
-              style: GoogleFonts.plusJakartaSans(fontSize: 14),
-              decoration: InputDecoration(
-                hintText:
-                    'Jelaskan alasan pengajuan cuti Anda secara detail...',
-                hintStyle: GoogleFonts.plusJakartaSans(
-                  color: Colors.grey.shade400,
-                  fontSize: 13,
-                ),
-                contentPadding: const EdgeInsets.all(14),
-                counterText:
-                    '', // <-- ini yang matiin counter bawaan di bawah field
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: _primaryColor),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // 5. Lampiran (Opsional)
-            Text(
-              'Lampiran (Opsional)',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickFile,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 24,
-                  horizontal: 16,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4F6FB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFC5CEE0),
-                    style: BorderStyle.solid,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    if (_selectedFile == null) ...[
-                      Icon(
-                        Icons.cloud_upload_outlined,
-                        size: 36,
-                        color: _primaryColor,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Klik untuk unggah file \n Format PDF, JPG, PNG (max 5MB)',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          height: 1.4,
-                        ),
-                      ),
-                    ] else ...[
-                      Icon(
-                        _selectedFile!.extension == 'pdf'
-                            ? Icons.description
-                            : Icons.image,
-                        size: 36,
-                        color: _primaryColor,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '✓ File terpilih',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _selectedFile!.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedFile = null;
-                          });
-                        },
-                        child: Text(
-                          'Ganti File',
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tanggal Selesai',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            color: _primaryColor,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
                           ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
+                        const SizedBox(height: 8),
+                        _buildDateField(
+                          date: _tanggalSelesai,
+                          onTap: () => _selectDate(context, false),
+                          hasError: _isDateRangeInvalid,
+                        ),
+                        if (_isDateRangeInvalid) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 12,
+                                color: Color(0xFFDC2626),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Harus setelah tanggal mulai',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10,
+                                    color: const Color(0xFFDC2626),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
 
-            const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
-            // 6. Tombol Simpan
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _saveCuti,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryColor,
-                  shape: RoundedRectangleBorder(
+              // 4. Alasan Cuti
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Alasan Cuti',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '$_alasanLength/250',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: const Color(0xFF9A9A9A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _alasanController,
+                maxLines: 4,
+                maxLength: 250,
+                style: GoogleFonts.plusJakartaSans(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText:
+                      'Jelaskan alasan pengajuan cuti Anda secara detail...',
+                  hintStyle: GoogleFonts.plusJakartaSans(
+                    color: Colors.grey.shade400,
+                    fontSize: 13,
+                  ),
+                  contentPadding: const EdgeInsets.all(14),
+                  counterText:
+                      '', // <-- ini yang matiin counter bawaan di bawah field
+                  enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Simpan',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _primaryColor),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-          ],
+
+              const SizedBox(height: 20),
+
+              // 5. Lampiran (Opsional)
+              Text(
+                'Lampiran (Opsional)',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: _pickFile,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 24,
+                    horizontal: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6FB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFC5CEE0),
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      if (_selectedFile == null) ...[
+                        Icon(
+                          Icons.cloud_upload_outlined,
+                          size: 36,
+                          color: _primaryColor,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Klik untuk unggah file \n Format PDF, JPG, PNG (maks 5 MB)',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            height: 1.4,
+                          ),
+                        ),
+                      ] else ...[
+                        Icon(
+                          _selectedFile!.extension == 'pdf'
+                              ? Icons.description
+                              : Icons.image,
+                          size: 36,
+                          color: _primaryColor,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '✓ File terpilih',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _selectedFile!.name,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: _selectedFile == null ? _pickFile : null,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 24,
+                              horizontal: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF4F6FB),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFC5CEE0),
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                if (_selectedFile == null) ...[
+                                  Icon(
+                                    Icons.cloud_upload_outlined,
+                                    size: 36,
+                                    color: _primaryColor,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Klik untuk unggah file \n Format PDF, JPG, PNG (maks 5 MB)',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Icon(
+                                    _selectedFile!.extension == 'pdf'
+                                        ? Icons.description
+                                        : Icons.image,
+                                    size: 36,
+                                    color: _primaryColor,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '✓ File terpilih',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _selectedFile!.name,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedFile = null;
+                                      });
+                                    },
+                                    behavior: HitTestBehavior.opaque,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.delete_outline,
+                                            size: 14,
+                                            color: Color(0xFFDC2626),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Hapus File',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 11,
+                                              color: const Color(0xFFDC2626),
+                                              fontWeight: FontWeight.w600,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // 6. Tombol Simpan
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isFormValid ? _saveCuti : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isSubmitting
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                                value: _uploadProgress > 0
+                                    ? _uploadProgress
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '${(_uploadProgress * 100).toStringAsFixed(0)}%',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          'Simpan',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: _isFormValid
+                                ? Colors.white
+                                : Colors.grey.shade500,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
@@ -591,15 +777,19 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   Widget _buildDateField({
     required DateTime? date,
     required VoidCallback onTap,
+    bool hasError = false,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: hasError ? const Color(0xFFFEF2F2) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(
+            color: hasError ? const Color(0xFFDC2626) : Colors.grey.shade300,
+            width: hasError ? 1.5 : 1,
+          ),
         ),
         child: Row(
           children: [
