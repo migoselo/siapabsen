@@ -1,12 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 import 'package:svg_path_parser/svg_path_parser.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../auth/repository/auth_repository.dart';
 import '../../auth/bloc/auth_bloc.dart';
 
 class SplashPage extends StatefulWidget {
@@ -113,11 +109,6 @@ class _SplashPageState extends State<SplashPage>
     ]);
     if (!mounted) return;
 
-    // 3. Efek Fade Out sebelum pindah halaman
-    setState(() => _fadeOut = true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-
     Navigator.pushReplacementNamed(context, _resolvedRoute ?? '/login');
   }
 
@@ -139,20 +130,24 @@ class _SplashPageState extends State<SplashPage>
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF2F3B69),
-      body: SafeArea(
-        child: Center(
-          child: AnimatedOpacity(
-            opacity: _fadeOut ? 0.0 : 1.0,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOut,
-            child: AnimatedScale(
-              scale: _fadeOut ? 1.05 : 1.0,
+      backgroundColor: Colors.white,
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        color: _fadeOut ? Colors.white : const Color(0xFF2F3B69),
+        child: SafeArea(
+          child: Center(
+            child: AnimatedOpacity(
+                    opacity: _fadeOut ? 0.0 : 1.0,
               duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOutCubic,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              curve: Curves.easeInOut,
+              child: AnimatedScale(
+                scale: _fadeOut ? 1.05 : 1.0,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   // Animasi Logo Meng-ular dari Bawah ke Atas
                   AnimatedBuilder(
                     animation: _drawingAnimation,
@@ -176,7 +171,7 @@ class _SplashPageState extends State<SplashPage>
                   // Teks SiapAbsen dengan animasi Fade In & Slide Up
                   AnimatedOpacity(
                     opacity: _showFillAndText ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 600),
+                    duration: Duration.zero,
                     curve: Curves.easeOut,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 600),
@@ -197,7 +192,8 @@ class _SplashPageState extends State<SplashPage>
                       ),
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -238,7 +234,7 @@ class MultiSvgPathPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final Paint accentFillPaint = Paint()
-      ..color = const Color(0xFFF5F7FC)
+      ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.fill;
 
     final List<Rect> pathBounds = paths
@@ -283,7 +279,7 @@ class MultiSvgPathPainter extends CustomPainter {
 
         if (pathProgress > 0.2) {
           final Color fillColor = isAccent
-              ? const Color(0xFFF5F7FC)
+              ? Colors.white
               : Colors.white;
           final Color fillWithOpacity = fillColor.withAlpha(
             (pathProgress * 0.7 * 255).clamp(0, 255).toInt(),
