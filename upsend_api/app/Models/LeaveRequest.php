@@ -19,6 +19,8 @@ class LeaveRequest extends Model
         'attachment_path',
         'status',
         'total_days',
+        'start_time',
+        'end_time',
     ];
 
     protected $casts = [
