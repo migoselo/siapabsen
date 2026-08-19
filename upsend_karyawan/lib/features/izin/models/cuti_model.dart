@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 class CutiModel {
   final int? id;
+  final DateTime startDate;
+  final DateTime endDate;
+  final DateTime? createdAt;
+  final String reason;
+  final String status;
   final String svgPath;
   final Color iconBgColor;
   final String title;
@@ -14,6 +19,11 @@ class CutiModel {
 
   CutiModel({
     this.id,
+    required this.startDate,
+    required this.endDate,
+    this.createdAt,
+    required this.reason,
+    required this.status,
     required this.svgPath,
     required this.iconBgColor,
     required this.title,
@@ -39,6 +49,11 @@ class CutiModel {
       id: json['id'] is int
           ? json['id']
           : int.tryParse(json['id']?.toString() ?? ''),
+      startDate: startDate,
+      endDate: endDate,
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
+      reason: (json['reason'] ?? '').toString(),
+      status: status,
       svgPath: _iconForType(type),
       iconBgColor: _bgForType(type),
       title: type,

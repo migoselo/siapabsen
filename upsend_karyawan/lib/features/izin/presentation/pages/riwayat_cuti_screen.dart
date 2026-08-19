@@ -362,10 +362,13 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   }
 
   Future<void> _openDetailCuti(BuildContext context, CutiModel cuti) async {
-    await Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => DetailPermohonanPage(cuti: cuti)),
     );
+    if (result == 'cancelled' && mounted) {
+      await _loadCutiHistory();
+    }
   }
 
   // Widget Reusable untuk Item Kartu Cuti

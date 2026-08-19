@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/api.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import 'dart:async';
@@ -16,8 +17,6 @@ class PengajuanCutiScreen extends StatefulWidget {
 }
 
 class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
-  // Dummy dulu — belum dipakai buat filter tampilan atau dikirim ke backend.
-  // Nanti kalau backend & alur Izin/Lembur udah jelas, tinggal wire di sini.
   String _selectedJenisPengajuan = 'Cuti';
   final List<String> _jenisPengajuanOptions = ['Cuti', 'Izin', 'Lembur'];
 
@@ -49,6 +48,11 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   PlatformFile? _selectedFile;
   bool _isSubmitting = false;
   double _uploadProgress = 0.0;
+  Map<String, int> _leaveBalances = const {
+    'annual': 0,
+    'special': 0,
+    'sick': 0,
+  };
 
   final Color _primaryColor = const Color(0xFF2F3B69);
 
@@ -130,12 +134,65 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   @override
   void initState() {
     super.initState();
+    _loadLeaveBalances();
     _alasanController.addListener(() {
       setState(() {
         _alasanLength = _alasanController.text.length;
       });
     });
   }
+
+  Future<void> _loadLeaveBalances() async {
+    final prefs = await SharedPreferences.getInstance();
+    final year = DateTime.now().year;
+    final cachedBalances = {
+      'annual': prefs.getInt('leave_balance_${year}_annual'),
+      'special': prefs.getInt('leave_balance_${year}_special'),
+      'sick': prefs.getInt('leave_balance_${year}_sick'),
+    };
+    if (mounted && cachedBalances.values.any((value) => value != null)) {
+      setState(() {
+        _leaveBalances = cachedBalances.map(
+          (key, value) => MapEntry(key, value ?? 0),
+        );
+      });
+    }
+
+    try {
+      final response = await Api.dio.get('/leave-balances');
+      final balances = Map<String, dynamic>.from(
+        (response.data['balances'] as Map?) ?? const {},
+      );
+      final freshBalances = {
+        'annual': int.tryParse('${balances['annual'] ?? 0}') ?? 0,
+        'special': int.tryParse('${balances['special'] ?? 0}') ?? 0,
+        'sick': int.tryParse('${balances['sick'] ?? 0}') ?? 0,
+      };
+      await Future.wait(
+        freshBalances.entries.map(
+          (entry) =>
+              prefs.setInt('leave_balance_${year}_${entry.key}', entry.value),
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _leaveBalances = freshBalances);
+    } on DioException {
+      // Keep the cached value visible when the API is temporarily slow.
+    }
+  }
+
+  String get _selectedBalanceKey {
+    switch (_selectedTipeCuti) {
+      case 1:
+        return 'sick';
+      case 2:
+        return 'special';
+      default:
+        return 'annual';
+    }
+  }
+
+  int get _selectedLeaveBalance => _leaveBalances[_selectedBalanceKey] ?? 0;
 
   @override
   void dispose() {
@@ -233,6 +290,20 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
             : null,
       );
 
+      if (_isCuti) {
+        final startDate = _tanggalMulai!;
+        final endDate = _tanggalSelesai!;
+        final requestedDays = endDate.difference(startDate).inDays + 1;
+        final prefs = await SharedPreferences.getInstance();
+        final year = startDate.year;
+        final cacheKey = 'leave_balance_${year}_$_selectedBalanceKey';
+        final currentBalance = prefs.getInt(cacheKey) ?? _selectedLeaveBalance;
+        await prefs.setInt(
+          cacheKey,
+          (currentBalance - requestedDays).clamp(0, currentBalance).toInt(),
+        );
+      }
+
       simulationTimer?.cancel();
       if (mounted) setState(() => _uploadProgress = 1.0);
 
@@ -304,7 +375,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Card Sisa Cuti dengan Background Gradient
+              // 1. Card Sisa Hari Cuti dengan Background Gradient
               Container(
                 width: double.infinity,
                 height: 160,
@@ -322,7 +393,9 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Sisa Cuti Tahunan',
+                        _isCuti
+                            ? 'Sisa Hari Cuti ${_tipeCutiOptions[_selectedTipeCuti]}'
+                            : 'Sisa Hari Cuti',
                         style: GoogleFonts.plusJakartaSans(
                           color: const Color(0xFFC5CEE0),
                           fontSize: 14,
@@ -333,7 +406,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: '12 ',
+                              text: '$_selectedLeaveBalance ',
                               style: GoogleFonts.plusJakartaSans(
                                 color: Colors.white,
                                 fontSize: 24,
@@ -817,13 +890,15 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 label: labelBuilder(item),
                 style: ButtonStyle(
                   foregroundColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.hovered) ||
+                    (states) =>
+                        states.contains(WidgetState.hovered) ||
                             states.contains(WidgetState.focused)
                         ? _primaryColor
                         : Colors.black87,
                   ),
                   backgroundColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.hovered) ||
+                    (states) =>
+                        states.contains(WidgetState.hovered) ||
                             states.contains(WidgetState.focused)
                         ? _primaryColor.withValues(alpha: 0.10)
                         : Colors.transparent,

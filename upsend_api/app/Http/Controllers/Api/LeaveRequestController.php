@@ -4,11 +4,78 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LeaveRequest;
+use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class LeaveRequestController extends Controller
 {
+    public function balances(Request $request)
+    {
+        $year = (int) $request->query('year', now()->year);
+        $userId = $request->user()->id;
+
+        $currentYearBalances = LeaveBalance::where('user_id', $userId)
+            ->where('year', $year)
+            ->get();
+
+        // Only inspect the previous year when the current year has no data.
+        if ($currentYearBalances->isEmpty()) {
+            $previousBalances = LeaveBalance::where('user_id', $userId)
+                ->where('year', $year - 1)
+                ->get();
+
+            foreach ($previousBalances as $previousBalance) {
+                LeaveBalance::firstOrCreate(
+                    [
+                        'user_id' => $userId,
+                        'leave_type_id' => $previousBalance->leave_type_id,
+                        'year' => $year,
+                    ],
+                    [
+                        'quota_days' => $previousBalance->quota_days,
+                        'used_days' => 0,
+                        'tenant_id' => $previousBalance->tenant_id,
+                    ],
+                );
+            }
+        }
+
+        $balances = LeaveBalance::with('leaveType')
+            ->where('user_id', $userId)
+            ->where('year', $year)
+            ->get();
+
+        $result = [
+            'annual' => 0,
+            'special' => 0,
+            'sick' => 0,
+        ];
+
+        foreach ($balances as $balance) {
+            $name = strtolower((string) ($balance->leaveType?->name ?? ''));
+            $key = match (true) {
+                str_contains($name, 'tahunan') => 'annual',
+                str_contains($name, 'khusus'), str_contains($name, 'penting') => 'special',
+                str_contains($name, 'sakit') => 'sick',
+                default => null,
+            };
+
+            if ($key !== null) {
+                $result[$key] = max(
+                    0,
+                    (int) $balance->quota_days - (int) $balance->used_days,
+                );
+            }
+        }
+
+        return response()->json([
+            'year' => $year,
+            'balances' => $result,
+        ]);
+    }
+
     public function index(Request $request)
     {
         $query = LeaveRequest::where('user_id', $request->user()->id)
@@ -62,6 +129,36 @@ class LeaveRequestController extends Controller
         $interval = $startDate->diff($endDate);
         $totalDays = $interval->days + 1; // +1 to include both start and end date
 
+        if ($startDate->format('Y') !== $endDate->format('Y')) {
+            return response()->json([
+                'message' => 'Pengajuan cuti harus berada dalam tahun yang sama.',
+            ], 422);
+        }
+
+        $isQuotaLeave = str_starts_with(strtolower($data['type'] ?? ''), 'cuti ');
+        $leaveYear = (int) $startDate->format('Y');
+
+        if ($isQuotaLeave) {
+            $leaveBalance = LeaveBalance::where('user_id', $request->user()->id)
+                ->where('leave_type_id', $data['leave_type_id'])
+                ->where('year', $leaveYear)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$leaveBalance) {
+                return response()->json([
+                    'message' => 'Kuota cuti untuk tahun tersebut belum tersedia.',
+                ], 422);
+            }
+
+            $remainingDays = (int) $leaveBalance->quota_days - (int) $leaveBalance->used_days;
+            if ($totalDays > $remainingDays) {
+                return response()->json([
+                    'message' => "Sisa hari cuti hanya {$remainingDays} hari.",
+                ], 422);
+            }
+        }
+
         $payload = [
             'user_id' => $request->user()->id,
             'leave_type_id' => $data['leave_type_id'] ?? 1,
@@ -72,11 +169,45 @@ class LeaveRequestController extends Controller
             'attachment_path' => $data['attachment_path'] ?? null,
             'status' => 'pending',
             'total_days' => $totalDays,
-            'start_time' => $data['start_time'] ?? null,
-            'end_time' => $data['end_time'] ?? null,
         ];
 
-        $leaveRequest = LeaveRequest::create($payload);
+        // Some environments (remote DB) might not have the overtime
+        // columns yet. Only include them if the column exists to avoid
+        // SQL errors like "Invalid column name 'start_time'".
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('leave_requests', 'start_time') &&
+                isset($data['start_time'])) {
+                $payload['start_time'] = $data['start_time'];
+            }
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('leave_requests', 'end_time') &&
+                isset($data['end_time'])) {
+                $payload['end_time'] = $data['end_time'];
+            }
+        } catch (\Throwable $e) {
+            // If checking schema fails for any reason, continue without
+            // adding overtime columns. This keeps the endpoint resilient
+            // while ops team runs migrations.
+        }
+
+        $leaveRequest = DB::transaction(function () use ($payload, $isQuotaLeave, $request, $data, $leaveYear, $totalDays) {
+            if ($isQuotaLeave) {
+                $leaveBalance = LeaveBalance::where('user_id', $request->user()->id)
+                    ->where('leave_type_id', $data['leave_type_id'])
+                    ->where('year', $leaveYear)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $remainingDays = (int) $leaveBalance->quota_days - (int) $leaveBalance->used_days;
+                if ($totalDays > $remainingDays) {
+                    abort(422, "Sisa hari cuti hanya {$remainingDays} hari.");
+                }
+
+                $leaveBalance->increment('used_days', $totalDays);
+            }
+
+            return LeaveRequest::create($payload);
+        });
 
         return response()->json($leaveRequest, 201);
     }
@@ -91,7 +222,25 @@ class LeaveRequestController extends Controller
             ], 422);
         }
 
-        $leaveRequest->delete();
+        DB::transaction(function () use ($leaveRequest) {
+            $isQuotaLeave = str_starts_with(strtolower((string) $leaveRequest->type), 'cuti ');
+            if ($isQuotaLeave && $leaveRequest->leave_type_id) {
+                $leaveBalance = LeaveBalance::where('user_id', $leaveRequest->user_id)
+                    ->where('leave_type_id', $leaveRequest->leave_type_id)
+                    ->where('year', $leaveRequest->start_date->year)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($leaveBalance) {
+                    $leaveBalance->decrement(
+                        'used_days',
+                        min((int) $leaveRequest->total_days, (int) $leaveBalance->used_days),
+                    );
+                }
+            }
+
+            $leaveRequest->delete();
+        });
 
         return response()->json(['message' => 'Pengajuan berhasil dibatalkan.']);
     }

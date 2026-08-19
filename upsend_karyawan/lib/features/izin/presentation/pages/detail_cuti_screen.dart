@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/api/api.dart';
 import '../../models/cuti_model.dart';
 
 const Color kNavy = Color(0xFF2E3A6E);
@@ -8,12 +10,7 @@ const Color kTextPrimary = Color(0xFF000000);
 const Color kTextSecondary = Color(0xFF9A9A9A);
 const Color kBorder = Color(0xFFE5E7EB);
 const Color kMaroon = Color(0xFF7A1F1F);
-const Color kGreenBg = Color(0xFFE6F7ED);
-const Color kGreenText = Color(0xFF27AE60);
 
-/// Data status history — ini DUMMY, nanti kalau backend udah jelas,
-/// list ini diganti hasil fetch dari API (kemungkinan besar endpoint
-/// terpisah atau embedded di response detail cuti).
 class _StatusHistoryItem {
   final String title;
   final String dateTime;
@@ -29,29 +26,61 @@ class DetailPermohonanPage extends StatelessWidget {
   final CutiModel cuti;
   const DetailPermohonanPage({super.key, required this.cuti});
 
-  static const _submittedAt = '23 Juli 2026 • 09:15';
-  static const _startDate = '24 Juli 2026';
-  static const _endDate = '27 Juli 2026';
-  static const _reason =
-      'Menikah dengan Ryul. Mohon izin cuti untuk keperluan pernikahan dan '
-      'acara adat yang berlangsung di kampung halaman, sehingga membutuhkan '
-      'waktu tambahan untuk persiapan dan pelaksanaan acara.';
-  static const _statusHistory = [
-    _StatusHistoryItem(
-      title: 'Permohonan Disetujui',
-      dateTime: '23 Juli 2026, 17:05',
-      subtitle: 'Permohonan Anda sudah disetujui',
-    ),
-    _StatusHistoryItem(
-      title: 'Menunggu Persetujuan',
-      dateTime: '23 Juli 2026, 17:00',
-      subtitle: 'Permohonan Anda sedang dalam antrean',
-    ),
-    _StatusHistoryItem(
-      title: 'Permohonan Diajukan',
-      dateTime: '23 Juli 2026, 09:10',
-      subtitle: 'Data permohonan berhasil dikirim ke sistem',
-    ),
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')} ${_months[date.month - 1]} ${date.year}';
+
+  String _formatDateTime(DateTime? date) {
+    if (date == null) return '-';
+    return '${_formatDate(date)}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  List<_StatusHistoryItem> get _statusHistory {
+    final submittedAt = _formatDateTime(cuti.createdAt);
+    final items = [
+      _StatusHistoryItem(
+        title: 'Permohonan Diajukan',
+        dateTime: submittedAt,
+        subtitle: 'Data permohonan berhasil dikirim ke sistem',
+      ),
+    ];
+    if (cuti.status.toLowerCase() != 'pending') {
+      final approved = cuti.status.toLowerCase() == 'approved';
+      items.insert(
+        0,
+        _StatusHistoryItem(
+          title: approved ? 'Permohonan Disetujui' : 'Permohonan Ditolak',
+          dateTime: _formatDateTime(cuti.createdAt),
+          subtitle: approved
+              ? 'Permohonan Anda sudah disetujui'
+              : 'Permohonan Anda ditolak',
+        ),
+      );
+    } else {
+      items.insert(
+        0,
+        _StatusHistoryItem(
+          title: 'Menunggu Persetujuan',
+          dateTime: submittedAt,
+          subtitle: 'Permohonan Anda sedang dalam antrean',
+        ),
+      );
+    }
+    return items;
+  }
+
+  static const _months = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
 
   Future<void> _handleBatalkan(BuildContext context) async {
@@ -90,12 +119,21 @@ class DetailPermohonanPage extends StatelessWidget {
 
     if (confirm != true) return;
 
-    // TODO: BELUM TERSAMBUNG KE BACKEND — di sini nanti manggil
-    // repository.cancelCuti(cuti.id) atau semacamnya, baru setelah
-    // sukses, pop halaman ini dan kasih tau RiwayatCutiScreen buat
-    // hapus item dari list-nya juga.
-    if (context.mounted) {
-      Navigator.pop(context, 'cancelled'); // sinyal ke halaman sebelumnya
+    if (cuti.id == null) return;
+
+    try {
+      await Api.dio.delete('/leave-requests/${cuti.id}');
+      if (context.mounted) Navigator.pop(context, 'cancelled');
+    } on DioException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.response?.data?['message']?.toString() ??
+                'Gagal membatalkan pengajuan.',
+          ),
+        ),
+      );
     }
   }
 
@@ -141,13 +179,13 @@ class DetailPermohonanPage extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: kGreenBg,
+                      color: cuti.statusColor,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       cuti.statusText,
                       style: GoogleFonts.plusJakartaSans(
-                        color: kGreenText,
+                        color: cuti.statusTextColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                       ),
@@ -155,7 +193,7 @@ class DetailPermohonanPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Diajukan pada $_submittedAt',
+                    'Diajukan pada ${_formatDateTime(cuti.createdAt)}',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       color: kTextSecondary,
@@ -263,9 +301,9 @@ class DetailPermohonanPage extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _PeriodRow(label: 'MULAI', date: _startDate),
+                  _PeriodRow(label: 'MULAI', date: _formatDate(cuti.startDate)),
                   const Divider(height: 1, color: kBorder),
-                  _PeriodRow(label: 'SELESAI', date: _endDate),
+                  _PeriodRow(label: 'SELESAI', date: _formatDate(cuti.endDate)),
                 ],
               ),
             ),
@@ -291,7 +329,7 @@ class DetailPermohonanPage extends StatelessWidget {
               ),
               child: SingleChildScrollView(
                 child: Text(
-                  _reason,
+                  cuti.reason,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     color: kTextPrimary,

@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
 import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_registration_service.dart';
+import '../../../core/services/face_embedding_service.dart';
 import '../../attendance/repository/attendance_repository.dart';
 import 'face_registration_success_dialog.dart';
 
@@ -66,7 +67,8 @@ class _FaceRegistrationCameraPageState
 
     try {
       final attendanceRepository = AttendanceRepository();
-      final result = await attendanceRepository.registerFace(file);
+      final embedding = await FaceEmbeddingService().extractEmbedding(file);
+      final result = await attendanceRepository.registerFace(file, embedding);
 
       if (!mounted) return;
 
