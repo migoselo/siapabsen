@@ -129,7 +129,7 @@ class RiwayatCategoryChart extends StatelessWidget {
                               ? FontWeight.w700
                               : FontWeight.w400,
                           color: isSelected
-                              ? const Color(0xFF1B2559)
+                              ? const Color(0xFF2F3B69)
                               : Colors.black87,
                         ),
                       ),
