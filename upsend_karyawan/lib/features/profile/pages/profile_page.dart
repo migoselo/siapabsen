@@ -10,7 +10,7 @@ import 'biodata_page.dart';
 
 const Color kNavy = Color(0xFF2E3A6E);
 const Color kTextPrimary = Color(0xFF0F172A);
-const Color kTextSecondary = Color(0xFF6B7280);
+const Color kTextSecondary = Color(0xFF9A9A9A);
 const Color kDanger = Color(0xFFE11D48);
 const Color kBorder = Color(0xFFE5E7EB);
 const String kFontFamily = 'PlusJakartaSans';
@@ -39,7 +39,11 @@ class ProfilePage extends StatelessWidget {
                   if (Navigator.canPop(context)) {
                     Navigator.popUntil(context, ModalRoute.withName('/home'));
                   } else {
-                    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
                   }
                 },
               )
@@ -64,7 +68,9 @@ class ProfilePage extends StatelessWidget {
                 if (index == 2) {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const CheckinLocationPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const CheckinLocationPage(),
+                    ),
                   );
                   if (context.mounted) Navigator.pop(context);
                 } else if (index == 1) {
@@ -77,7 +83,11 @@ class ProfilePage extends StatelessWidget {
                   if (Navigator.canPop(context)) {
                     Navigator.popUntil(context, ModalRoute.withName('/home'));
                   } else {
-                    await Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                    await Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/home',
+                      (route) => false,
+                    );
                   }
                 }
               },
@@ -86,7 +96,11 @@ class ProfilePage extends StatelessWidget {
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state.status == AuthStatus.unauthenticated) {
-            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/login',
+              (route) => false,
+            );
           }
         },
         builder: (context, state) {
@@ -107,7 +121,9 @@ class ProfilePage extends StatelessWidget {
                 Center(
                   child: Column(
                     children: [
-                      ClipOval(child: IdenticonAvatar(username: userName, size: 100.0)),
+                      ClipOval(
+                        child: IdenticonAvatar(username: userName, size: 100.0),
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         userName,
@@ -133,14 +149,26 @@ class ProfilePage extends StatelessWidget {
                         children: [
                           Text(
                             'Full time developer', // TODO: dummy
-                            style: TextStyle(fontFamily: kFontFamily, fontSize: 12, color: kTextSecondary),
+                            style: TextStyle(
+                              fontFamily: kFontFamily,
+                              fontSize: 12,
+                              color: kTextSecondary,
+                            ),
                           ),
                           SizedBox(width: 12),
-                          Icon(Icons.location_on_outlined, size: 14, color: kTextSecondary),
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: kTextSecondary,
+                          ),
                           SizedBox(width: 2),
                           Text(
                             'Kantor Pusat', // TODO: dummy
-                            style: TextStyle(fontFamily: kFontFamily, fontSize: 12, color: kTextSecondary),
+                            style: TextStyle(
+                              fontFamily: kFontFamily,
+                              fontSize: 12,
+                              color: kTextSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -151,58 +179,107 @@ class ProfilePage extends StatelessWidget {
 
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => BiodataPage(userName: userName, userEmail: userEmail),
+                          builder: (_) => BiodataPage(
+                            userName: userName,
+                            userEmail: userEmail,
+                          ),
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kNavy,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size.fromHeight(54),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                       elevation: 0,
+                      alignment: Alignment.center,
                     ),
                     child: const Text(
                       'Lihat Biodata Lengkap',
-                      style: TextStyle(fontFamily: kFontFamily, fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: kFontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                const Text('Informasi Akun', style: TextStyle(fontFamily: kFontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
+                const Text(
+                  'Informasi Akun',
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kTextSecondary,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(border: Border.all(color: kBorder), borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorder),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _InfoRow(label: 'ID karyawan', value: user?.employeeCode ?? '-'),
+                      _InfoRow(
+                        label: 'ID karyawan',
+                        value: user?.employeeCode ?? '-',
+                      ),
                       const Divider(height: 1, color: kBorder),
                       _InfoRow(label: 'Nomor HP', value: user?.noHp ?? '-'),
                       const Divider(height: 1, color: kBorder),
-                      const _InfoRow(label: 'Departemen', value: 'Developer'), // TODO: dummy
+                      const _InfoRow(
+                        label: 'Departemen',
+                        value: 'Developer',
+                      ), // TODO: dummy
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                const Text('Pengaturan', style: TextStyle(fontFamily: kFontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
+                const Text(
+                  'Pengaturan',
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kTextSecondary,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Container(
-                  decoration: BoxDecoration(border: Border.all(color: kBorder), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorder),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                   child: Column(
                     children: [
                       _SettingRow(
                         label: 'Edit Password',
                         showChevron: true,
                         onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const EditPasswordPage()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const EditPasswordPage(),
+                            ),
+                          );
                         },
                       ),
                       const Divider(height: 1, color: kBorder),
@@ -212,7 +289,9 @@ class ProfilePage extends StatelessWidget {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const FaceRegistrationIntroPage()),
+                            MaterialPageRoute(
+                              builder: (_) => const FaceRegistrationIntroPage(),
+                            ),
                           );
                         },
                       ),
@@ -221,7 +300,9 @@ class ProfilePage extends StatelessWidget {
                         label: 'Log Out',
                         textColor: kDanger,
                         onTap: () {
-                          context.read<AuthBloc>().add(const AuthLogoutRequested());
+                          context.read<AuthBloc>().add(
+                            const AuthLogoutRequested(),
+                          );
                         },
                       ),
                     ],
@@ -249,9 +330,24 @@ class _InfoRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontFamily: kFontFamily, fontSize: 11, color: kTextSecondary)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: kFontFamily,
+              fontSize: 11,
+              color: kTextSecondary,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontFamily: kFontFamily, fontSize: 15, fontWeight: FontWeight.w600, color: kTextPrimary)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: kFontFamily,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: kTextPrimary,
+            ),
+          ),
         ],
       ),
     );
@@ -264,7 +360,12 @@ class _SettingRow extends StatelessWidget {
   final Color? textColor;
   final VoidCallback onTap;
 
-  const _SettingRow({required this.label, this.showChevron = false, this.textColor, required this.onTap});
+  const _SettingRow({
+    required this.label,
+    this.showChevron = false,
+    this.textColor,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -275,8 +376,17 @@ class _SettingRow extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontFamily: kFontFamily, fontSize: 15, fontWeight: FontWeight.w600, color: textColor ?? kTextPrimary)),
-            if (showChevron) const Icon(Icons.chevron_right, color: kTextSecondary, size: 20),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: kFontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: textColor ?? kTextPrimary,
+              ),
+            ),
+            if (showChevron)
+              const Icon(Icons.chevron_right, color: kTextSecondary, size: 20),
           ],
         ),
       ),

@@ -77,13 +77,6 @@ class _HomePageState extends State<HomePage> {
                 }
               },
               builder: (context, state) {
-                if (state.status == HomeStatus.initial ||
-                    state.status == HomeStatus.loading) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: kDanger),
-                  );
-                }
-
                 final authState = context.watch<AuthBloc>().state;
                 final userName = authState.user?.name ?? '-';
 
