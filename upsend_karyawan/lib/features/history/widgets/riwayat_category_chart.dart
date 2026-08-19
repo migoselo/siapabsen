@@ -14,13 +14,13 @@ const List<KategoriPresensi> kategoriPresensiList = [
   KategoriPresensi('telat', 'Telat', Color(0xFFF5A623)),
   KategoriPresensi('lupa_absen', 'Lupa', Color(0xFFEF4444)),
   KategoriPresensi('lembur', 'Lembur', Color(0xFF2F6FEB)),
-  KategoriPresensi('cuti', 'Cuti', Color(0xFF14B8C4)),
-  KategoriPresensi('izin', 'Izin', Color(0xFF8B5CF6)),
+ // KategoriPresensi('cuti', 'Cuti', Color(0xFF14B8C4)),
+  // KategoriPresensi('izin', 'Izin', Color(0xFF8B5CF6)),
 ];
 
 class RiwayatCategoryChart extends StatelessWidget {
   final List<AttendanceModel> records;
-  final String? selectedKategori; // null = belum ada filter
+  final String? selectedKategori;
   final ValueChanged<String?> onKategoriTap;
 
   const RiwayatCategoryChart({
@@ -41,12 +41,15 @@ class RiwayatCategoryChart extends StatelessWidget {
     final maxCount = counts.values.isEmpty
         ? 0
         : counts.values.reduce((a, b) => a > b ? a : b);
-    const maxBarHeight = 100.0;
-    const minBarHeight = 10.0;
+
+    const maxBarHeight = 130.0;
+    const minBarHeight = 8.0;
+    const barWidth = 28.0;
+    const itemWidth = 56.0;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -57,84 +60,86 @@ class RiwayatCategoryChart extends StatelessWidget {
         children: [
           const Text(
             'Kategori',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: kategoriPresensiList.map((k) {
-                final count = counts[k.key] ?? 0;
-                final isSelected = selectedKategori == k.key;
-                final barHeight = maxCount == 0
-                    ? minBarHeight
-                    : minBarHeight +
-                        (count / maxCount) * (maxBarHeight - minBarHeight);
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: kategoriPresensiList.map((k) {
+              final count = counts[k.key] ?? 0;
+              final isSelected = selectedKategori == k.key;
+              final barHeight = maxCount == 0
+                  ? minBarHeight
+                  : minBarHeight +
+                      (count / maxCount) * (maxBarHeight - minBarHeight);
 
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onKategoriTap(isSelected ? null : k.key),
-                  child: Container(
-                    width: 56,
-                    margin: const EdgeInsets.only(right: 12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // muncul cuma pas bar-nya ditap
-                        AnimatedOpacity(
-                          duration: const Duration(milliseconds: 150),
-                          opacity: isSelected ? 1 : 0,
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: k.color,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '$count hari',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          height: barHeight,
-                          width: 26,
+              return Expanded(
+                child: Center(
+                  child: SizedBox(
+                    width: itemWidth,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onKategoriTap(isSelected ? null : k.key),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 150),
+                        opacity: isSelected ? 1 : 0,
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isSelected
-                                ? k.color
-                                : k.color.withOpacity(0.55),
+                            color: k.color,
                             borderRadius: BorderRadius.circular(8),
-                            border: isSelected
-                                ? Border.all(color: k.color, width: 2)
-                                : null,
+                          ),
+                          child: Text(
+                            '$count hari',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          k.label,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight:
-                                isSelected ? FontWeight.w700 : FontWeight.w400,
-                            color: isSelected
-                                ? const Color(0xFF1B2559)
-                                : Colors.black87,
-                          ),
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: barHeight,
+                        width: barWidth,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? k.color
+                              : k.color.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(10),
+                          border: isSelected
+                              ? Border.all(color: k.color, width: 2)
+                              : null,
                         ),
-                      ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        k.label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: isSelected
+                              ? const Color(0xFF1B2559)
+                              : Colors.black87,
+                        ),
+                      ),
+                        ],
+                      ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
