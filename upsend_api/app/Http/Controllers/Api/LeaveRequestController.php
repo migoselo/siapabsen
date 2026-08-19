@@ -73,4 +73,19 @@ class LeaveRequestController extends Controller
 
         return response()->json($leaveRequest, 201);
     }
+
+    public function destroy(Request $request, $id)
+    {
+        $leaveRequest = LeaveRequest::where('user_id', $request->user()->id)->findOrFail($id);
+
+        if ($leaveRequest->status !== 'pending') {
+            return response()->json([
+                'message' => 'Pengajuan yang sudah diproses tidak bisa dibatalkan.',
+            ], 422);
+        }
+
+        $leaveRequest->delete();
+
+        return response()->json(['message' => 'Pengajuan berhasil dibatalkan.']);
+    }
 }
