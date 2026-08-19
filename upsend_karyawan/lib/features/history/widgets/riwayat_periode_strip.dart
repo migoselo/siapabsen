@@ -30,7 +30,9 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerSelected());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _centerSelected(animate: false),
+    );
   }
 
   @override
@@ -38,7 +40,9 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.periode != widget.periode ||
         oldWidget.anchorDate != widget.anchorDate) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerSelected());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _centerSelected(animate: true),
+      );
     }
   }
 
@@ -74,8 +78,6 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
     }
   }
 
-  // Cari item yang lagi aktif: prioritaskan "hari ini" kalau ada di list
-  // (mis. bulan berjalan), kalau tidak baru pakai anchorDate.
   int _findCenterIndex(List<DateTime> items) {
     final isYearly = widget.periode == PeriodeRiwayat.tahunan;
 
@@ -99,8 +101,8 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
     return anchorIndex == -1 ? 0 : anchorIndex;
   }
 
-  void _centerSelected() {
-    if (!_controller.hasClients) return;
+  void _centerSelected({required bool animate}) {
+    if (!_controller.hasClients || !mounted) return;
     final items = _buildItems();
     final index = _findCenterIndex(items);
     final viewportWidth = _controller.position.viewportDimension;
@@ -113,7 +115,15 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
       _controller.position.maxScrollExtent,
     );
 
-    _controller.jumpTo(clamped);
+    if (animate) {
+      _controller.animateTo(
+        clamped,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _controller.jumpTo(clamped);
+    }
   }
 
   @override
@@ -123,6 +133,9 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
     final dayLabelFormat = DateFormat('EEE', 'id_ID');
     final monthLabelFormat = DateFormat('MMM', 'id_ID');
 
+    // langsung ListView biasa — nggak ada AnimatedSwitcher/fade lagi.
+    // yang bikin "smooth" cuma animateTo di atas (posisi geser),
+    // isi item ganti instan begitu periode berubah.
     return SizedBox(
       height: 64,
       child: ListView.separated(
@@ -133,8 +146,7 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
         itemBuilder: (context, index) {
           final item = items[index];
           final isSelected = isYearly
-              ? item.month == widget.anchorDate.month &&
-                    item.year == widget.anchorDate.year
+              ? item.month == widget.anchorDate.month
               : item.year == widget.anchorDate.year &&
                     item.month == widget.anchorDate.month &&
                     item.day == widget.anchorDate.day;
@@ -142,7 +154,8 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
 
           return GestureDetector(
             onTap: isFuture ? null : () => widget.onSelected(item),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               width: _itemWidth,
               decoration: BoxDecoration(
                 color: isSelected ? const Color(0xFF1B2559) : Colors.white,
@@ -154,38 +167,14 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
                 ),
               ),
               alignment: Alignment.center,
-              child: isYearly
-                  ? Text(
-                      monthLabelFormat.format(
-                        item,
-                      ), // "Agu" doang, gak ada tahun lagi
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected
-                            ? Colors.white
-                            : (isFuture
-                                  ? const Color(0xFFC9C9C9)
-                                  : Colors.black),
-                      ),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          dayLabelFormat.format(item),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isSelected
-                                ? Colors.white70
-                                : (isFuture
-                                      ? const Color(0xFFC9C9C9)
-                                      : const Color(0xFF9A9A9A)),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.day.toString().padLeft(2, '0'),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  isYearly
+                      ? Text(
+                          monthLabelFormat.format(
+                            item,
+                          ), // "Agu" doang, gak ada tahun lagi
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -195,9 +184,38 @@ class _RiwayatPeriodeStripState extends State<RiwayatPeriodeStrip> {
                                       ? const Color(0xFFC9C9C9)
                                       : Colors.black),
                           ),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              dayLabelFormat.format(item),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isSelected
+                                    ? Colors.white70
+                                    : (isFuture
+                                          ? const Color(0xFFC9C9C9)
+                                          : const Color(0xFF9A9A9A)),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.day.toString().padLeft(2, '0'),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
+                                    ? Colors.white
+                                    : (isFuture
+                                          ? const Color(0xFFC9C9C9)
+                                          : Colors.black),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                ],
+              ),
             ),
           );
         },
