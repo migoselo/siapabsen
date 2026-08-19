@@ -24,6 +24,23 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   int _selectedTipeCuti = 0; // 0: Tahunan, 1: Sakit, 2: Khusus
   final List<String> _tipeCutiOptions = ['Tahunan', 'Sakit', 'Khusus'];
 
+  int _selectedTipeIzin = 0; // dipakai kalau Jenis Pengajuan == Izin
+  final List<String> _tipeIzinOptions = [
+    'Izin Dinas Luar (SPDD)',
+    'Izin Lainnya',
+  ];
+
+  TimeOfDay? _jamMulai;
+  TimeOfDay? _jamSelesai;
+
+  bool get _isCuti => _selectedJenisPengajuan == 'Cuti';
+  bool get _isIzin => _selectedJenisPengajuan == 'Izin';
+  bool get _isLembur => _selectedJenisPengajuan == 'Lembur';
+
+  String _formatTime(TimeOfDay time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
   DateTime? _tanggalMulai;
   DateTime? _tanggalSelesai;
   final TextEditingController _alasanController = TextEditingController();
@@ -75,6 +92,14 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   }
 
   bool get _isFormValid {
+    if (_isLembur) {
+      return !_isSubmitting &&
+          _jamMulai != null &&
+          _jamSelesai != null &&
+          _selectedFile != null &&
+          _alasanController.text.trim().isNotEmpty;
+    }
+
     return !_isSubmitting &&
         _tanggalMulai != null &&
         _tanggalSelesai != null &&
@@ -118,13 +143,38 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     super.dispose();
   }
 
-  Future<void> _saveCuti() async {
+  Future<void> _selectTime(BuildContext context, bool isMulai) async {
+    FocusScope.of(context).unfocus();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isMulai
+          ? (_jamMulai ?? TimeOfDay.now())
+          : (_jamSelesai ?? TimeOfDay.now()),
+    );
+
+    if (picked != null && mounted) {
+      setState(() {
+        if (isMulai) {
+          _jamMulai = picked;
+        } else {
+          _jamSelesai = picked;
+        }
+      });
+    }
+  }
+
+  Future<void> _savePengajuan() async {
     setState(() {
       _isSubmitting = true;
       _uploadProgress = 0.0;
     });
 
-    final String tipeLabel = 'Cuti ${_tipeCutiOptions[_selectedTipeCuti]}';
+    final String tipeLabel = _isCuti
+        ? 'Cuti ${_tipeCutiOptions[_selectedTipeCuti]}'
+        : _isIzin
+        ? _tipeIzinOptions[_selectedTipeIzin]
+        : 'Lembur';
+    final today = DateTime.now();
 
     final bool hasAttachment =
         _selectedFile != null && _selectedFile!.path != null;
@@ -150,8 +200,18 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       final formData = FormData.fromMap({
         'type': tipeLabel,
         'leave_type_id': _selectedTipeCuti + 1,
-        'start_date': _tanggalMulai!.toIso8601String().split('T').first,
-        'end_date': _tanggalSelesai!.toIso8601String().split('T').first,
+        'start_date': (_isLembur ? today : _tanggalMulai!)
+            .toIso8601String()
+            .split('T')
+            .first,
+        'end_date': (_isLembur ? today : _tanggalSelesai!)
+            .toIso8601String()
+            .split('T')
+            .first,
+        if (_isLembur) ...{
+          'start_time': _formatTime(_jamMulai!),
+          'end_time': _formatTime(_jamSelesai!),
+        },
         'reason': _alasanController.text.trim(),
         if (hasAttachment)
           'attachment': await MultipartFile.fromFile(
@@ -179,7 +239,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       await Future.delayed(const Duration(milliseconds: 250));
 
       if (!mounted) return;
-      AppSnackbar.success(context, 'Pengajuan cuti berhasil dikirim.');
+      AppSnackbar.success(context, 'Pengajuan berhasil dikirim.');
       Navigator.pop(context, true);
     } on DioException catch (e) {
       simulationTimer?.cancel();
@@ -321,7 +381,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 24),
 
-              // 2. Jenis Pengajuan (DUMMY — belum ngubah tampilan lain)
+              // 2. Jenis Pengajuan
               Text(
                 'Jenis Pengajuan',
                 style: GoogleFonts.plusJakartaSans(
@@ -343,95 +403,139 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 20),
 
-              // 3. Tipe Cuti (sekarang dropdown, sebelumnya card)
-              Text(
-                'Tipe Cuti',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
+              if (_isCuti || _isIzin) ...[
+                Text(
+                  _isCuti ? 'Tipe Cuti' : 'Tipe Izin',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              _buildDropdownField<int>(
-                value: _selectedTipeCuti,
-                items: List.generate(_tipeCutiOptions.length, (i) => i),
-                labelBuilder: (i) => _tipeCutiOptions[i],
-                onChanged: (val) {
-                  if (val == null) return;
-                  setState(() => _selectedTipeCuti = val);
-                },
-              ),
+                const SizedBox(height: 10),
+                _buildDropdownField<int>(
+                  value: _isCuti ? _selectedTipeCuti : _selectedTipeIzin,
+                  items: List.generate(
+                    (_isCuti ? _tipeCutiOptions : _tipeIzinOptions).length,
+                    (i) => i,
+                  ),
+                  labelBuilder: (i) =>
+                      (_isCuti ? _tipeCutiOptions : _tipeIzinOptions)[i],
+                  onChanged: (val) {
+                    if (val == null) return;
+                    setState(() {
+                      if (_isCuti) {
+                        _selectedTipeCuti = val;
+                      } else {
+                        _selectedTipeIzin = val;
+                      }
+                    });
+                  },
+                ),
+              ],
 
               const SizedBox(height: 20),
 
-              // 4. Tanggal Mulai & Tanggal Selesai
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tanggal Mulai',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+              // 4. Tanggal atau jam pengajuan
+              if (!_isLembur)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tanggal Mulai',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildDateField(
-                          date: _tanggalMulai,
-                          onTap: () => _selectDate(context, true),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tanggal Selesai',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildDateField(
-                          date: _tanggalSelesai,
-                          onTap: () => _selectDate(context, false),
-                          hasError: _isDateRangeInvalid,
-                        ),
-                        if (_isDateRangeInvalid) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                size: 12,
-                                color: Color(0xFFDC2626),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  'Harus setelah tanggal mulai',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 10,
-                                    color: const Color(0xFFDC2626),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          const SizedBox(height: 8),
+                          _buildDateField(
+                            date: _tanggalMulai,
+                            onTap: () => _selectDate(context, true),
                           ),
                         ],
-                      ],
+                      ),
                     ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tanggal Selesai',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildDateField(
+                            date: _tanggalSelesai,
+                            onTap: () => _selectDate(context, false),
+                            hasError: _isDateRangeInvalid,
+                          ),
+                          if (_isDateRangeInvalid) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 12,
+                                  color: Color(0xFFDC2626),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Harus setelah tanggal mulai',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10,
+                                      color: const Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+              if (_isLembur) ...[
+                Text(
+                  'Tanggal Lembur',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                _buildDateField(date: DateTime.now(), onTap: () {}),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTimeField(
+                        label: 'Dari Jam',
+                        time: _jamMulai,
+                        onTap: () => _selectTime(context, true),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildTimeField(
+                        label: 'Sampai Jam',
+                        time: _jamSelesai,
+                        onTap: () => _selectTime(context, false),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
 
               const SizedBox(height: 20),
 
@@ -440,7 +544,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Alasan Cuti',
+                    _isLembur ? 'Alasan Lembur' : 'Alasan Pengajuan',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -462,8 +566,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 maxLength: 250,
                 style: GoogleFonts.plusJakartaSans(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText:
-                      'Jelaskan alasan pengajuan cuti Anda secara detail...',
+                  hintText: 'Jelaskan alasan pengajuan Anda secara detail...',
                   hintStyle: GoogleFonts.plusJakartaSans(
                     color: Colors.grey.shade400,
                     fontSize: 13,
@@ -484,9 +587,9 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 20),
 
-              // 6. Lampiran (Opsional)
+              // 6. Lampiran
               Text(
-                'Lampiran (Opsional)',
+                _isLembur ? 'Lampiran (Wajib)' : 'Lampiran (Opsional)',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -603,7 +706,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _isFormValid ? _saveCuti : null,
+                  onPressed: _isFormValid ? _savePengajuan : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryColor,
                     disabledBackgroundColor: Colors.grey.shade300,
@@ -666,36 +769,70 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     required String Function(T) labelBuilder,
     required ValueChanged<T?> onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        hoverColor: _primaryColor.withValues(alpha: 0.10),
+        highlightColor: _primaryColor.withValues(alpha: 0.14),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<T>(
-          initialValue: value,
-          isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            color: Colors.black,
-          ),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(vertical: 14),
-          ),
-          items: items
-              .map(
-                (item) => DropdownMenuItem<T>(
-                  value: item,
-                  child: Text(labelBuilder(item)),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
+      child: DropdownMenu<T>(
+        initialSelection: value,
+        width: MediaQuery.sizeOf(context).width - 40,
+        menuHeight: 240,
+        textStyle: GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          color: Colors.black,
         ),
+        trailingIcon: Icon(Icons.keyboard_arrow_down, color: _primaryColor),
+        selectedTrailingIcon: Icon(
+          Icons.keyboard_arrow_up,
+          color: _primaryColor,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 14,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: _primaryColor, width: 1.5),
+          ),
+        ),
+        menuStyle: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          elevation: const WidgetStatePropertyAll(8),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        dropdownMenuEntries: items
+            .map(
+              (item) => DropdownMenuEntry<T>(
+                value: item,
+                label: labelBuilder(item),
+                style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.hovered) ||
+                            states.contains(WidgetState.focused)
+                        ? _primaryColor
+                        : Colors.black87,
+                  ),
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.hovered) ||
+                            states.contains(WidgetState.focused)
+                        ? _primaryColor.withValues(alpha: 0.10)
+                        : Colors.transparent,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+        onSelected: (selected) => onChanged(selected),
       ),
     );
   }
@@ -740,6 +877,50 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTimeField({
+    required String label,
+    required TimeOfDay? time,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    time == null ? '--:--' : _formatTime(time),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      color: time == null ? Colors.grey.shade400 : Colors.black,
+                    ),
+                  ),
+                ),
+                Icon(Icons.access_time, size: 18, color: Colors.grey.shade600),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
