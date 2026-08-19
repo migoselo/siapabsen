@@ -24,61 +24,74 @@ class CustomBottomNavBar extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         // Background Bar
-        Container(
-          height: 65,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
+        Builder(
+          builder: (context) {
+            final bottomInset = MediaQuery.of(context).padding.bottom.clamp(0.0, 12.0);
+            return Container(
+              height: 65 + bottomInset,
+              padding: EdgeInsets.only(bottom: bottomInset),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              // Item 1: Beranda
-              _buildNavItem(
-                index: 0,
-                label: 'Beranda',
-                iconPath: 'assets/images/Home.svg',
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
-              ),
+              child: Row(
+                children: [
+                  // Item 1: Beranda
+                  Expanded(
+                    child: _buildNavItem(
+                      index: 0,
+                      label: 'Beranda',
+                      iconPath: 'assets/images/Home.svg',
+                      activeColor: activeColor,
+                      inactiveColor: inactiveColor,
+                    ),
+                  ),
 
-              // Item 2: Formulir
-              _buildNavItem(
-                index: 1,
-                label: 'Formulir',
-                iconPath: 'assets/images/Document.svg',
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
-              ),
+                  // Item 2: Formulir
+                  Expanded(
+                    child: _buildNavItem(
+                      index: 1,
+                      label: 'Formulir',
+                      iconPath: 'assets/images/Document.svg',
+                      activeColor: activeColor,
+                      inactiveColor: inactiveColor,
+                    ),
+                  ),
 
-              // Spacer untuk memberi ruang pada Tombol Presensi di tengah
-              const SizedBox(width: 50),
+                  // Spacer untuk memberi ruang pada Tombol Presensi di tengah
+                  const Expanded(child: SizedBox()),
 
-              // Item 4: Riwayat
-              _buildNavItem(
-                index: 3,
-                label: 'Riwayat',
-                iconPath: 'assets/images/history.svg',
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
-              ),
+                  // Item 4: Riwayat
+                  Expanded(
+                    child: _buildNavItem(
+                      index: 3,
+                      label: 'Riwayat',
+                      iconPath: 'assets/images/history.svg',
+                      activeColor: activeColor,
+                      inactiveColor: inactiveColor,
+                    ),
+                  ),
 
-              // Item 5: Profil
-              _buildNavItem(
-                index: 4,
-                label: 'Profil',
-                iconPath: 'assets/images/Profile.svg',
-                activeColor: activeColor,
-                inactiveColor: inactiveColor,
+                  // Item 5: Profil
+                  Expanded(
+                    child: _buildNavItem(
+                      index: 4,
+                      label: 'Profil',
+                      iconPath: 'assets/images/Profile.svg',
+                      activeColor: activeColor,
+                      inactiveColor: inactiveColor,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
 
         // Item 3: Presensi (Tombol Lingkaran Tengah)
@@ -151,6 +164,8 @@ class CustomBottomNavBar extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,

@@ -379,7 +379,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // 2. Jenis Pengajuan
               Text(
@@ -622,7 +622,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Klik untuk unggah dokumen pendukung \n(PDF, JPG, PNG)',
+                          'Klik untuk unggah file \n Format PDF, JPG, PNG (maks 5 MB)',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 12,
