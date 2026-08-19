@@ -16,7 +16,14 @@ class PengajuanCutiScreen extends StatefulWidget {
 }
 
 class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
+  // Dummy dulu — belum dipakai buat filter tampilan atau dikirim ke backend.
+  // Nanti kalau backend & alur Izin/Lembur udah jelas, tinggal wire di sini.
+  String _selectedJenisPengajuan = 'Cuti';
+  final List<String> _jenisPengajuanOptions = ['Cuti', 'Izin', 'Lembur'];
+
   int _selectedTipeCuti = 0; // 0: Tahunan, 1: Sakit, 2: Khusus
+  final List<String> _tipeCutiOptions = ['Tahunan', 'Sakit', 'Khusus'];
+
   DateTime? _tanggalMulai;
   DateTime? _tanggalSelesai;
   final TextEditingController _alasanController = TextEditingController();
@@ -117,12 +124,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       _uploadProgress = 0.0;
     });
 
-    final List<String> tipeLabels = [
-      'Cuti Tahunan',
-      'Cuti Sakit',
-      'Cuti Khusus',
-    ];
-    final String tipeLabel = tipeLabels[_selectedTipeCuti];
+    final String tipeLabel = 'Cuti ${_tipeCutiOptions[_selectedTipeCuti]}';
 
     final bool hasAttachment =
         _selectedFile != null && _selectedFile!.path != null;
@@ -226,7 +228,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Pengajuan Cuti',
+          'Pengajuan',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -319,7 +321,29 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 24),
 
-              // 2. Tipe Cuti
+              // 2. Jenis Pengajuan (DUMMY — belum ngubah tampilan lain)
+              Text(
+                'Jenis Pengajuan',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildDropdownField<String>(
+                value: _selectedJenisPengajuan,
+                items: _jenisPengajuanOptions,
+                labelBuilder: (v) => v,
+                onChanged: (val) {
+                  if (val == null) return;
+                  setState(() => _selectedJenisPengajuan = val);
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // 3. Tipe Cuti (sekarang dropdown, sebelumnya card)
               Text(
                 'Tipe Cuti',
                 style: GoogleFonts.plusJakartaSans(
@@ -329,37 +353,19 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTipeCutiItem(
-                      index: 0,
-                      label: 'Tahunan',
-                      svgAsset: 'assets/images/Calendar.svg',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildTipeCutiItem(
-                      index: 1,
-                      label: 'Sakit',
-                      svgAsset: 'assets/images/Medical.svg',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildTipeCutiItem(
-                      index: 2,
-                      label: 'Khusus',
-                      svgAsset: 'assets/images/seru.svg',
-                    ),
-                  ),
-                ],
+              _buildDropdownField<int>(
+                value: _selectedTipeCuti,
+                items: List.generate(_tipeCutiOptions.length, (i) => i),
+                labelBuilder: (i) => _tipeCutiOptions[i],
+                onChanged: (val) {
+                  if (val == null) return;
+                  setState(() => _selectedTipeCuti = val);
+                },
               ),
 
               const SizedBox(height: 20),
 
-              // 3. Tanggal Mulai & Tanggal Selesai
+              // 4. Tanggal Mulai & Tanggal Selesai
               Row(
                 children: [
                   Expanded(
@@ -429,7 +435,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 20),
 
-              // 4. Alasan Cuti
+              // 5. Alasan Cuti
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -478,7 +484,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 20),
 
-              // 5. Lampiran (Opsional)
+              // 6. Lampiran (Opsional)
               Text(
                 'Lampiran (Opsional)',
                 style: GoogleFonts.plusJakartaSans(
@@ -513,7 +519,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Klik untuk unggah file \n Format PDF, JPG, PNG (maks 5 MB)',
+                          'Klik untuk unggah dokumen pendukung \n(PDF, JPG, PNG)',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 12,
@@ -551,104 +557,35 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                         ),
                         const SizedBox(height: 8),
                         GestureDetector(
-                          onTap: _selectedFile == null ? _pickFile : null,
+                          onTap: () {
+                            setState(() {
+                              _selectedFile = null;
+                            });
+                          },
+                          behavior: HitTestBehavior.opaque,
                           child: Container(
-                            width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                              vertical: 24,
-                              horizontal: 16,
+                              horizontal: 12,
+                              vertical: 6,
                             ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF4F6FB),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: const Color(0xFFC5CEE0),
-                                style: BorderStyle.solid,
-                              ),
-                            ),
-                            child: Column(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (_selectedFile == null) ...[
-                                  Icon(
-                                    Icons.cloud_upload_outlined,
-                                    size: 36,
-                                    color: _primaryColor,
+                                const Icon(
+                                  Icons.delete_outline,
+                                  size: 14,
+                                  color: Color(0xFFDC2626),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Hapus File',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    color: const Color(0xFFDC2626),
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Klik untuk unggah file \n Format PDF, JPG, PNG (maks 5 MB)',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ] else ...[
-                                  Icon(
-                                    _selectedFile!.extension == 'pdf'
-                                        ? Icons.description
-                                        : Icons.image,
-                                    size: 36,
-                                    color: _primaryColor,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '✓ File terpilih',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.green,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _selectedFile!.name,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedFile = null;
-                                      });
-                                    },
-                                    behavior: HitTestBehavior.opaque,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.delete_outline,
-                                            size: 14,
-                                            color: Color(0xFFDC2626),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Hapus File',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 11,
-                                              color: const Color(0xFFDC2626),
-                                              fontWeight: FontWeight.w600,
-                                              decoration:
-                                                  TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ],
                             ),
                           ),
@@ -661,7 +598,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 32),
 
-              // 6. Tombol Simpan
+              // 7. Tombol Simpan
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -722,52 +659,42 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     );
   }
 
-  // Widget Tipe Cuti Card Option
-  Widget _buildTipeCutiItem({
-    required int index,
-    required String label,
-    required String svgAsset,
+  // Widget Dropdown reusable — dipakai untuk Jenis Pengajuan & Tipe Cuti
+  Widget _buildDropdownField<T>({
+    required T value,
+    required List<T> items,
+    required String Function(T) labelBuilder,
+    required ValueChanged<T?> onChanged,
   }) {
-    final bool isSelected = _selectedTipeCuti == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedTipeCuti = index;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? _primaryColor : Colors.grey.shade300,
-            width: isSelected ? 1.5 : 1,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButtonFormField<T>(
+          initialValue: value,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade600),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            color: Colors.black,
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              svgAsset,
-              width: 22,
-              height: 22,
-              colorFilter: ColorFilter.mode(
-                isSelected ? _primaryColor : Colors.grey.shade600,
-                BlendMode.srcIn,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? _primaryColor : Colors.grey.shade700,
-              ),
-            ),
-          ],
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(vertical: 14),
+          ),
+          items: items
+              .map(
+                (item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text(labelBuilder(item)),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
         ),
       ),
     );

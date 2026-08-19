@@ -16,7 +16,7 @@ class CustomBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     // Warna yang disesuaikan dengan gambar
     const Color activeColor = Color(0xFF2E3A6E);
-    const Color inactiveColor = Color(0xFF9E9E9E);
+    const Color inactiveColor = Color(0xFF9A9A9A);
     const Color fabColor = Color(0xFF5163B7);
 
     return Stack(
@@ -48,10 +48,10 @@ class CustomBottomNavBar extends StatelessWidget {
                 inactiveColor: inactiveColor,
               ),
 
-              // Item 2: Izin
+              // Item 2: Formulir
               _buildNavItem(
                 index: 1,
-                label: 'Izin',
+                label: 'Formulir',
                 iconPath: 'assets/images/Document.svg',
                 activeColor: activeColor,
                 inactiveColor: inactiveColor,
