@@ -5,6 +5,9 @@ import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:svg_path_parser/svg_path_parser.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../auth/repository/auth_repository.dart';
+import '../../auth/bloc/auth_bloc.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -42,6 +45,8 @@ class _SplashPageState extends State<SplashPage>
 
   late List<Path> _parsedPaths;
 
+  String? _resolvedRoute;
+
   @override
   void initState() {
     super.initState();
@@ -49,11 +54,11 @@ class _SplashPageState extends State<SplashPage>
     _parsedPaths = _svgPathsData.map((d) => parseSvgPath(d)).toList();
 
     // 3. Pindah halaman tepat di detik ke 3
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        _navigateNext();
-      }
-    });
+    // Future.delayed(const Duration(seconds: 3), () {
+    //   if (mounted) {
+    //     _navigateNext();
+    //   }
+    // });
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -64,7 +69,31 @@ class _SplashPageState extends State<SplashPage>
       curve: Curves.easeInOutCubic,
     );
 
+    _resolveDestination();
+
     _startSequence();
+  }
+
+  Future<void> _resolveDestination() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+    if (!hasSeenOnboarding) {
+      _resolvedRoute = '/onboarding';
+      return;
+    }
+
+    final token = prefs.getString('auth_token');
+    if (token == null || token.isEmpty) {
+      _resolvedRoute = '/login';
+      return;
+    }
+
+    _resolvedRoute = '/home';
+
+    if (mounted) {
+      context.read<AuthBloc>().add(const AuthCheckRequested());
+    }
   }
 
   void _startSequence() async {
@@ -78,38 +107,31 @@ class _SplashPageState extends State<SplashPage>
     if (!mounted) return;
     setState(() => _showFillAndText = true);
 
-    // 3. Efek Fade Out sebelum pindah halaman
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.wait([
+      Future.delayed(const Duration(milliseconds: 300)),
+      _waitForResolvedRoute(),
+    ]);
     if (!mounted) return;
+
+    // 3. Efek Fade Out sebelum pindah halaman
     setState(() => _fadeOut = true);
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+
+    Navigator.pushReplacementNamed(context, _resolvedRoute ?? '/login');
+  }
+
+  Future<void> _waitForResolvedRoute() async {
+    while (_resolvedRoute == null) {
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _navigateNext() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // aktifkan jika ingin debug on boarding
-    // if (kDebugMode) {
-    //   await prefs.remove('has_seen_onboarding');
-    // }
-
-    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
-
-    await prefs.remove('auth_token');
-    await prefs.remove('user_name');
-
-    if (!mounted) return;
-
-    if (!hasSeenOnboarding) {
-      Navigator.pushReplacementNamed(context, '/onboarding');
-    } else {
-      Navigator.pushReplacementNamed(context, '/login');
-    }
   }
 
   @override

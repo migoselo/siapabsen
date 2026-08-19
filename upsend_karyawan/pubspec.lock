@@ -193,6 +193,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  face_plugin:
+    dependency: "direct main"
+    description:
+      name: face_plugin
+      sha256: e0f9a53a1f6ba04aaa1c778a33dcc75e683096055a6460da835ca94a4da0e46f
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.4"
   ffi:
     dependency: transitive
     description:

@@ -10,7 +10,7 @@ import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
 import '../repository/attendance_repository.dart';
 import '../../../core/services/camera_service.dart';
-import '../../../core/services/face_registration_service.dart';
+import '../../../core/services/face_embedding_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../history/bloc/history_bloc.dart';
 import '../../history/bloc/history_event.dart';
@@ -126,18 +126,13 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
         return;
       }
 
-      final faceService = FaceRegistrationService();
-      final localMatch = await faceService.isFaceMatch(file);
-      if (!localMatch) {
-        AppSnackbar.error(
-          context,
-          'Wajah tidak cocok dengan wajah yang sudah didaftarkan.',
-        );
-        return;
-      }
-
-      // Verifikasi wajah dengan backend sebagai lapisan keamanan tambahan
-      final verificationResult = await attendanceRepository.verifyFace(file);
+      // Backend mendeteksi wajah, membuat encoding, dan membandingkan
+      // dengan encoding milik user sebelum absensi dicatat.
+      final embedding = await FaceEmbeddingService().extractEmbedding(file);
+      final verificationResult = await attendanceRepository.verifyFace(
+        file,
+        embedding,
+      );
       final matched = verificationResult['matched'] as bool? ?? false;
 
       if (!matched) {

@@ -131,7 +131,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
               )
             : null,
         title: Text(
-          'Izin Cuti',
+          'Formulir',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.black,
             fontWeight: FontWeight.w600,
@@ -147,7 +147,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           backgroundColor: const Color(0xFF2E3A6E),
           icon: const Icon(Icons.add, color: Colors.white),
           label: Text(
-            'Ajukan Cuti',
+            'Pengajuan',
             style: GoogleFonts.plusJakartaSans(
               color: Colors.white,
               fontWeight: FontWeight.w600,
@@ -362,10 +362,13 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   }
 
   Future<void> _openDetailCuti(BuildContext context, CutiModel cuti) async {
-    await Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => DetailPermohonanPage(cuti: cuti)),
     );
+    if (result == 'cancelled' && mounted) {
+      await _loadCutiHistory();
+    }
   }
 
   // Widget Reusable untuk Item Kartu Cuti
@@ -409,6 +412,8 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   children: [
                     Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -416,8 +421,10 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                     ),
                     Text(
                       subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        color: Colors.grey.shade600,
+                        color: const Color(0xFF9A9A9A),
                         fontSize: 12,
                       ),
                     ),

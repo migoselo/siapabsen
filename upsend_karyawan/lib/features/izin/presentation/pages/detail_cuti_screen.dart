@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/api/api.dart';
 import '../../models/cuti_model.dart';
 
 const Color kNavy = Color(0xFF2E3A6E);
-const Color kTextPrimary = Color(0xFF0F172A);
-const Color kTextSecondary = Color(0xFF6B7280);
+const Color kTextPrimary = Color(0xFF000000);
+const Color kTextSecondary = Color(0xFF9A9A9A);
 const Color kBorder = Color(0xFFE5E7EB);
 const Color kMaroon = Color(0xFF7A1F1F);
-const Color kGreenBg = Color(0xFFE6F7ED);
-const Color kGreenText = Color(0xFF27AE60);
 
-/// Data status history — ini DUMMY, nanti kalau backend udah jelas,
-/// list ini diganti hasil fetch dari API (kemungkinan besar endpoint
-/// terpisah atau embedded di response detail cuti).
 class _StatusHistoryItem {
   final String title;
   final String dateTime;
@@ -26,40 +24,73 @@ class _StatusHistoryItem {
 
 class DetailPermohonanPage extends StatelessWidget {
   final CutiModel cuti;
-
   const DetailPermohonanPage({super.key, required this.cuti});
 
-  // TODO: DUMMY — ganti dengan data asli dari backend begitu endpoint-nya jelas.
-  static const _submittedAt = '23 Juli 2026 • 09:15';
-  static const _startDate = '24 Juli 2026';
-  static const _endDate = '27 Juli 2026';
-  static const _reason =
-      'Menikah dengan Ryul. Mohon izin cuti untuk keperluan pernikahan dan '
-      'acara adat yang berlangsung di kampung halaman, sehingga membutuhkan '
-      'waktu tambahan untuk persiapan dan pelaksanaan acara.';
-  static const _statusHistory = [
-    _StatusHistoryItem(
-      title: 'Permohonan Disetujui',
-      dateTime: '23 Juli 2026, 17:05',
-      subtitle: 'Permohonan Anda sudah disetujui',
-    ),
-    _StatusHistoryItem(
-      title: 'Menunggu Persetujuan',
-      dateTime: '23 Juli 2026, 17:00',
-      subtitle: 'Permohonan Anda sedang dalam antrean',
-    ),
-    _StatusHistoryItem(
-      title: 'Permohonan Diajukan',
-      dateTime: '23 Juli 2026, 09:10',
-      subtitle: 'Data permohonan berhasil dikirim ke sistem',
-    ),
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')} ${_months[date.month - 1]} ${date.year}';
+
+  String _formatDateTime(DateTime? date) {
+    if (date == null) return '-';
+    return '${_formatDate(date)}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  List<_StatusHistoryItem> get _statusHistory {
+    final submittedAt = _formatDateTime(cuti.createdAt);
+    final items = [
+      _StatusHistoryItem(
+        title: 'Permohonan Diajukan',
+        dateTime: submittedAt,
+        subtitle: 'Data permohonan berhasil dikirim ke sistem',
+      ),
+    ];
+    if (cuti.status.toLowerCase() != 'pending') {
+      final approved = cuti.status.toLowerCase() == 'approved';
+      items.insert(
+        0,
+        _StatusHistoryItem(
+          title: approved ? 'Permohonan Disetujui' : 'Permohonan Ditolak',
+          dateTime: _formatDateTime(cuti.createdAt),
+          subtitle: approved
+              ? 'Permohonan Anda sudah disetujui'
+              : 'Permohonan Anda ditolak',
+        ),
+      );
+    } else {
+      items.insert(
+        0,
+        _StatusHistoryItem(
+          title: 'Menunggu Persetujuan',
+          dateTime: submittedAt,
+          subtitle: 'Permohonan Anda sedang dalam antrean',
+        ),
+      );
+    }
+    return items;
+  }
+
+  static const _months = [
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
 
   Future<void> _handleBatalkan(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Batalkan Pengajuan?', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Batalkan Pengajuan?',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+        ),
         content: Text(
           'Pengajuan cuti ini akan dihapus secara permanen. Apakah kamu yakin?',
           style: GoogleFonts.plusJakartaSans(fontSize: 13),
@@ -67,11 +98,20 @@ class DetailPermohonanPage extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Batal', style: GoogleFonts.plusJakartaSans(color: kTextSecondary)),
+            child: Text(
+              'Batal',
+              style: GoogleFonts.plusJakartaSans(color: kTextSecondary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Ya, Batalkan', style: GoogleFonts.plusJakartaSans(color: kMaroon, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Ya, Batalkan',
+              style: GoogleFonts.plusJakartaSans(
+                color: kMaroon,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -79,12 +119,21 @@ class DetailPermohonanPage extends StatelessWidget {
 
     if (confirm != true) return;
 
-    // TODO: BELUM TERSAMBUNG KE BACKEND — di sini nanti manggil
-    // repository.cancelCuti(cuti.id) atau semacamnya, baru setelah
-    // sukses, pop halaman ini dan kasih tau RiwayatCutiScreen buat
-    // hapus item dari list-nya juga.
-    if (context.mounted) {
-      Navigator.pop(context, 'cancelled'); // sinyal ke halaman sebelumnya
+    if (cuti.id == null) return;
+
+    try {
+      await Api.dio.delete('/leave-requests/${cuti.id}');
+      if (context.mounted) Navigator.pop(context, 'cancelled');
+    } on DioException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.response?.data?['message']?.toString() ??
+                'Gagal membatalkan pengajuan.',
+          ),
+        ),
+      );
     }
   }
 
@@ -125,15 +174,18 @@ class DetailPermohonanPage extends StatelessWidget {
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: kGreenBg,
+                      color: cuti.statusColor,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       cuti.statusText,
                       style: GoogleFonts.plusJakartaSans(
-                        color: kGreenText,
+                        color: cuti.statusTextColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                       ),
@@ -141,8 +193,11 @@ class DetailPermohonanPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Diajukan pada $_submittedAt',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kTextSecondary),
+                    'Diajukan pada ${_formatDateTime(cuti.createdAt)}',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: kTextSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -169,7 +224,10 @@ class DetailPermohonanPage extends StatelessWidget {
                           children: [
                             Text(
                               'Tipe Cuti',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kTextSecondary),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: kTextSecondary,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -186,20 +244,36 @@ class DetailPermohonanPage extends StatelessWidget {
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(color: kNavy, shape: BoxShape.circle),
-                        child: const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                        decoration: const BoxDecoration(
+                          color: kNavy,
+                          shape: BoxShape.circle,
+                        ),
+                        child: SvgPicture.asset(
+                          'assets/images/Calender_white.svg',
+                          width: 14,
+                          height: 14,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   RichText(
                     text: TextSpan(
-                      style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: kTextPrimary),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimary,
+                      ),
                       children: [
                         TextSpan(text: cuti.duration.split(' ').first),
                         TextSpan(
-                          text: '  ${cuti.duration.split(' ').skip(1).join(' ')}',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: kTextSecondary),
+                          text:
+                              '  ${cuti.duration.split(' ').skip(1).join(' ')}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: kTextSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -210,7 +284,14 @@ class DetailPermohonanPage extends StatelessWidget {
             const SizedBox(height: 24),
 
             // --- Periode cuti ---
-            Text('Periode Cuti', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
+            Text(
+              'Periode Cuti',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kTextSecondary,
+              ),
+            ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -220,16 +301,23 @@ class DetailPermohonanPage extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _PeriodRow(label: 'MULAI', date: _startDate),
+                  _PeriodRow(label: 'MULAI', date: _formatDate(cuti.startDate)),
                   const Divider(height: 1, color: kBorder),
-                  _PeriodRow(label: 'SELESAI', date: _endDate),
+                  _PeriodRow(label: 'SELESAI', date: _formatDate(cuti.endDate)),
                 ],
               ),
             ),
             const SizedBox(height: 24),
 
             // --- Alasan cuti (scrollable kalau teks panjang) ---
-            Text('Alasan Cuti', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
+            Text(
+              'Alasan Cuti',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kTextSecondary,
+              ),
+            ),
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -241,15 +329,26 @@ class DetailPermohonanPage extends StatelessWidget {
               ),
               child: SingleChildScrollView(
                 child: Text(
-                  _reason,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kTextPrimary, height: 1.5),
+                  cuti.reason,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    color: kTextPrimary,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 24),
 
             // --- Riwayat status (timeline) ---
-            Text('Riwayat Status', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: kTextSecondary)),
+            Text(
+              'Riwayat Status',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kTextSecondary,
+              ),
+            ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(16),
@@ -275,12 +374,18 @@ class DetailPermohonanPage extends StatelessWidget {
                 onPressed: () => _handleBatalkan(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kMaroon,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
                 child: Text(
                   'Batalkan Pengajuan',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -304,14 +409,32 @@ class _PeriodRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.calendar_today_outlined, size: 16, color: kTextSecondary),
+          const Icon(
+            Icons.calendar_today_outlined,
+            size: 16,
+            color: kTextSecondary,
+          ),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: kTextSecondary)),
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: kTextSecondary,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(date, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: kTextPrimary)),
+              Text(
+                date,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: kTextPrimary,
+                ),
+              ),
             ],
           ),
         ],
@@ -337,7 +460,10 @@ class _TimelineItem extends StatelessWidget {
               Container(
                 width: 22,
                 height: 22,
-                decoration: const BoxDecoration(color: kNavy, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                  color: kNavy,
+                  shape: BoxShape.circle,
+                ),
                 child: const Icon(Icons.check, color: Colors.white, size: 14),
               ),
               if (!isLast) Expanded(child: Container(width: 2, color: kBorder)),
@@ -356,19 +482,29 @@ class _TimelineItem extends StatelessWidget {
                       Expanded(
                         child: Text(
                           item.title,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: kTextPrimary),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: kTextPrimary,
+                          ),
                         ),
                       ),
                       Text(
                         item.dateTime,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: kTextSecondary),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: kTextSecondary,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
                     item.subtitle,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kTextSecondary),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: kTextSecondary,
+                    ),
                   ),
                 ],
               ),

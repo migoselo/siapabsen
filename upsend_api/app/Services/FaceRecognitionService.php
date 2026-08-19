@@ -8,18 +8,15 @@ use Illuminate\Support\Facades\Storage;
 
 class FaceRecognitionService
 {
-    public function registerFace(int $userId, UploadedFile $photo): array
+    public function registerFace(int $userId, UploadedFile $photo, array $embedding): array
     {
         $path = $photo->storeAs('face-register', $this->buildFileName($userId, 'register'), 'public');
-        $fullPath = Storage::disk('public')->path($path);
-
-        $encoding = $this->extractEncoding($fullPath);
 
         UserFace::updateOrCreate(
             ['user_id' => $userId],
             [
                 'image_path' => $path,
-                'embedding' => json_encode($encoding),
+                'embedding' => json_encode($embedding, JSON_THROW_ON_ERROR),
                 'is_active' => true,
             ]
         );
@@ -27,11 +24,11 @@ class FaceRecognitionService
         return [
             'success' => true,
             'message' => 'Wajah berhasil didaftarkan.',
-            'encoding_count' => count($encoding),
+            'embedding_count' => count($embedding),
         ];
     }
 
-    public function verifyFace(int $userId, UploadedFile $photo): array
+    public function verifyFace(int $userId, UploadedFile $photo, array $embedding): array
     {
         $registeredFaces = UserFace::where('user_id', $userId)
             ->where('is_active', true)
@@ -45,30 +42,52 @@ class FaceRecognitionService
         }
 
         $path = $photo->storeAs('face-verify', $this->buildFileName($userId, 'verify'), 'public');
-        $fullPath = Storage::disk('public')->path($path);
-
-        $candidateEncoding = $this->extractEncoding($fullPath);
-
         $references = $registeredFaces
             ->map(fn ($face) => json_decode($face->embedding, true, 512, JSON_THROW_ON_ERROR))
             ->all();
 
-        $verification = $this->runPythonVerifier($fullPath, $references);
+        $bestSimilarity = 0.0;
+        foreach ($references as $reference) {
+            $bestSimilarity = max($bestSimilarity, $this->cosineSimilarity($embedding, $reference));
+        }
 
-        if (isset($verification['matched']) && $verification['matched'] === true) {
+        $threshold = 0.70;
+        if ($bestSimilarity >= $threshold) {
             return [
                 'matched' => true,
                 'message' => 'Wajah cocok dengan data yang sudah didaftarkan.',
-                'score' => round((1 - (float) ($verification['best_distance'] ?? 0)) * 100, 2),
-                'best_distance' => (float) ($verification['best_distance'] ?? 0),
+                'similarity' => round($bestSimilarity, 4),
+                'threshold' => $threshold,
             ];
         }
 
         return [
             'matched' => false,
-            'message' => 'Wajah tidak cocok dengan data yang sudah didaftarkan.',
-            'best_distance' => (float) ($verification['best_distance'] ?? 1.0),
+            'message' => 'Wajah tidak cocok. Silakan coba lagi.',
+            'similarity' => round($bestSimilarity, 4),
+            'threshold' => $threshold,
         ];
+    }
+
+    protected function cosineSimilarity(array $left, array $right): float
+    {
+        if (count($left) === 0 || count($left) !== count($right)) {
+            return 0.0;
+        }
+
+        $dot = 0.0;
+        $leftNorm = 0.0;
+        $rightNorm = 0.0;
+        foreach ($left as $index => $value) {
+            $leftValue = (float) $value;
+            $rightValue = (float) ($right[$index] ?? 0);
+            $dot += $leftValue * $rightValue;
+            $leftNorm += $leftValue ** 2;
+            $rightNorm += $rightValue ** 2;
+        }
+
+        $denominator = sqrt($leftNorm) * sqrt($rightNorm);
+        return $denominator > 0 ? $dot / $denominator : 0.0;
     }
 
     public function hasRegisteredFace(int $userId): bool

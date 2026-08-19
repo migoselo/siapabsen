@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
@@ -82,28 +80,10 @@ class FaceRegistrationService {
       final registeredFace = await _detectSingleFace(registeredFile);
       final candidateFace = await _detectSingleFace(candidateFile);
 
-      if (registeredFace == null || candidateFace == null) {
-        return false;
-      }
-
-      final registeredCrop = _cropFaceFromRect(
-        img.decodeImage(await registeredFile.readAsBytes()),
-        registeredFace.boundingBox,
-      );
-      final candidateCrop = _cropFaceFromRect(
-        img.decodeImage(await candidateFile.readAsBytes()),
-        candidateFace.boundingBox,
-      );
-
-      if (registeredCrop == null || candidateCrop == null) return false;
-
-      final registeredHash = _averageHash(registeredCrop);
-      final candidateHash = _averageHash(candidateCrop);
-
-      if (registeredHash.isEmpty || candidateHash.isEmpty) return false;
-
-      final distance = _hammingDistance(registeredHash, candidateHash);
-      return distance <= 12;
+      // Identity matching is handled by the backend using the registered
+      // embedding. Keep this local check limited to image/face validity so
+      // different lighting, pose, and camera framing do not cause rejection.
+      return registeredFace != null && candidateFace != null;
     } catch (_) {
       return false;
     }
@@ -130,79 +110,4 @@ class FaceRegistrationService {
     return face;
   }
 
-  img.Image? _cropFaceFromRect(img.Image? image, Rect rect) {
-    if (image == null) return null;
-
-    final x = rect.left.round();
-    final y = rect.top.round();
-    final width = rect.width.round();
-    final height = rect.height.round();
-
-    final safeX = x.clamp(0, image.width - 1);
-    final safeY = y.clamp(0, image.height - 1);
-    final safeWidth = (width + safeX).clamp(1, image.width - safeX);
-    final safeHeight = (height + safeY).clamp(1, image.height - safeY);
-
-    final margin = 0.18;
-    final cropX = (safeX - (safeWidth * margin)).round().clamp(
-      0,
-      image.width - 1,
-    );
-    final cropY = (safeY - (safeHeight * margin)).round().clamp(
-      0,
-      image.height - 1,
-    );
-    final cropWidth = ((safeWidth * (1 + 2 * margin))).round().clamp(
-      1,
-      image.width - cropX,
-    );
-    final cropHeight = ((safeHeight * (1 + 2 * margin))).round().clamp(
-      1,
-      image.height - cropY,
-    );
-
-    return img.copyCrop(
-      image,
-      x: cropX,
-      y: cropY,
-      width: cropWidth,
-      height: cropHeight,
-    );
-  }
-
-  String _averageHash(img.Image image) {
-    final resized = img.copyResize(image, width: 8, height: 8);
-    int totalBrightness = 0;
-    for (int y = 0; y < resized.height; y++) {
-      for (int x = 0; x < resized.width; x++) {
-        final pixel = resized.getPixel(x, y);
-        final brightness = ((pixel.r + pixel.g + pixel.b) / 3).round();
-        totalBrightness += brightness;
-      }
-    }
-
-    final averageBrightness =
-        totalBrightness / (resized.width * resized.height);
-    final buffer = StringBuffer();
-
-    for (int y = 0; y < resized.height; y++) {
-      for (int x = 0; x < resized.width; x++) {
-        final pixel = resized.getPixel(x, y);
-        final brightness = ((pixel.r + pixel.g + pixel.b) / 3).round();
-        buffer.write(brightness >= averageBrightness ? '1' : '0');
-      }
-    }
-
-    return buffer.toString();
-  }
-
-  int _hammingDistance(String left, String right) {
-    if (left.length != right.length) return 64;
-
-    int distance = 0;
-    for (int i = 0; i < left.length; i++) {
-      if (left[i] != right[i]) distance++;
-    }
-    return distance;
-  }
 }
