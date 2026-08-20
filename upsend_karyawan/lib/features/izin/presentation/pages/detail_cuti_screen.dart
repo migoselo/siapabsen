@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:dio/dio.dart';
-import '../../../../core/api/api.dart';
 import '../../models/cuti_model.dart';
 
 const Color kNavy = Color(0xFF2E3A6E);
@@ -86,55 +84,93 @@ class DetailPermohonanPage extends StatelessWidget {
   Future<void> _handleBatalkan(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Batalkan Pengajuan?',
-          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          'Pengajuan cuti ini akan dihapus secara permanen. Apakah kamu yakin?',
-          style: GoogleFonts.plusJakartaSans(fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Batal',
-              style: GoogleFonts.plusJakartaSans(color: kTextSecondary),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'Ya, Batalkan',
-              style: GoogleFonts.plusJakartaSans(
-                color: kMaroon,
-                fontWeight: FontWeight.bold,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 30),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(26, 34, 26, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_rounded, color: Colors.red, size: 48),
+              const SizedBox(height: 14),
+              Text(
+                'Hapus Permohonan?',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                  color: kTextPrimary,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
+              const SizedBox(height: 10),
+              Text(
+                'Anda akan menghapus permohonan',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  color: kTextSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 51,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0E0E0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Batal',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFF536878),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: SizedBox(
+                      height: 51,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFFED0B0B),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Hapus',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
 
     if (confirm != true) return;
 
     if (cuti.id == null) return;
-
-    try {
-      await Api.dio.delete('/leave-requests/${cuti.id}');
-      if (context.mounted) Navigator.pop(context, 'cancelled');
-    } on DioException catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error.response?.data?['message']?.toString() ??
-                'Gagal membatalkan pengajuan.',
-          ),
-        ),
-      );
-    }
+    Navigator.pop(context, cuti.id);
   }
 
   @override
@@ -145,14 +181,14 @@ class DetailPermohonanPage extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: kTextPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Detail Permohonan',
           style: GoogleFonts.plusJakartaSans(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
+            color: kTextPrimary,
+            fontWeight: FontWeight.w600,
             fontSize: 18,
           ),
         ),
@@ -197,6 +233,7 @@ class DetailPermohonanPage extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       color: kTextSecondary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -227,6 +264,7 @@ class DetailPermohonanPage extends StatelessWidget {
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 color: kTextSecondary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -241,17 +279,21 @@ class DetailPermohonanPage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
+                      ClipOval(
+                        child: Container(
+                          width: 40,
+                          height: 40,
                           color: kNavy,
-                          shape: BoxShape.circle,
-                        ),
-                        child: SvgPicture.asset(
-                          'assets/images/Calender_white.svg',
-                          width: 14,
-                          height: 14,
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: SvgPicture.asset(
+                                'assets/images/Calender_white.svg',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -272,7 +314,7 @@ class DetailPermohonanPage extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: kTextSecondary,
+                            color: kTextPrimary,
                           ),
                         ),
                       ],
@@ -288,8 +330,8 @@ class DetailPermohonanPage extends StatelessWidget {
               'Periode Cuti',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
+                color: kTextPrimary,
                 fontWeight: FontWeight.w600,
-                color: kTextSecondary,
               ),
             ),
             const SizedBox(height: 10),
@@ -315,7 +357,7 @@ class DetailPermohonanPage extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: kTextSecondary,
+                color: kTextPrimary,
               ),
             ),
             const SizedBox(height: 10),
@@ -346,7 +388,7 @@ class DetailPermohonanPage extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: kTextSecondary,
+                color: kTextPrimary,
               ),
             ),
             const SizedBox(height: 10),
