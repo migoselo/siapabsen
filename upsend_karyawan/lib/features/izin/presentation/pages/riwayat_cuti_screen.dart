@@ -41,6 +41,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   Future<void> _loadCutiHistory() async {
     try {
       final response = await Api.dio.get('/leave-requests');
+      print(response.data);
       final data = response.data as List;
       setState(() {
         _cutiHistory = data.map((json) => CutiModel.fromJson(json)).toList();
@@ -53,7 +54,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e.response?.data['message'] ?? 'Gagal memuat riwayat cuti.',
+            e.response?.data['message'] ?? 'Gagal memuat Formulir.',
           ),
         ),
       );
@@ -343,7 +344,9 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   onTap: () => _openDetailCuti(context, cuti),
                   child: _buildCutiCard(
                     svgPath: cuti.svgPath,
+                    iconData: cuti.iconData,
                     iconBgColor: cuti.iconBgColor,
+                    iconColor: cuti.iconColor,
                     title: cuti.title,
                     subtitle: cuti.subtitle,
                     statusText: cuti.statusText,
@@ -453,8 +456,10 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
 
   // Widget Reusable untuk Item Kartu Cuti
   Widget _buildCutiCard({
-    required String svgPath,
+    String? svgPath,
+    IconData? iconData,
     required Color iconBgColor,
+    required Color iconColor,
     required String title,
     required String subtitle,
     required String statusText,
@@ -475,15 +480,28 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+              ClipOval(
+                child: Container(
+                  width: 40,
+                  height: 40,
                   color: iconBgColor,
-                  shape: BoxShape.circle,
+                  child: Center(
+                    child: iconData != null
+                        ? Icon(iconData, color: iconColor, size: 20)
+                        : SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: SvgPicture.asset(
+                              svgPath!,
+                              fit: BoxFit.contain,
+                              colorFilter: ColorFilter.mode(
+                                iconColor,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                          ),
+                  ),
                 ),
-                child: SvgPicture.asset(svgPath, fit: BoxFit.contain),
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -28,6 +28,22 @@ class LeaveRequest extends Model
         'end_date' => 'date',
     ];
 
+    protected $appends = ['attachment_url', 'attachment_name'];
+
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        if (!$this->attachment_path) return null;
+
+        return '/storage/' . ltrim($this->attachment_path, '/');
+    }
+
+    public function getAttachmentNameAttribute(): ?string
+    {
+        if (!$this->attachment_path) return null;
+
+        return basename($this->attachment_path);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

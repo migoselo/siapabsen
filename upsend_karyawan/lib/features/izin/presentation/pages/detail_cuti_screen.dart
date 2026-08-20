@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:dio/dio.dart';
+import 'dart:typed_data';
+import '../../../../core/api/api.dart';
 import '../../models/cuti_model.dart';
 
 const Color kNavy = Color(0xFF2E3A6E);
@@ -24,13 +28,137 @@ class DetailPermohonanPage extends StatelessWidget {
   final CutiModel cuti;
   const DetailPermohonanPage({super.key, required this.cuti});
 
+  Future<void> _showAttachmentPreview(BuildContext context) async {
+    final attachment = cuti.attachmentUrl;
+    if (attachment == null || attachment.isEmpty) return;
+    final baseUrl = Api.dio.options.baseUrl.replaceFirst('/api', '');
+    final url = attachment.startsWith('http')
+        ? attachment
+        : '$baseUrl/${attachment.replaceFirst(RegExp(r'^/'), '')}';
+    final fileName = cuti.attachmentName ?? 'Lampiran';
+    final lowerName = fileName.toLowerCase();
+    final isImage = ['.jpg', '.jpeg', '.png'].any(lowerName.endsWith);
+    final isPdf = lowerName.endsWith('.pdf');
+    Uint8List? fileBytes;
+
+    if (isImage || isPdf) {
+      try {
+        final response = await Api.dio.get<List<int>>(
+          url,
+          options: Options(responseType: ResponseType.bytes),
+        );
+        if (response.data != null) {
+          fileBytes = Uint8List.fromList(response.data!);
+        }
+      } on DioException {
+        fileBytes = null;
+      }
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: EdgeInsets.zero,
+        backgroundColor: isImage ? Colors.black : Colors.white,
+        child: SizedBox(
+          width: MediaQuery.sizeOf(context).width,
+          height: MediaQuery.sizeOf(context).height,
+          child: SafeArea(
+            child: Stack(
+              children: [
+            if (isImage)
+              Center(
+                child: fileBytes == null
+                    ? const Icon(
+                        Icons.image_not_supported_outlined,
+                        color: Colors.white,
+                        size: 42,
+                      )
+                    : InteractiveViewer(
+                        child: Image.memory(fileBytes!, fit: BoxFit.contain),
+                      ),
+              )
+            else if (isPdf)
+              fileBytes == null
+                  ? const Center(
+                      child: Text('Lampiran PDF tidak tersedia'),
+                    )
+                  : SfPdfViewer.memory(fileBytes!)
+            else
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.insert_drive_file,
+                        color: kNavy,
+                        size: 72,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        fileName,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: kTextPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Format lampiran belum mendukung preview isi',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          color: kTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(dialogContext),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isImage
+                        ? Colors.black.withValues(alpha: 0.6)
+                        : Colors.grey.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    color: isImage ? Colors.white : kTextPrimary,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _formatDate(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')} ${_months[date.month - 1]} ${date.year}';
 
   String _formatDateTime(DateTime? date) {
     if (date == null) return '-';
-    return '${_formatDate(date)}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final local = date.toLocal();
+    return '${_formatDate(local)}, ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
+
+  String _formatTime(DateTime date) =>
+      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
   List<_StatusHistoryItem> get _statusHistory {
     final submittedAt = _formatDateTime(cuti.createdAt);
@@ -327,7 +455,9 @@ class DetailPermohonanPage extends StatelessWidget {
 
             // --- Periode cuti ---
             Text(
-              'Periode Cuti',
+              cuti.title.toLowerCase().contains('lembur')
+                  ? 'Waktu Lembur'
+                  : 'Periode',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 color: kTextPrimary,
@@ -341,19 +471,39 @@ class DetailPermohonanPage extends StatelessWidget {
                 border: Border.all(color: kBorder),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  _PeriodRow(label: 'MULAI', date: _formatDate(cuti.startDate)),
-                  const Divider(height: 1, color: kBorder),
-                  _PeriodRow(label: 'SELESAI', date: _formatDate(cuti.endDate)),
-                ],
-              ),
+              child: cuti.title.toLowerCase().contains('lembur')
+                  ? Column(
+                      children: [
+                        _PeriodRow(
+                          label: 'MULAI',
+                          date: _formatTime(cuti.startDate),
+                        ),
+                        const Divider(height: 1, color: kBorder),
+                        _PeriodRow(
+                          label: 'SELESAI',
+                          date: _formatTime(cuti.endDate),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        _PeriodRow(
+                          label: 'MULAI',
+                          date: _formatDate(cuti.startDate),
+                        ),
+                        const Divider(height: 1, color: kBorder),
+                        _PeriodRow(
+                          label: 'SELESAI',
+                          date: _formatDate(cuti.endDate),
+                        ),
+                      ],
+                    ),
             ),
             const SizedBox(height: 24),
 
             // --- Alasan cuti (scrollable kalau teks panjang) ---
             Text(
-              'Alasan Cuti',
+              'Alasan',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -381,6 +531,70 @@ class DetailPermohonanPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
+
+            // --- Lampiran ---
+            if (cuti.attachmentUrl != null) ...[
+              Text(
+                'Lampiran',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: kTextPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _showAttachmentPreview(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorder),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: kNavy.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          (cuti.attachmentName ?? '').toLowerCase().endsWith(
+                                '.pdf',
+                              )
+                              ? Icons.picture_as_pdf
+                              : Icons.image,
+                          color: kNavy,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          cuti.attachmentName ?? 'Lihat lampiran',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: kTextPrimary,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: kTextSecondary,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
 
             // --- Riwayat status (timeline) ---
             Text(

@@ -94,7 +94,7 @@ class LeaveRequestController extends Controller
             'start_time' => 'nullable|date_format:H:i|required_if:type,Lembur',
             'end_time' => 'nullable|date_format:H:i|required_if:type,Lembur|after:start_time',
             'reason' => 'required|string',
-            'attachment_path' => 'nullable|string',
+            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ], [
             'leave_type_id.exists' => 'Tipe cuti tidak valid. Silakan pilih tipe cuti yang tersedia.',
             'start_date.required' => 'Tanggal mulai harus diisi.',
@@ -166,7 +166,9 @@ class LeaveRequestController extends Controller
             'start_date' => $data['start_date'],
             'end_date' => $data['end_date'],
             'reason' => $data['reason'],
-            'attachment_path' => $data['attachment_path'] ?? null,
+            'attachment_path' => $request->hasFile('attachment')
+                ? $request->file('attachment')->store('leave-attachments', 'public')
+                : null,
             'status' => 'pending',
             'total_days' => $totalDays,
         ];
