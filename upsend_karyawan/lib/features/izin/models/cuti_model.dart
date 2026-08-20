@@ -11,6 +11,8 @@ class CutiModel {
   final Color statusTextColor;
   final String dateRange;
   final String duration;
+  final DateTime startDate;
+  final DateTime endDate;
 
   CutiModel({
     this.id,
@@ -23,6 +25,8 @@ class CutiModel {
     required this.statusTextColor,
     required this.dateRange,
     required this.duration,
+    required this.startDate,
+    required this.endDate,
   });
 
   factory CutiModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +52,8 @@ class CutiModel {
       statusTextColor: _statusTextColor(status),
       dateRange: '${_formatDate(startDate)} - ${_formatDate(endDate)}',
       duration: '$durationDays Hari',
+      startDate: startDate,
+      endDate: endDate,
     );
   }
 

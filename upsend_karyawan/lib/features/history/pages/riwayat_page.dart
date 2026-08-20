@@ -5,14 +5,15 @@ import '../bloc/history_bloc.dart';
 import '../bloc/history_event.dart';
 import '../bloc/history_state.dart';
 import '../widgets/riwayat_card.dart';
-import '../widgets/riwayat_periode_toggle.dart';
-import '../widgets/riwayat_periode_strip.dart';
-import '../widgets/riwayat_category_chart.dart';
+import '../../../core/widgets/riwayat_periode_toggle.dart';
+import '../../../core/widgets/riwayat_periode_strip.dart';
+import '../../../core/widgets/kategori_bar_chart.dart';
 import '../../attendance/models/attendance_model.dart';
 import 'riwayat_detail_page.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
+import '../kategori_presensi.dart';
 
 class RiwayatPage extends StatefulWidget {
   final bool showBottomNav;
@@ -33,7 +34,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
   PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
   late DateTime _anchorDate = _today;
   String? _selectedKategori;
-  DateTimeRange? _customRange; // aktif kalau user pilih rentang manual lewat kalender
+  DateTimeRange?
+  _customRange; // aktif kalau user pilih rentang manual lewat kalender
 
   // cache data terakhir yang berhasil di-load, biar ganti toggle nggak "reload"/kedip
   List<AttendanceModel> _lastRecords = [];
@@ -57,8 +59,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
     } else {
       switch (_periode) {
         case PeriodeRiwayat.mingguan:
-          start =
-              _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
+          start = _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
           end = start.add(const Duration(days: 6));
           break;
         case PeriodeRiwayat.bulanan:
@@ -72,7 +73,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
       }
     }
 
-    final rangeKey = '${start.year}-${start.month}-${start.day}:'
+    final rangeKey =
+        '${start.year}-${start.month}-${start.day}:'
         '${end.year}-${end.month}-${end.day}';
     _activeRangeKey = rangeKey;
     final cachedRecords = _recordsCache[rangeKey];
@@ -82,8 +84,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
     }
 
     context.read<HistoryBloc>().add(
-          HistoryFetchRequested(startDate: start, endDate: end),
-        );
+      HistoryFetchRequested(startDate: start, endDate: end),
+    );
   }
 
   void _onPeriodeChanged(PeriodeRiwayat p) {
@@ -120,8 +122,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
         _periode = selection.mode == _CalendarMode.year
             ? PeriodeRiwayat.tahunan
             : selection.mode == _CalendarMode.month
-                ? PeriodeRiwayat.bulanan
-                : _periode;
+            ? PeriodeRiwayat.bulanan
+            : _periode;
         _anchorDate = selection.date;
         _customRange = selection.mode == _CalendarMode.range
             ? selection.range
@@ -207,7 +209,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const CheckinLocationPage()),
+                      builder: (_) => const CheckinLocationPage(),
+                    ),
                   );
                   if (context.mounted) Navigator.pop(context);
                 } else if (index == 1) {
@@ -239,8 +242,9 @@ class _RiwayatPageState extends State<RiwayatPage> {
         },
         builder: (context, state) {
           // pakai cache selama loading, biar nggak "kedip" balik ke kosong/spinner
-            final effectiveRecords =
-              _lastRecords.isNotEmpty ? _lastRecords : state.records;
+          final effectiveRecords = _lastRecords.isNotEmpty
+              ? _lastRecords
+              : state.records;
 
           // spinner full-screen CUMA kalau bener-bener belum ada data sama sekali
           if (state.status == HistoryStatus.loading && _lastRecords.isEmpty) {
@@ -261,10 +265,12 @@ class _RiwayatPageState extends State<RiwayatPage> {
           final filteredRecords = _selectedKategori == null
               ? effectiveRecords
               : effectiveRecords
-                  .where((r) =>
-                      r.status.toLowerCase() ==
-                      _selectedKategori!.toLowerCase())
-                  .toList();
+                    .where(
+                      (r) =>
+                          r.status.toLowerCase() ==
+                          _selectedKategori!.toLowerCase(),
+                    )
+                    .toList();
           final grouped = _groupByDate(filteredRecords);
 
           return SingleChildScrollView(
@@ -334,8 +340,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                       },
                       child: Row(
                         children: const [
-                          Icon(Icons.close,
-                              size: 16, color: Color(0xFF9A9A9A)),
+                          Icon(Icons.close, size: 16, color: Color(0xFF9A9A9A)),
                           SizedBox(width: 4),
                           Text(
                             'Hapus filter rentang tanggal',
@@ -350,12 +355,12 @@ class _RiwayatPageState extends State<RiwayatPage> {
                     ),
                   ),
 
-                RiwayatCategoryChart(
-                  records: effectiveRecords,
+                KategoriBarChart(
+                  kategoriList: kategoriPresensiList,
+                  counts: hitungKategoriPresensi(effectiveRecords),
                   selectedKategori: _selectedKategori,
-                  onKategoriTap: (key) {
-                    setState(() => _selectedKategori = key);
-                  },
+                  onKategoriTap: (key) =>
+                      setState(() => _selectedKategori = key),
                 ),
                 const SizedBox(height: 20),
 
@@ -391,7 +396,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Colors.black,
+                            color: Color(0xFF9A9A9A),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -465,10 +470,7 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
   void initState() {
     super.initState();
     _selectedDate = widget.initialDate;
-    _visibleMonth = DateTime(
-      widget.initialDate.year,
-      widget.initialDate.month,
-    );
+    _visibleMonth = DateTime(widget.initialDate.year, widget.initialDate.month);
     _rangeStart = widget.initialRange?.start;
     _rangeEnd = widget.initialRange?.end;
   }
@@ -493,10 +495,7 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
   void _selectYear(int year) {
     Navigator.pop(
       context,
-      _CalendarSelection(
-        mode: _CalendarMode.year,
-        date: DateTime(year, 1, 1),
-      ),
+      _CalendarSelection(mode: _CalendarMode.year, date: DateTime(year, 1, 1)),
     );
   }
 
@@ -632,8 +631,7 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
               child: GridView.builder(
                 padding: const EdgeInsets.all(8),
                 itemCount: 12,
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
                   mainAxisSpacing: 8,
                   crossAxisSpacing: 8,
@@ -657,13 +655,16 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
           ],
         );
       case _CalendarMode.range:
-        return _buildRangeCalendar(
-        );
+        return _buildRangeCalendar();
     }
   }
 
   Widget _buildRangeCalendar() {
-    final firstWeekday = DateTime(_visibleMonth.year, _visibleMonth.month, 1).weekday;
+    final firstWeekday = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      1,
+    ).weekday;
     final daysInMonth = DateTime(
       _visibleMonth.year,
       _visibleMonth.month + 1,
@@ -692,17 +693,19 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
-              .map((day) => SizedBox(
-                    width: 36,
-                    child: Text(
-                      day,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF4E62AF),
-                        fontWeight: FontWeight.w600,
-                      ),
+              .map(
+                (day) => SizedBox(
+                  width: 36,
+                  child: Text(
+                    day,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF4E62AF),
+                      fontWeight: FontWeight.w600,
                     ),
-                  ))
+                  ),
+                ),
+              )
               .toList(),
         ),
         const SizedBox(height: 6),
@@ -717,13 +720,16 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
             ),
             itemBuilder: (context, index) {
               final date = cells[index];
-                final disabled =
+              final disabled =
                   date.isBefore(_firstDate) || date.isAfter(_lastDate);
-                final isPreview = date.month != _visibleMonth.month ||
+              final isPreview =
+                  date.month != _visibleMonth.month ||
                   date.year != _visibleMonth.year;
-              final isStart = _rangeStart != null && _isSameDay(date, _rangeStart!);
+              final isStart =
+                  _rangeStart != null && _isSameDay(date, _rangeStart!);
               final isEnd = _rangeEnd != null && _isSameDay(date, _rangeEnd!);
-              final inRange = _rangeStart != null &&
+              final inRange =
+                  _rangeStart != null &&
                   _rangeEnd != null &&
                   !date.isBefore(_rangeStart!) &&
                   !date.isAfter(_rangeEnd!);
@@ -743,9 +749,7 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
                     height: 32,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                        color: isStart || isEnd
-                          ? const Color(0xFF2F3B69)
-                          : null,
+                      color: isStart || isEnd ? const Color(0xFF2F3B69) : null,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
@@ -754,10 +758,10 @@ class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
                         color: disabled
                             ? const Color(0xFF91A0BF)
                             : isStart || isEnd
-                                ? Colors.white
-                                : const Color(0xFF202B4D).withValues(
-                                    alpha: isPreview ? 0.45 : 1,
-                                  ),
+                            ? Colors.white
+                            : const Color(
+                                0xFF202B4D,
+                              ).withValues(alpha: isPreview ? 0.45 : 1),
                         fontSize: 14,
                         fontWeight: isStart || isEnd
                             ? FontWeight.w600

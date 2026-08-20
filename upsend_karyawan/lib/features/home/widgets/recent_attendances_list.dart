@@ -60,7 +60,7 @@ class RecentAttendanceList extends StatelessWidget {
               'Presensi Terakhir',
               style: TextStyle(
                 fontFamily: 'PlusJakartaSans',
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: kTextPrimary,
               ),
@@ -149,7 +149,7 @@ class _HistoryTile extends StatelessWidget {
                     label,
                     style: const TextStyle(
                       fontFamily: 'PlusJakartaSans',
-                      fontSize: 13,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: kTextPrimary,
                     ),
@@ -158,7 +158,7 @@ class _HistoryTile extends StatelessWidget {
                     _formatDate(entry.time),
                     style: const TextStyle(
                       fontFamily: 'PlusJakartaSans',
-                      fontSize: 11,
+                      fontSize: 13,
                       color: kTextSecondary,
                     ),
                   ),

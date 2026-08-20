@@ -29,8 +29,8 @@ class RiwayatCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(100),
@@ -40,15 +40,15 @@ class RiwayatCard extends StatelessWidget {
               ), // atur jarak SVG dari tepi container
               child: SvgPicture.asset(
                 'assets/images/checkin.svg',
-                width: 24,
-                height: 24,
+                width: 16,
+                height: 16,
                 colorFilter: const ColorFilter.mode(
                   Color(0xFF16A34A),
                   BlendMode.srcIn,
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,7 +57,7 @@ class RiwayatCard extends StatelessWidget {
                     record.location?.name ?? '-',
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 16,
+                      fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 2),
