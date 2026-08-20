@@ -36,7 +36,7 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   file_picker: ^10.3.10
-  syncfusion_flutter_pdfviewer: ^28.2.12
+  syncfusion_flutter_pdfviewer: ^29.1.33
   svg_path_parser: ^1.1.1
 dev_dependencies:
   flutter_launcher_icons: ^0.14.1

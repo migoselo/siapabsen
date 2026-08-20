@@ -8,6 +8,7 @@ use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class LeaveRequestController extends Controller
 {
@@ -47,11 +48,7 @@ class LeaveRequestController extends Controller
             ->where('year', $year)
             ->get();
 
-        $result = [
-            'annual' => 0,
-            'special' => 0,
-            'sick' => 0,
-        ];
+        $quotaBalances = collect();
 
         foreach ($balances as $balance) {
             $name = strtolower((string) ($balance->leaveType?->name ?? ''));
@@ -62,13 +59,13 @@ class LeaveRequestController extends Controller
                 default => null,
             };
 
-            if ($key !== null) {
-                $result[$key] = max(
-                    0,
-                    (int) $balance->quota_days - (int) $balance->used_days,
-                );
-            }
+            if ($key !== null) $quotaBalances->push($balance);
         }
+
+        $sharedQuota = $quotaBalances->max('quota_days') ?? 0;
+        $sharedUsed = $quotaBalances->sum('used_days');
+        $remaining = max(0, (int) $sharedQuota - (int) $sharedUsed);
+        $result = ['annual' => $remaining, 'special' => $remaining, 'sick' => $remaining];
 
         return response()->json([
             'year' => $year,
@@ -139,25 +136,34 @@ class LeaveRequestController extends Controller
         $leaveYear = (int) $startDate->format('Y');
 
         if ($isQuotaLeave) {
-            $leaveBalance = LeaveBalance::where('user_id', $request->user()->id)
-                ->where('leave_type_id', $data['leave_type_id'])
+            $leaveBalances = LeaveBalance::with('leaveType')
+                ->where('user_id', $request->user()->id)
                 ->where('year', $leaveYear)
                 ->lockForUpdate()
-                ->first();
+                ->get()
+                ->filter(fn ($balance) => in_array(
+                    strtolower((string) ($balance->leaveType?->name ?? '')),
+                    ['cuti tahunan', 'cuti sakit', 'cuti penting'],
+                    true,
+                ));
 
-            if (!$leaveBalance) {
+            if ($leaveBalances->isEmpty()) {
                 return response()->json([
                     'message' => 'Kuota cuti untuk tahun tersebut belum tersedia.',
                 ], 422);
             }
 
-            $remainingDays = (int) $leaveBalance->quota_days - (int) $leaveBalance->used_days;
+            $remainingDays = max(0, (int) $leaveBalances->max('quota_days') - (int) $leaveBalances->sum('used_days'));
             if ($totalDays > $remainingDays) {
                 return response()->json([
                     'message' => "Sisa hari cuti hanya {$remainingDays} hari.",
                 ], 422);
             }
         }
+
+        $attachmentPath = $request->hasFile('attachment')
+            ? $request->file('attachment')->store('leave-attachments', 'public')
+            : null;
 
         $payload = [
             'user_id' => $request->user()->id,
@@ -166,9 +172,7 @@ class LeaveRequestController extends Controller
             'start_date' => $data['start_date'],
             'end_date' => $data['end_date'],
             'reason' => $data['reason'],
-            'attachment_path' => $request->hasFile('attachment')
-                ? $request->file('attachment')->store('leave-attachments', 'public')
-                : null,
+            'attachment_path' => $attachmentPath,
             'status' => 'pending',
             'total_days' => $totalDays,
         ];
@@ -194,18 +198,33 @@ class LeaveRequestController extends Controller
 
         $leaveRequest = DB::transaction(function () use ($payload, $isQuotaLeave, $request, $data, $leaveYear, $totalDays) {
             if ($isQuotaLeave) {
-                $leaveBalance = LeaveBalance::where('user_id', $request->user()->id)
-                    ->where('leave_type_id', $data['leave_type_id'])
+                $leaveBalances = LeaveBalance::with('leaveType')
+                    ->where('user_id', $request->user()->id)
                     ->where('year', $leaveYear)
                     ->lockForUpdate()
-                    ->firstOrFail();
+                    ->get()
+                    ->filter(fn ($balance) => in_array(
+                        strtolower((string) ($balance->leaveType?->name ?? '')),
+                        ['cuti tahunan', 'cuti sakit', 'cuti penting'],
+                        true,
+                    ))
+                    ->sortByDesc(fn ($balance) => $balance->leave_type_id === $data['leave_type_id']);
 
-                $remainingDays = (int) $leaveBalance->quota_days - (int) $leaveBalance->used_days;
+                $remainingDays = max(0, (int) $leaveBalances->max('quota_days') - (int) $leaveBalances->sum('used_days'));
                 if ($totalDays > $remainingDays) {
                     abort(422, "Sisa hari cuti hanya {$remainingDays} hari.");
                 }
 
-                $leaveBalance->increment('used_days', $totalDays);
+                $daysToAllocate = $totalDays;
+                foreach ($leaveBalances as $leaveBalance) {
+                    $available = max(0, (int) $leaveBalance->quota_days - (int) $leaveBalance->used_days);
+                    $days = min($daysToAllocate, $available);
+                    if ($days > 0) {
+                        $leaveBalance->increment('used_days', $days);
+                        $daysToAllocate -= $days;
+                    }
+                    if ($daysToAllocate === 0) break;
+                }
             }
 
             return LeaveRequest::create($payload);

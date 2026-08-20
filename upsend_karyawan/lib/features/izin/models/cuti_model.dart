@@ -84,6 +84,11 @@ class CutiModel {
     );
   }
 
+  static String? _nullableString(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
   static String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')} ${_month(date.month)} ${date.year}';
   }

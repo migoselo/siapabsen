@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -5,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/api/api.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import 'dart:async';
@@ -48,11 +51,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   PlatformFile? _selectedFile;
   bool _isSubmitting = false;
   double _uploadProgress = 0.0;
-  Map<String, int> _leaveBalances = const {
-    'annual': 0,
-    'special': 0,
-    'sick': 0,
-  };
+  Map<String, int> _leaveBalances = const {'combined': 0};
 
   final Color _primaryColor = const Color(0xFF2F3B69);
 
@@ -125,6 +124,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
       allowMultiple: false,
+      withData: true,
     );
 
     if (result != null && result.files.single.size < 5000000) {
@@ -136,6 +136,46 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       if (mounted) {
         AppSnackbar.warning(context, 'File terlalu besar (maks 5MB)');
       }
+    }
+  }
+
+  Future<void> _previewSelectedFile() async {
+    final file = _selectedFile;
+    if (file == null || !mounted) return;
+
+    final extension = (file.extension ?? '').toLowerCase();
+    final isImage = ['jpg', 'jpeg', 'png'].contains(extension);
+    final image = file.bytes != null
+        ? Image.memory(file.bytes!, fit: BoxFit.contain)
+        : file.path != null
+        ? Image.file(File(file.path!), fit: BoxFit.contain)
+        : null;
+
+    if (isImage && image != null) {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => Dialog(
+          child: InteractiveViewer(
+            child: Padding(padding: const EdgeInsets.all(8), child: image),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (extension == 'pdf') {
+      final bytes =
+          file.bytes ??
+          (file.path == null ? null : await File(file.path!).readAsBytes());
+      if (bytes == null || bytes.isEmpty || !mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        builder: (_) => _LocalPdfPreviewDialog(
+          bytes: Uint8List.fromList(bytes),
+          fileName: file.name,
+        ),
+      );
     }
   }
 
@@ -154,9 +194,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     final prefs = await SharedPreferences.getInstance();
     final year = DateTime.now().year;
     final cachedBalances = {
-      'annual': prefs.getInt('leave_balance_${year}_annual'),
-      'special': prefs.getInt('leave_balance_${year}_special'),
-      'sick': prefs.getInt('leave_balance_${year}_sick'),
+      'combined': prefs.getInt('leave_balance_${year}_combined'),
     };
     if (mounted && cachedBalances.values.any((value) => value != null)) {
       setState(() {
@@ -172,9 +210,11 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
         (response.data['balances'] as Map?) ?? const {},
       );
       final freshBalances = {
-        'annual': int.tryParse('${balances['annual'] ?? 0}') ?? 0,
-        'special': int.tryParse('${balances['special'] ?? 0}') ?? 0,
-        'sick': int.tryParse('${balances['sick'] ?? 0}') ?? 0,
+        'combined':
+            int.tryParse(
+              '${balances['combined'] ?? balances['annual'] ?? 0}',
+            ) ??
+            0,
       };
       await Future.wait(
         freshBalances.entries.map(
@@ -190,14 +230,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
   }
 
   String get _selectedBalanceKey {
-    switch (_selectedTipeCuti) {
-      case 1:
-        return 'sick';
-      case 2:
-        return 'special';
-      default:
-        return 'annual';
-    }
+    return 'combined';
   }
 
   int get _selectedLeaveBalance => _leaveBalances[_selectedBalanceKey] ?? 0;
@@ -683,7 +716,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
               ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: _pickFile,
+                onTap: _selectedFile == null ? _pickFile : _previewSelectedFile,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
@@ -1042,6 +1075,56 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _LocalPdfPreviewDialog extends StatefulWidget {
+  final Uint8List bytes;
+  final String fileName;
+
+  const _LocalPdfPreviewDialog({required this.bytes, required this.fileName});
+
+  @override
+  State<_LocalPdfPreviewDialog> createState() => _LocalPdfPreviewDialogState();
+}
+
+class _LocalPdfPreviewDialogState extends State<_LocalPdfPreviewDialog> {
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(16),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.8,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Tutup',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(child: SfPdfViewer.memory(widget.bytes)),
+          ],
+        ),
+      ),
     );
   }
 }

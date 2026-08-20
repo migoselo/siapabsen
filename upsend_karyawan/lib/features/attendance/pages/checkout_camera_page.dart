@@ -66,10 +66,12 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
 
     try {
       await _cameraService.init();
+      if (!mounted) return;
       setState(() {
         _cameraInitialized = true;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _cameraPermissionDenied = true;
       });
@@ -90,6 +92,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
 
     try {
       final file = await _cameraService.takePictureIfFaceDetected();
+      if (!mounted) return;
       if (file == null) {
         AppSnackbar.warning(
           context,
@@ -104,6 +107,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
       // Check apakah user sudah mendaftar wajah
       final isRegistered = await attendanceRepository
           .checkFaceRegistrationStatus();
+      if (!mounted) return;
       if (!isRegistered) {
         AppSnackbar.error(
           context,
@@ -119,6 +123,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
         file,
         embedding,
       );
+      if (!mounted) return;
       final matched = verificationResult['matched'] as bool? ?? false;
 
       if (!matched) {
@@ -132,6 +137,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
 
       // Wajah cocok, lanjut proses check-out
       final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
       final attendance = await attendanceRepository.checkOut(
         attendanceId: widget.attendanceId,
         lat: position.latitude,
@@ -142,6 +148,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
       if (!mounted) return;
       _showSuccessDialog(attendance.checkOutTime ?? DateTime.now());
     } catch (e) {
+      if (!mounted) return;
       AppSnackbar.error(context, 'Gagal melakukan checkout: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -277,7 +284,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
                   : const Center(child: CircularProgressIndicator()),
               if (isBusy)
                 Container(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   child: const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   ),

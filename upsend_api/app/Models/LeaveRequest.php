@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class LeaveRequest extends Model
 {
@@ -34,7 +35,7 @@ class LeaveRequest extends Model
     {
         if (!$this->attachment_path) return null;
 
-        return '/storage/' . ltrim($this->attachment_path, '/');
+        return Storage::url($this->attachment_path);
     }
 
     public function getAttachmentNameAttribute(): ?string

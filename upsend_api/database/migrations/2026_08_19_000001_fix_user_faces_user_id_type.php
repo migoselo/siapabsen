@@ -13,6 +13,12 @@ return new class extends Migration
             return;
         }
 
+        // The statements below are SQL Server-specific. SQLite is used by the
+        // feature tests and already has the correct schema from the first migration.
+        if (DB::getDriverName() !== 'sqlsrv') {
+            return;
+        }
+
         DB::statement(<<<'SQL'
 IF EXISTS (
     SELECT 1
@@ -48,6 +54,10 @@ SQL);
     public function down(): void
     {
         if (!Schema::hasTable('user_faces')) {
+            return;
+        }
+
+        if (DB::getDriverName() !== 'sqlsrv') {
             return;
         }
 

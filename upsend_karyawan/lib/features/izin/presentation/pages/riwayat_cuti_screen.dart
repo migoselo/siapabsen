@@ -31,6 +31,8 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
 
   final DateTime _today = DateTime.now();
   List<CutiModel> _cutiHistory = [];
+  bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -39,17 +41,36 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   }
 
   Future<void> _loadCutiHistory() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
+
     try {
-      final response = await Api.dio.get('/leave-requests');
-      print(response.data);
-      final data = response.data as List;
+      final response = await Api.dio.get(
+        '/leave-requests',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+      final data = response.data is List ? response.data as List : const [];
+      if (!mounted) return;
       setState(() {
         _cutiHistory = data.map((json) => CutiModel.fromJson(json)).toList();
+        _isLoading = false;
       });
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() {
-        _cutiHistory = [];
+        _isLoading = false;
+        _loadError =
+            e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.receiveTimeout
+            ? 'Server terlalu lama merespons.'
+            : 'Gagal memuat riwayat cuti.';
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -327,7 +348,36 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
               ),
 
             // Daftar Kartu Cuti
-            if (_cutiHistory.isEmpty)
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_loadError != null && _cutiHistory.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        _loadError!,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _loadCutiHistory,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Coba lagi'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_cutiHistory.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
