@@ -72,9 +72,13 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
             ? 'Server terlalu lama merespons.'
             : 'Gagal memuat riwayat cuti.';
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_loadError!)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.response?.data['message'] ?? 'Gagal memuat Formulir.',
+          ),
+        ),
+      );
     }
   }
 
@@ -390,7 +394,9 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   onTap: () => _openDetailCuti(context, cuti),
                   child: _buildCutiCard(
                     svgPath: cuti.svgPath,
+                    iconData: cuti.iconData,
                     iconBgColor: cuti.iconBgColor,
+                    iconColor: cuti.iconColor,
                     title: cuti.title,
                     subtitle: cuti.subtitle,
                     statusText: cuti.statusText,
@@ -413,15 +419,97 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       context,
       MaterialPageRoute(builder: (_) => DetailPermohonanPage(cuti: cuti)),
     );
-    if (result == 'cancelled' && mounted) {
-      await _loadCutiHistory();
+    if (result is int && mounted) {
+      final deleteRequest = Api.dio.delete('/leave-requests/$result');
+      setState(() {
+        _cutiHistory.removeWhere((item) => item.id == result);
+      });
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => Dialog(
+          child: Builder(
+            builder: (dialogContext) {
+              Future<void>.delayed(const Duration(seconds: 2), () {
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              });
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(26, 30, 26, 22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF4DBA61),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Permohonan Terhapus',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Permohonan Anda berhasil terhapus',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        color: const Color(0xFF9A9A9A),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 30),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      );
+
+      try {
+        await deleteRequest;
+        await _loadCutiHistory();
+      } on DioException catch (error) {
+        if (!mounted) return;
+        await _loadCutiHistory();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error.response?.data?['message']?.toString() ??
+                  'Gagal menghapus permohonan.',
+            ),
+          ),
+        );
+      }
     }
   }
 
   // Widget Reusable untuk Item Kartu Cuti
   Widget _buildCutiCard({
-    required String svgPath,
+    String? svgPath,
+    IconData? iconData,
     required Color iconBgColor,
+    required Color iconColor,
     required String title,
     required String subtitle,
     required String statusText,
@@ -442,15 +530,28 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+              ClipOval(
+                child: Container(
+                  width: 40,
+                  height: 40,
                   color: iconBgColor,
-                  shape: BoxShape.circle,
+                  child: Center(
+                    child: iconData != null
+                        ? Icon(iconData, color: iconColor, size: 20)
+                        : SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: SvgPicture.asset(
+                              svgPath!,
+                              fit: BoxFit.contain,
+                              colorFilter: ColorFilter.mode(
+                                iconColor,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                          ),
+                  ),
                 ),
-                child: SvgPicture.asset(svgPath, fit: BoxFit.contain),
               ),
               const SizedBox(width: 12),
               Expanded(

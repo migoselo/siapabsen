@@ -94,11 +94,19 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     return _tanggalSelesai!.isBefore(_tanggalMulai!);
   }
 
+  bool get _isTimeRangeInvalid {
+    if (_jamMulai == null || _jamSelesai == null) return false;
+    final startMinutes = _jamMulai!.hour * 60 + _jamMulai!.minute;
+    final endMinutes = _jamSelesai!.hour * 60 + _jamSelesai!.minute;
+    return endMinutes <= startMinutes;
+  }
+
   bool get _isFormValid {
     if (_isLembur) {
       return !_isSubmitting &&
           _jamMulai != null &&
           _jamSelesai != null &&
+          !_isTimeRangeInvalid &&
           _selectedFile != null &&
           _alasanController.text.trim().isNotEmpty;
     }
@@ -507,9 +515,8 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 },
               ),
 
-              const SizedBox(height: 20),
-
               if (_isCuti || _isIzin) ...[
+                const SizedBox(height: 20),
                 Text(
                   _isCuti ? 'Tipe Cuti' : 'Tipe Izin',
                   style: GoogleFonts.plusJakartaSans(
@@ -520,6 +527,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 ),
                 const SizedBox(height: 10),
                 _buildDropdownField<int>(
+                  key: ValueKey('tipe_dropdown_$_selectedJenisPengajuan'),
                   value: _isCuti ? _selectedTipeCuti : _selectedTipeIzin,
                   items: List.generate(
                     (_isCuti ? _tipeCutiOptions : _tipeIzinOptions).length,
@@ -623,10 +631,11 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                 _buildDateField(date: DateTime.now(), onTap: () {}),
                 const SizedBox(height: 16),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: _buildTimeField(
-                        label: 'Dari Jam',
+                        label: 'Jam Mulai',
                         time: _jamMulai,
                         onTap: () => _selectTime(context, true),
                       ),
@@ -634,9 +643,13 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildTimeField(
-                        label: 'Sampai Jam',
+                        label: 'Jam Selesai',
                         time: _jamSelesai,
                         onTap: () => _selectTime(context, false),
+                        hasError: _isTimeRangeInvalid,
+                        errorText: _isTimeRangeInvalid
+                            ? 'Harus setelah jam mulai'
+                            : null,
                       ),
                     ),
                   ],
@@ -722,7 +735,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                     children: [
                       if (_selectedFile == null) ...[
                         Icon(
-                          Icons.cloud_upload_outlined,
+                          Icons.cloud_upload,
                           size: 36,
                           color: _primaryColor,
                         ),
@@ -870,17 +883,20 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
   // Widget Dropdown reusable — dipakai untuk Jenis Pengajuan & Tipe Cuti
   Widget _buildDropdownField<T>({
+    Key? key,
     required T value,
     required List<T> items,
     required String Function(T) labelBuilder,
     required ValueChanged<T?> onChanged,
   }) {
     return Theme(
+      key: key,
       data: Theme.of(context).copyWith(
         hoverColor: _primaryColor.withValues(alpha: 0.10),
         highlightColor: _primaryColor.withValues(alpha: 0.14),
       ),
       child: DropdownMenu<T>(
+        key: key,
         initialSelection: value,
         width: MediaQuery.sizeOf(context).width - 40,
         menuHeight: 240,
@@ -992,6 +1008,8 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     required String label,
     required TimeOfDay? time,
     required VoidCallback onTap,
+    bool hasError = false,
+    String? errorText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1009,8 +1027,14 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
+              color: hasError ? const Color(0xFFFEF2F2) : null,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(
+                color: hasError
+                    ? const Color(0xFFDC2626)
+                    : Colors.grey.shade300,
+                width: hasError ? 1.5 : 1,
+              ),
             ),
             child: Row(
               children: [
@@ -1023,11 +1047,33 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                     ),
                   ),
                 ),
-                Icon(Icons.access_time, size: 18, color: Colors.grey.shade600),
+                Icon(Icons.access_time_filled_outlined, size: 18, color: const Color(0xFF9A9A9A)),
               ],
             ),
           ),
         ),
+        if (errorText != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 12,
+                color: Color(0xFFDC2626),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  errorText,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    color: const Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
