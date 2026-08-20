@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\UserFace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class FaceRecognitionTest extends TestCase
@@ -37,10 +36,12 @@ class FaceRecognitionTest extends TestCase
 
     public function test_user_can_register_face()
     {
-        $user = User::factory()->create();
+        /** @var User $user */
+        $user = User::factory()->createOne();
 
-        $response = $this->actingAs($user)->postJson('/api/face/register', [
+        $response = $this->actingAs($user)->post('/api/face/register', [
             'photo' => $this->createDummyImage(),
+            'embedding' => array_fill(0, 128, 0.1),
         ]);
 
         $response->assertStatus(200);
@@ -52,7 +53,8 @@ class FaceRecognitionTest extends TestCase
 
     public function test_face_register_requires_photo()
     {
-        $user = User::factory()->create();
+        /** @var User $user */
+        $user = User::factory()->createOne();
 
         $response = $this->actingAs($user)->postJson('/api/face/register', []);
 
@@ -61,8 +63,9 @@ class FaceRecognitionTest extends TestCase
 
     public function test_face_register_requires_authentication()
     {
-        $response = $this->postJson('/api/face/register', [
+        $response = $this->post('/api/face/register', [
             'photo' => $this->createDummyImage(),
+            'embedding' => array_fill(0, 128, 0.1),
         ]);
 
         $response->assertStatus(401);
@@ -70,7 +73,8 @@ class FaceRecognitionTest extends TestCase
 
     public function test_user_can_check_face_status()
     {
-        $user = User::factory()->create();
+        /** @var User $user */
+        $user = User::factory()->createOne();
 
         // Sebelum register
         $response = $this->actingAs($user)->getJson('/api/face/status');
@@ -92,33 +96,32 @@ class FaceRecognitionTest extends TestCase
 
     public function test_user_can_verify_face()
     {
-        $user = User::factory()->create();
+        /** @var User $user */
+        $user = User::factory()->createOne();
 
         // Register face terlebih dahulu
         UserFace::create([
             'user_id' => $user->id,
             'image_path' => 'face-register/test.jpg',
-            'embedding' => json_encode([
-                'histogram' => array_fill(0, 256, 0.01),
-                'descriptor_mean' => array_fill(0, 32, 50),
-                'descriptor_std' => array_fill(0, 32, 20),
-            ]),
+            'embedding' => json_encode(array_fill(0, 128, 0.1)),
             'is_active' => true,
         ]);
 
         // Verify dengan foto (tidak akan match sempurna karena dummy image)
-        $response = $this->actingAs($user)->postJson('/api/face/verify', [
+        $response = $this->actingAs($user)->post('/api/face/verify', [
             'photo' => $this->createDummyImage(),
+            'embedding' => array_fill(0, 128, 0.1),
         ]);
 
         // Harapkan response 200 atau 403 (tergantung face matching logic)
-        $this->assertIn($response->status(), [200, 403]);
-        $this->assertTrue(isset($response['matched']) || isset($response['matched']));
+        $this->assertContains($response->status(), [200, 403]);
+        $this->assertTrue(isset($response['matched']));
     }
 
     public function test_face_verify_requires_photo()
     {
-        $user = User::factory()->create();
+        /** @var User $user */
+        $user = User::factory()->createOne();
 
         $response = $this->actingAs($user)->postJson('/api/face/verify', []);
 
@@ -127,31 +130,36 @@ class FaceRecognitionTest extends TestCase
 
     public function test_face_verify_returns_403_when_not_registered()
     {
-        $user = User::factory()->create();
+        /** @var User $user */
+        $user = User::factory()->createOne();
 
-        $response = $this->actingAs($user)->postJson('/api/face/verify', [
+        $response = $this->actingAs($user)->post('/api/face/verify', [
             'photo' => $this->createDummyImage(),
+            'embedding' => array_fill(0, 128, 0.1),
         ]);
 
         // Ketika belum register, harusnya return 403 atau error message
-        $response->assertStatus(422);
+        $response->assertStatus(403);
     }
 
     public function test_face_register_replaces_previous_registration()
     {
-        $user = User::factory()->create();
+        /** @var User $user */
+        $user = User::factory()->createOne();
 
         // Register face pertama
-        $this->actingAs($user)->postJson('/api/face/register', [
+        $this->actingAs($user)->post('/api/face/register', [
             'photo' => $this->createDummyImage(),
+            'embedding' => array_fill(0, 128, 0.1),
         ]);
 
         $firstCount = UserFace::where('user_id', $user->id)->count();
         $this->assertEquals(1, $firstCount);
 
         // Register face kedua (should replace)
-        $this->actingAs($user)->postJson('/api/face/register', [
+        $this->actingAs($user)->post('/api/face/register', [
             'photo' => $this->createDummyImage(),
+            'embedding' => array_fill(0, 128, 0.1),
         ]);
 
         $secondCount = UserFace::where('user_id', $user->id)->count();

@@ -34,6 +34,7 @@ class _FaceRegistrationCameraPageState
   Future<void> _initCamera() async {
     final status = await Permission.camera.request();
     if (!status.isGranted) {
+      if (!mounted) return;
       setState(() => _cameraPermissionDenied = true);
       return;
     }
@@ -53,19 +54,19 @@ class _FaceRegistrationCameraPageState
   Future<void> _captureAndSave() async {
     if (!_cameraInitialized || _cameraService.controller == null) return;
 
-    final file = await _cameraService.takePictureIfFaceDetected();
-    if (file == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Wajah tidak terdeteksi. Coba lagi.')),
-        );
-      }
-      return;
-    }
-
     setState(() => _isSaving = true);
 
     try {
+      final file = await _cameraService.takePictureIfFaceDetected();
+      if (file == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Wajah tidak terdeteksi. Coba lagi.')),
+          );
+        }
+        return;
+      }
+
       final attendanceRepository = AttendanceRepository();
       final embedding = await FaceEmbeddingService().extractEmbedding(file);
       final result = await attendanceRepository.registerFace(file, embedding);
@@ -79,6 +80,7 @@ class _FaceRegistrationCameraPageState
           // Jangan blokir registrasi jika cache lokal gagal disimpan.
         }
 
+        if (!mounted) return;
         setState(() => _isSaving = false);
         await showFaceRegistrationSuccessDialog(context);
 

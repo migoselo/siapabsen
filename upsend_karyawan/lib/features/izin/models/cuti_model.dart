@@ -16,6 +16,8 @@ class CutiModel {
   final Color statusTextColor;
   final String dateRange;
   final String duration;
+  final String? attachmentUrl;
+  final String? attachmentName;
 
   CutiModel({
     this.id,
@@ -33,6 +35,8 @@ class CutiModel {
     required this.statusTextColor,
     required this.dateRange,
     required this.duration,
+    this.attachmentUrl,
+    this.attachmentName,
   });
 
   factory CutiModel.fromJson(Map<String, dynamic> json) {
@@ -63,7 +67,14 @@ class CutiModel {
       statusTextColor: _statusTextColor(status),
       dateRange: '${_formatDate(startDate)} - ${_formatDate(endDate)}',
       duration: '$durationDays Hari',
+      attachmentUrl: _nullableString(json['attachment_url']),
+      attachmentName: _nullableString(json['attachment_name']),
     );
+  }
+
+  static String? _nullableString(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
   }
 
   static String _formatDate(DateTime date) {

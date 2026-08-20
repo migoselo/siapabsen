@@ -17,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 
+        $middleware->redirectGuestsTo(
+            fn (Request $request) => $request->is('api/*')
+                ? null
+                : route('login'),
+        );
+
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'currentTenant' => \App\Http\Middleware\SetTenant::class,

@@ -174,8 +174,12 @@ class AttendanceRepository {
       String fileName = photo.path.split('/').last;
       FormData formData = FormData.fromMap({
         'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
-        'embedding': embedding,
       });
+      for (var index = 0; index < embedding.length; index++) {
+        formData.fields.add(
+          MapEntry('embedding[$index]', '${embedding[index]}'),
+        );
+      }
 
       final response = await Api.dio.post('/face/register', data: formData);
       return response.data as Map<String, dynamic>;
@@ -204,8 +208,12 @@ class AttendanceRepository {
       String fileName = photo.path.split('/').last;
       FormData formData = FormData.fromMap({
         'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
-        'embedding': embedding,
       });
+      for (var index = 0; index < embedding.length; index++) {
+        formData.fields.add(
+          MapEntry('embedding[$index]', '${embedding[index]}'),
+        );
+      }
 
       final response = await Api.dio.post('/face/verify', data: formData);
       return response.data as Map<String, dynamic>;
