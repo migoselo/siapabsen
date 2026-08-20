@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Traits\HasTenant; // pastikan trait ini ada di app/Models/Traits/HasTenant.php
@@ -11,7 +12,7 @@ use App\Models\Attendance;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable, HasTenant;
+    use HasApiTokens, HasFactory, Notifiable, HasTenant;
 
     protected $fillable = [
         'name', 'email', 'password', 'no_hp', 'role', 'home_location_id', 'is_active',

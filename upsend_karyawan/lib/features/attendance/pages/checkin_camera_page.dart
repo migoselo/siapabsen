@@ -56,11 +56,16 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
 
   Future<void> _ensureCameraInitializedIfNeeded(AttendanceState state) async {
     if (_cameraInitialized || _cameraInitInProgress) return;
-    if (state.selectedLocation == null && state.latitude == null) return;
+    if (state.selectedLocation == null ||
+        state.latitude == null ||
+        state.longitude == null) {
+      return;
+    }
 
     _cameraInitInProgress = true;
     final status = await Permission.camera.request();
     if (!status.isGranted) {
+      if (!mounted) return;
       setState(() {
         _cameraPermissionDenied = true;
         _cameraInitInProgress = false;
@@ -70,10 +75,12 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
 
     try {
       await _cameraService.init();
+      if (!mounted) return;
       setState(() {
         _cameraInitialized = true;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _cameraPermissionDenied = true;
       });
@@ -103,6 +110,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
 
     try {
       final file = await _cameraService.takePictureIfFaceDetected();
+      if (!mounted) return;
 
       if (file == null) {
         AppSnackbar.warning(
@@ -118,6 +126,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
       // Check apakah user sudah mendaftar wajah
       final isRegistered = await attendanceRepository
           .checkFaceRegistrationStatus();
+      if (!mounted) return;
       if (!isRegistered) {
         AppSnackbar.error(
           context,
@@ -133,6 +142,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
         file,
         embedding,
       );
+      if (!mounted) return;
       final matched = verificationResult['matched'] as bool? ?? false;
 
       if (!matched) {
@@ -148,6 +158,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
       context.read<AttendanceBloc>().add(PhotoCaptured(file));
       context.read<AttendanceBloc>().add(SubmitCheckIn());
     } catch (e) {
+      if (!mounted) return;
       AppSnackbar.error(context, 'Gagal memverifikasi wajah: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -336,7 +347,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                       if (_isProcessing ||
                           state.status == AttendanceStatus.loading)
                         Container(
-                          color: Colors.black.withOpacity(0.35),
+                          color: Colors.black.withValues(alpha: 0.35),
                           child: const Center(
                             child: CircularProgressIndicator(
                               color: Colors.white,

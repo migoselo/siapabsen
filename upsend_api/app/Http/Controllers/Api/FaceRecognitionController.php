@@ -17,7 +17,7 @@ class FaceRecognitionController extends Controller
         $request->validate([
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'embedding' => [
-                'required',
+                'nullable',
                 'array',
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     if (is_array($value) && !in_array(count($value), [128, 192], true)) {
@@ -49,7 +49,7 @@ class FaceRecognitionController extends Controller
         $request->validate([
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:5120'],
             'embedding' => [
-                'required',
+                'nullable',
                 'array',
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     if (is_array($value) && !in_array(count($value), [128, 192], true)) {

@@ -18,7 +18,7 @@ class _SplashPageState extends State<SplashPage>
   late Animation<double> _drawingAnimation;
 
   bool _showFillAndText = false;
-  bool _fadeOut = false;
+  final bool _fadeOut = false;
 
   // Path SVG diurutkan dari posisi paling bawah ke paling atas
   // (Bottom-to-Top sequencing agar efek meng-ular bergerak dari bawah)
@@ -57,7 +57,7 @@ class _SplashPageState extends State<SplashPage>
     // });
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 1200),
     );
 
     _drawingAnimation = CurvedAnimation(
@@ -94,17 +94,17 @@ class _SplashPageState extends State<SplashPage>
 
   void _startSequence() async {
     // 1. Jalankan animasi menggambar jalur SVG
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
     _controller.forward();
 
     // 2. Transisi dari garis ke isian warna utuh (Fill) & munculkan teks "SiapAbsen"
-    await Future.delayed(const Duration(milliseconds: 1600));
+    await Future.delayed(const Duration(milliseconds: 900));
     if (!mounted) return;
     setState(() => _showFillAndText = true);
 
     await Future.wait([
-      Future.delayed(const Duration(milliseconds: 300)),
+      Future.delayed(const Duration(milliseconds: 150)),
       _waitForResolvedRoute(),
     ]);
     if (!mounted) return;
@@ -138,7 +138,7 @@ class _SplashPageState extends State<SplashPage>
         child: SafeArea(
           child: Center(
             child: AnimatedOpacity(
-                    opacity: _fadeOut ? 0.0 : 1.0,
+              opacity: _fadeOut ? 0.0 : 1.0,
               duration: const Duration(milliseconds: 400),
               curve: Curves.easeInOut,
               child: AnimatedScale(
@@ -148,50 +148,50 @@ class _SplashPageState extends State<SplashPage>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  // Animasi Logo Meng-ular dari Bawah ke Atas
-                  AnimatedBuilder(
-                    animation: _drawingAnimation,
-                    builder: (context, child) {
-                      return CustomPaint(
-                        size: Size(
-                          size.width * 0.35,
-                          (size.width * 0.35) * (153 / 141),
-                        ),
-                        painter: MultiSvgPathPainter(
-                          paths: _parsedPaths,
-                          progress: _drawingAnimation.value,
-                          isFilled: _showFillAndText,
-                          viewBoxSize: const Size(141, 153),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                    // Animasi Logo Meng-ular dari Bawah ke Atas
+                    AnimatedBuilder(
+                      animation: _drawingAnimation,
+                      builder: (context, child) {
+                        return CustomPaint(
+                          size: Size(
+                            size.width * 0.35,
+                            (size.width * 0.35) * (153 / 141),
+                          ),
+                          painter: MultiSvgPathPainter(
+                            paths: _parsedPaths,
+                            progress: _drawingAnimation.value,
+                            isFilled: _showFillAndText,
+                            viewBoxSize: const Size(141, 153),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Teks SiapAbsen dengan animasi Fade In & Slide Up
-                  AnimatedOpacity(
-                    opacity: _showFillAndText ? 1.0 : 0.0,
-                    duration: Duration.zero,
-                    curve: Curves.easeOut,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 600),
-                      transform: Matrix4.translationValues(
-                        0,
-                        _showFillAndText ? 0 : 12,
-                        0,
-                      ),
-                      child: const Text(
-                        'SiapAbsen',
-                        style: TextStyle(
-                          fontFamily: 'jakarta',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 24,
-                          color: Colors.white,
-                          letterSpacing: 0.3,
+                    // Teks SiapAbsen dengan animasi Fade In & Slide Up
+                    AnimatedOpacity(
+                      opacity: _showFillAndText ? 1.0 : 0.0,
+                      duration: Duration.zero,
+                      curve: Curves.easeOut,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        transform: Matrix4.translationValues(
+                          0,
+                          _showFillAndText ? 0 : 12,
+                          0,
+                        ),
+                        child: const Text(
+                          'SiapAbsen',
+                          style: TextStyle(
+                            fontFamily: 'jakarta',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -278,9 +278,7 @@ class MultiSvgPathPainter extends CustomPainter {
         }
 
         if (pathProgress > 0.2) {
-          final Color fillColor = isAccent
-              ? Colors.white
-              : Colors.white;
+          final Color fillColor = isAccent ? Colors.white : Colors.white;
           final Color fillWithOpacity = fillColor.withAlpha(
             (pathProgress * 0.7 * 255).clamp(0, 255).toInt(),
           );

@@ -6,6 +6,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 class CameraService {
   CameraController? controller;
   CameraDescription? _frontCamera;
+  bool _captureInProgress = false;
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       performanceMode: FaceDetectorMode.accurate,
@@ -15,6 +16,8 @@ class CameraService {
   );
 
   Future<void> init() async {
+    if (controller?.value.isInitialized == true) return;
+
     final cameras = await availableCameras();
     if (cameras.isEmpty) {
       throw Exception('No camera available on this device');
@@ -43,23 +46,31 @@ class CameraService {
   }
 
   Future<File?> takePictureIfFaceDetected() async {
-    if (controller == null || !controller!.value.isInitialized) return null;
-
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    final XFile xfile = await controller!.takePicture();
-    final inputImage = InputImage.fromFilePath(xfile.path);
-    final faces = await _faceDetector.processImage(inputImage);
-
-    if (faces.isNotEmpty) {
-      return File(xfile.path);
+    if (_captureInProgress ||
+        controller == null ||
+        !controller!.value.isInitialized) {
+      return null;
     }
 
-    // No face found — delete the captured file
+    _captureInProgress = true;
     try {
-      await File(xfile.path).delete();
-    } catch (_) {}
-    return null;
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final XFile xfile = await controller!.takePicture();
+      final inputImage = InputImage.fromFilePath(xfile.path);
+      final faces = await _faceDetector.processImage(inputImage);
+
+      if (faces.length == 1) {
+        return File(xfile.path);
+      }
+
+      try {
+        await File(xfile.path).delete();
+      } catch (_) {}
+      return null;
+    } finally {
+      _captureInProgress = false;
+    }
   }
 
   Future<void> dispose() async {
