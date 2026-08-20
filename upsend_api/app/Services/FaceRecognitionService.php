@@ -4,71 +4,134 @@ namespace App\Services;
 
 use App\Models\UserFace;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class FaceRecognitionService
 {
-    public function registerFace(int $userId, UploadedFile $photo): array
+    private const MATCH_THRESHOLD = 0.85;
+
+    public function registerFace(int $userId, UploadedFile $photo, ?array $embedding): array
     {
-        $path = $photo->storeAs('face-register', $this->buildFileName($userId, 'register'), 'public');
-        $fullPath = Storage::disk('public')->path($path);
-
-        $encoding = $this->extractEncoding($fullPath);
-
-        UserFace::updateOrCreate(
-            ['user_id' => $userId],
-            [
-                'image_path' => $path,
-                'embedding' => json_encode($encoding),
-                'is_active' => true,
-            ]
+        $embedding = $this->resolveEmbedding($photo, $embedding);
+        $path = $photo->storeAs(
+            'face-register',
+            $this->buildFileName($userId, 'register'),
+            'public',
         );
+
+        try {
+            $oldPaths = DB::transaction(function () use ($userId, $path, $embedding): array {
+                $oldFaces = UserFace::where('user_id', $userId)
+                    ->lockForUpdate()
+                    ->get();
+
+                UserFace::where('user_id', $userId)->delete();
+                UserFace::create([
+                    'user_id' => $userId,
+                    'image_path' => $path,
+                    'embedding' => json_encode($embedding, JSON_THROW_ON_ERROR),
+                    'is_active' => true,
+                ]);
+
+                return $oldFaces
+                    ->pluck('image_path')
+                    ->filter()
+                    ->all();
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($path);
+            throw $exception;
+        }
+
+        foreach ($oldPaths as $oldPath) {
+            if ($oldPath !== $path) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
 
         return [
             'success' => true,
             'message' => 'Wajah berhasil didaftarkan.',
-            'encoding_count' => count($encoding),
+            'embedding_count' => count($embedding),
         ];
     }
 
-    public function verifyFace(int $userId, UploadedFile $photo): array
+    public function verifyFace(int $userId, UploadedFile $photo, ?array $embedding): array
     {
-        $registeredFaces = UserFace::where('user_id', $userId)
+        $registeredFace = UserFace::where('user_id', $userId)
             ->where('is_active', true)
-            ->get();
+            ->latest('id')
+            ->first();
 
-        if ($registeredFaces->isEmpty()) {
+        if ($registeredFace === null) {
             return [
                 'matched' => false,
                 'message' => 'User belum memiliki wajah yang didaftarkan.',
             ];
         }
 
-        $path = $photo->storeAs('face-verify', $this->buildFileName($userId, 'verify'), 'public');
-        $fullPath = Storage::disk('public')->path($path);
+        $embedding = $this->resolveEmbedding($photo, $embedding);
+        $reference = json_decode(
+            $registeredFace->embedding,
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
 
-        $candidateEncoding = $this->extractEncoding($fullPath);
+        $bestSimilarity = $this->cosineSimilarity($embedding, $reference);
 
-        $references = $registeredFaces
-            ->map(fn ($face) => json_decode($face->embedding, true, 512, JSON_THROW_ON_ERROR))
-            ->all();
-
-        $verification = $this->runPythonVerifier($fullPath, $references);
-
-        if (isset($verification['matched']) && $verification['matched'] === true) {
+        $threshold = self::MATCH_THRESHOLD;
+        if ($bestSimilarity >= $threshold) {
             return [
                 'matched' => true,
                 'message' => 'Wajah cocok dengan data yang sudah didaftarkan.',
-                'score' => round((1 - (float) ($verification['best_distance'] ?? 0)) * 100, 2),
-                'best_distance' => (float) ($verification['best_distance'] ?? 0),
+                'similarity' => round($bestSimilarity, 4),
+                'threshold' => $threshold,
             ];
         }
 
         return [
             'matched' => false,
-            'message' => 'Wajah tidak cocok dengan data yang sudah didaftarkan.',
-            'best_distance' => (float) ($verification['best_distance'] ?? 1.0),
+            'message' => 'Wajah tidak cocok. Silakan coba lagi.',
+            'similarity' => round($bestSimilarity, 4),
+            'threshold' => $threshold,
         ];
+    }
+
+    protected function cosineSimilarity(array $left, array $right): float
+    {
+        if (count($left) === 0 || count($left) !== count($right)) {
+            return 0.0;
+        }
+
+        $dot = 0.0;
+        $leftNorm = 0.0;
+        $rightNorm = 0.0;
+        foreach ($left as $index => $value) {
+            $leftValue = (float) $value;
+            $rightValue = (float) ($right[$index] ?? 0);
+            $dot += $leftValue * $rightValue;
+            $leftNorm += $leftValue ** 2;
+            $rightNorm += $rightValue ** 2;
+        }
+
+        $denominator = sqrt($leftNorm) * sqrt($rightNorm);
+        return $denominator > 0 ? $dot / $denominator : 0.0;
+    }
+
+    protected function resolveEmbedding(UploadedFile $photo, ?array $embedding): array
+    {
+        if ($embedding !== null && count($embedding) > 0) {
+            return array_map(static fn ($value): float => (float) $value, $embedding);
+        }
+
+        $generated = $this->extractEncoding($photo->getRealPath());
+        if (!in_array(count($generated), [128, 192], true)) {
+            throw new \RuntimeException('Embedding wajah tidak valid.');
+        }
+
+        return $generated;
     }
 
     public function hasRegisteredFace(int $userId): bool
@@ -91,45 +154,6 @@ class FaceRecognitionService
         }
 
         return $result['encoding'];
-    }
-
-    protected function runPythonVerifier(string $candidatePath, array $references): array
-    {
-        $scriptPath = base_path('scripts/face_recognition_worker.py');
-        $pythonCommand = $this->detectPython();
-        $referencesFile = tempnam(sys_get_temp_dir(), 'face_refs_');
-
-        if ($referencesFile === false) {
-            throw new \RuntimeException('Gagal membuat file sementara untuk reference wajah.');
-        }
-
-        try {
-            file_put_contents($referencesFile, json_encode($references, JSON_THROW_ON_ERROR));
-
-            $command = sprintf(
-                '%s %s verify %s %s',
-                escapeshellarg($pythonCommand[0]),
-                escapeshellarg($scriptPath),
-                escapeshellarg($candidatePath),
-                escapeshellarg($referencesFile)
-            );
-
-            $output = shell_exec($command);
-            if (!is_string($output) || trim($output) === '') {
-                throw new \RuntimeException('Gagal menjalankan verifier face recognition.');
-            }
-
-            $decoded = json_decode(trim($output), true);
-            if (!is_array($decoded)) {
-                throw new \RuntimeException('Output verifier face recognition tidak valid.');
-            }
-
-            return $decoded;
-        } finally {
-            if (is_file($referencesFile)) {
-                @unlink($referencesFile);
-            }
-        }
     }
 
     protected function runPythonWorker(string $mode, string $imagePath): array

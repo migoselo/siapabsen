@@ -37,6 +37,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
+    Route::delete('/leave-requests/{id}', [LeaveRequestController::class, 'destroy']);
+    Route::get('/leave-balances', [LeaveRequestController::class, 'balances']);
 
     // ==== Khusus admin ====
     Route::middleware('role:admin')->group(function () {

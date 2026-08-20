@@ -1,10 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:upsend_karyawan/features/auth/pages/login_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 import 'package:svg_path_parser/svg_path_parser.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../auth/bloc/auth_bloc.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -19,7 +18,7 @@ class _SplashPageState extends State<SplashPage>
   late Animation<double> _drawingAnimation;
 
   bool _showFillAndText = false;
-  bool _fadeOut = false;
+  final bool _fadeOut = false;
 
   // Path SVG diurutkan dari posisi paling bawah ke paling atas
   // (Bottom-to-Top sequencing agar efek meng-ular bergerak dari bawah)
@@ -42,6 +41,8 @@ class _SplashPageState extends State<SplashPage>
 
   late List<Path> _parsedPaths;
 
+  String? _resolvedRoute;
+
   @override
   void initState() {
     super.initState();
@@ -49,14 +50,14 @@ class _SplashPageState extends State<SplashPage>
     _parsedPaths = _svgPathsData.map((d) => parseSvgPath(d)).toList();
 
     // 3. Pindah halaman tepat di detik ke 3
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        _navigateNext();
-      }
-    });
+    // Future.delayed(const Duration(seconds: 3), () {
+    //   if (mounted) {
+    //     _navigateNext();
+    //   }
+    // });
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 1200),
     );
 
     _drawingAnimation = CurvedAnimation(
@@ -64,24 +65,58 @@ class _SplashPageState extends State<SplashPage>
       curve: Curves.easeInOutCubic,
     );
 
+    _resolveDestination();
+
     _startSequence();
+  }
+
+  Future<void> _resolveDestination() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+    if (!hasSeenOnboarding) {
+      _resolvedRoute = '/onboarding';
+      return;
+    }
+
+    final token = prefs.getString('auth_token');
+    if (token == null || token.isEmpty) {
+      _resolvedRoute = '/login';
+      return;
+    }
+
+    _resolvedRoute = '/home';
+
+    if (mounted) {
+      context.read<AuthBloc>().add(const AuthCheckRequested());
+    }
   }
 
   void _startSequence() async {
     // 1. Jalankan animasi menggambar jalur SVG
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
     _controller.forward();
 
     // 2. Transisi dari garis ke isian warna utuh (Fill) & munculkan teks "SiapAbsen"
-    await Future.delayed(const Duration(milliseconds: 1600));
+    await Future.delayed(const Duration(milliseconds: 900));
     if (!mounted) return;
     setState(() => _showFillAndText = true);
 
-    // 3. Efek Fade Out sebelum pindah halaman
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.wait([
+      Future.delayed(const Duration(milliseconds: 150)),
+      _waitForResolvedRoute(),
+    ]);
     if (!mounted) return;
-    setState(() => _fadeOut = true);
+
+    Navigator.pushReplacementNamed(context, _resolvedRoute ?? '/login');
+  }
+
+  Future<void> _waitForResolvedRoute() async {
+    while (_resolvedRoute == null) {
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+    }
   }
 
   @override
@@ -90,92 +125,75 @@ class _SplashPageState extends State<SplashPage>
     super.dispose();
   }
 
-  Future<void> _navigateNext() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    // aktifkan jika ingin debug on boarding
-    // if (kDebugMode) {
-    //   await prefs.remove('has_seen_onboarding');
-    // }
-
-    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
-
-    await prefs.remove('auth_token');
-    await prefs.remove('user_name');
-
-    if (!mounted) return;
-
-    if (!hasSeenOnboarding) {
-      Navigator.pushReplacementNamed(context, '/onboarding');
-    } else {
-      Navigator.pushReplacementNamed(context, '/login');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF2F3B69),
-      body: SafeArea(
-        child: Center(
-          child: AnimatedOpacity(
-            opacity: _fadeOut ? 0.0 : 1.0,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOut,
-            child: AnimatedScale(
-              scale: _fadeOut ? 1.05 : 1.0,
+      backgroundColor: Colors.white,
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        color: _fadeOut ? Colors.white : const Color(0xFF2F3B69),
+        child: SafeArea(
+          child: Center(
+            child: AnimatedOpacity(
+              opacity: _fadeOut ? 0.0 : 1.0,
               duration: const Duration(milliseconds: 400),
-              curve: Curves.easeOutCubic,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Animasi Logo Meng-ular dari Bawah ke Atas
-                  AnimatedBuilder(
-                    animation: _drawingAnimation,
-                    builder: (context, child) {
-                      return CustomPaint(
-                        size: Size(
-                          size.width * 0.35,
-                          (size.width * 0.35) * (153 / 141),
-                        ),
-                        painter: MultiSvgPathPainter(
-                          paths: _parsedPaths,
-                          progress: _drawingAnimation.value,
-                          isFilled: _showFillAndText,
-                          viewBoxSize: const Size(141, 153),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
+              curve: Curves.easeInOut,
+              child: AnimatedScale(
+                scale: _fadeOut ? 1.05 : 1.0,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Animasi Logo Meng-ular dari Bawah ke Atas
+                    AnimatedBuilder(
+                      animation: _drawingAnimation,
+                      builder: (context, child) {
+                        return CustomPaint(
+                          size: Size(
+                            size.width * 0.35,
+                            (size.width * 0.35) * (153 / 141),
+                          ),
+                          painter: MultiSvgPathPainter(
+                            paths: _parsedPaths,
+                            progress: _drawingAnimation.value,
+                            isFilled: _showFillAndText,
+                            viewBoxSize: const Size(141, 153),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Teks SiapAbsen dengan animasi Fade In & Slide Up
-                  AnimatedOpacity(
-                    opacity: _showFillAndText ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.easeOut,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 600),
-                      transform: Matrix4.translationValues(
-                        0,
-                        _showFillAndText ? 0 : 12,
-                        0,
-                      ),
-                      child: const Text(
-                        'SiapAbsen',
-                        style: TextStyle(
-                          fontFamily: 'jakarta',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 24,
-                          color: Colors.white,
-                          letterSpacing: 0.3,
+                    // Teks SiapAbsen dengan animasi Fade In & Slide Up
+                    AnimatedOpacity(
+                      opacity: _showFillAndText ? 1.0 : 0.0,
+                      duration: Duration.zero,
+                      curve: Curves.easeOut,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        transform: Matrix4.translationValues(
+                          0,
+                          _showFillAndText ? 0 : 12,
+                          0,
+                        ),
+                        child: const Text(
+                          'SiapAbsen',
+                          style: TextStyle(
+                            fontFamily: 'jakarta',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -216,7 +234,7 @@ class MultiSvgPathPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final Paint accentFillPaint = Paint()
-      ..color = const Color(0xFFF5F7FC)
+      ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.fill;
 
     final List<Rect> pathBounds = paths
@@ -260,9 +278,7 @@ class MultiSvgPathPainter extends CustomPainter {
         }
 
         if (pathProgress > 0.2) {
-          final Color fillColor = isAccent
-              ? const Color(0xFFF5F7FC)
-              : Colors.white;
+          final Color fillColor = isAccent ? Colors.white : Colors.white;
           final Color fillWithOpacity = fillColor.withAlpha(
             (pathProgress * 0.7 * 255).clamp(0, 255).toInt(),
           );

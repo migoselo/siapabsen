@@ -38,6 +38,8 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
 
   final DateTime _today = DateTime.now();
   List<CutiModel> _cutiHistory = [];
+  bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -46,21 +48,41 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   }
 
   Future<void> _loadCutiHistory() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
+
     try {
-      final response = await Api.dio.get('/leave-requests');
-      final data = response.data as List;
+      final response = await Api.dio.get(
+        '/leave-requests',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+      final data = response.data is List ? response.data as List : const [];
+      if (!mounted) return;
       setState(() {
         _cutiHistory = data.map((json) => CutiModel.fromJson(json)).toList();
+        _isLoading = false;
       });
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() {
-        _cutiHistory = [];
+        _isLoading = false;
+        _loadError =
+            e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.receiveTimeout
+            ? 'Server terlalu lama merespons.'
+            : 'Gagal memuat riwayat cuti.';
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e.response?.data['message'] ?? 'Gagal memuat riwayat cuti.',
+            e.response?.data['message'] ?? 'Gagal memuat Formulir.',
           ),
         ),
       );
@@ -202,7 +224,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
               )
             : null,
         title: Text(
-          'Izin Cuti',
+          'Formulir',
           style: GoogleFonts.plusJakartaSans(
             color: Colors.black,
             fontWeight: FontWeight.w600,
@@ -218,7 +240,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           backgroundColor: const Color(0xFF2E3A6E),
           icon: const Icon(Icons.add, color: Colors.white),
           label: Text(
-            'Ajukan Cuti',
+            'Pengajuan',
             style: GoogleFonts.plusJakartaSans(
               color: Colors.white,
               fontWeight: FontWeight.w600,
@@ -356,7 +378,37 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
             ),
             const SizedBox(height: 20),
 
-            if (filteredCuti.isEmpty)
+            // Daftar Kartu Cuti
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_loadError != null && _cutiHistory.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        _loadError!,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _loadCutiHistory,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Coba lagi'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_cutiHistory.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
@@ -375,7 +427,9 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   onTap: () => _openDetailCuti(context, cuti),
                   child: _buildCutiCard(
                     svgPath: cuti.svgPath,
+                    iconData: cuti.iconData,
                     iconBgColor: cuti.iconBgColor,
+                    iconColor: cuti.iconColor,
                     title: cuti.title,
                     subtitle: cuti.subtitle,
                     statusText: cuti.statusText,
@@ -394,15 +448,100 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   }
 
   Future<void> _openDetailCuti(BuildContext context, CutiModel cuti) async {
-    await Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => DetailPermohonanPage(cuti: cuti)),
     );
+    if (result is int && mounted) {
+      final deleteRequest = Api.dio.delete('/leave-requests/$result');
+      setState(() {
+        _cutiHistory.removeWhere((item) => item.id == result);
+      });
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => Dialog(
+          child: Builder(
+            builder: (dialogContext) {
+              Future<void>.delayed(const Duration(seconds: 2), () {
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              });
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(26, 30, 26, 22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF4DBA61),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Permohonan Terhapus',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Permohonan Anda berhasil terhapus',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        color: const Color(0xFF9A9A9A),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 30),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      );
+
+      try {
+        await deleteRequest;
+        await _loadCutiHistory();
+      } on DioException catch (error) {
+        if (!mounted) return;
+        await _loadCutiHistory();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error.response?.data?['message']?.toString() ??
+                  'Gagal menghapus permohonan.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildCutiCard({
-    required String svgPath,
+    String? svgPath,
+    IconData? iconData,
     required Color iconBgColor,
+    required Color iconColor,
     required String title,
     required String subtitle,
     required String statusText,
@@ -423,15 +562,28 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+              ClipOval(
+                child: Container(
+                  width: 40,
+                  height: 40,
                   color: iconBgColor,
-                  shape: BoxShape.circle,
+                  child: Center(
+                    child: iconData != null
+                        ? Icon(iconData, color: iconColor, size: 20)
+                        : SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: SvgPicture.asset(
+                              svgPath!,
+                              fit: BoxFit.contain,
+                              colorFilter: ColorFilter.mode(
+                                iconColor,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                          ),
+                  ),
                 ),
-                child: SvgPicture.asset(svgPath, fit: BoxFit.contain),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -440,6 +592,8 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   children: [
                     Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -447,8 +601,10 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                     ),
                     Text(
                       subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        color: Colors.grey.shade600,
+                        color: const Color(0xFF9A9A9A),
                         fontSize: 12,
                       ),
                     ),

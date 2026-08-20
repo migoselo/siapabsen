@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class LeaveRequest extends Model
 {
@@ -19,12 +20,30 @@ class LeaveRequest extends Model
         'attachment_path',
         'status',
         'total_days',
+        'start_time',
+        'end_time',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
     ];
+
+    protected $appends = ['attachment_url', 'attachment_name'];
+
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        if (!$this->attachment_path) return null;
+
+        return Storage::url($this->attachment_path);
+    }
+
+    public function getAttachmentNameAttribute(): ?string
+    {
+        if (!$this->attachment_path) return null;
+
+        return basename($this->attachment_path);
+    }
 
     public function user()
     {

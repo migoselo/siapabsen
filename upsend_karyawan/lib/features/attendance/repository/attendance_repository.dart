@@ -166,12 +166,20 @@ class AttendanceRepository {
 
   /// POST /face/register
   /// Register user's face with a photo
-  Future<Map<String, dynamic>> registerFace(File photo) async {
+  Future<Map<String, dynamic>> registerFace(
+    File photo,
+    List<double> embedding,
+  ) async {
     try {
       String fileName = photo.path.split('/').last;
       FormData formData = FormData.fromMap({
         'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
       });
+      for (var index = 0; index < embedding.length; index++) {
+        formData.fields.add(
+          MapEntry('embedding[$index]', '${embedding[index]}'),
+        );
+      }
 
       final response = await Api.dio.post('/face/register', data: formData);
       return response.data as Map<String, dynamic>;
@@ -192,12 +200,20 @@ class AttendanceRepository {
   /// POST /face/verify
   /// Verify user's current face against registered face
   /// Returns: { matched: bool, message: string, score?: double, best_distance?: double }
-  Future<Map<String, dynamic>> verifyFace(File photo) async {
+  Future<Map<String, dynamic>> verifyFace(
+    File photo,
+    List<double> embedding,
+  ) async {
     try {
       String fileName = photo.path.split('/').last;
       FormData formData = FormData.fromMap({
         'photo': await MultipartFile.fromFile(photo.path, filename: fileName),
       });
+      for (var index = 0; index < embedding.length; index++) {
+        formData.fields.add(
+          MapEntry('embedding[$index]', '${embedding[index]}'),
+        );
+      }
 
       final response = await Api.dio.post('/face/verify', data: formData);
       return response.data as Map<String, dynamic>;
