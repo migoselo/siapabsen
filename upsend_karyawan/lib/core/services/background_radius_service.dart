@@ -24,8 +24,8 @@ class BackgroundRadiusService {
   Future<void> configure() async {
     const channel = AndroidNotificationChannel(
       _monitorChannelId,
-      'Pemantauan lokasi absensi',
-      description: 'Menjaga pemantauan radius saat sesi check-in aktif.',
+      'SiapAbsen',
+      description: 'Layanan aplikasi SiapAbsen.',
       importance: Importance.low,
     );
 
@@ -43,7 +43,7 @@ class BackgroundRadiusService {
         isForegroundMode: true,
         notificationChannelId: _monitorChannelId,
         initialNotificationTitle: 'SiapAbsen',
-        initialNotificationContent: 'Memantau lokasi absensi',
+        initialNotificationContent: ' ',
         foregroundServiceNotificationId: _monitorNotificationId,
       ),
       iosConfiguration: IosConfiguration(
@@ -93,9 +93,6 @@ void _onStart(ServiceInstance service) async {
   await notifications.initialize(requestPermission: false);
 
   if (service is AndroidServiceInstance) {
-    service.on('setAsForeground').listen((_) {
-      service.setAsForegroundService();
-    });
     service.on('stop').listen((_) {
       service.stopSelf();
     });
