@@ -1,6 +1,8 @@
 class LocationModel {
   final int id;
   final String name;
+  final double latitude;
+  final double longitude;
   final double distance;
   final int radiusMeter;
   final bool withinRadius;
@@ -8,6 +10,8 @@ class LocationModel {
   LocationModel({
     required this.id,
     required this.name,
+    required this.latitude,
+    required this.longitude,
     required this.distance,
     required this.radiusMeter,
     required this.withinRadius,
@@ -17,6 +21,8 @@ class LocationModel {
     return LocationModel(
       id: _toInt(json['id']),
       name: json['name']?.toString() ?? '',
+      latitude: _toDouble(json['latitude']),
+      longitude: _toDouble(json['longitude']),
       distance: _toDouble(json['distance']),
       radiusMeter: _toInt(json['radius_meter']),
       withinRadius:

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/services/background_radius_service.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/home_event.dart';
 import '../bloc/home_state.dart';
@@ -27,11 +28,33 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _activeNavIndex = 0;
+  int? _monitoringAttendanceId;
 
   @override
   void initState() {
     super.initState();
     context.read<HomeBloc>().add(const HomeStarted());
+  }
+
+  Future<void> _syncLocationMonitor(HomeState state) async {
+    final attendance = state.todayAttendance;
+    final location = attendance?.location;
+
+    if (!state.isCheckedIn || attendance == null || location == null) {
+      _monitoringAttendanceId = null;
+      await BackgroundRadiusService.instance.stop();
+      return;
+    }
+
+    if (_monitoringAttendanceId == attendance.id) return;
+    if (location.latitude == 0 && location.longitude == 0) return;
+
+    _monitoringAttendanceId = attendance.id;
+    await BackgroundRadiusService.instance.start(
+      latitude: location.latitude,
+      longitude: location.longitude,
+      radiusMeters: location.radiusMeter.toDouble(),
+    );
   }
 
   Future<void> _handleNavTap(int index) async {
@@ -69,6 +92,7 @@ class _HomePageState extends State<HomePage> {
           SafeArea(
             child: BlocConsumer<HomeBloc, HomeState>(
               listener: (context, state) {
+                _syncLocationMonitor(state);
                 if (state.status == HomeStatus.failure &&
                     state.errorMessage != null) {
                   ScaffoldMessenger.of(
