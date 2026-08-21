@@ -159,11 +159,14 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           _selectedDate = selection.date;
           _selectedRange = selection.range; // ini kuncinya — akhirnya ketampung
           break;
+        case RiwayatCalendarMode.single:
+          // Halaman ini selalu memanggil dialog dalam mode range (default),
+          // jadi mode single tidak pernah muncul di sini — hanya untuk lengkapi switch.
+          break;
       }
       _selectedKategori = null;
     });
   }
-
   String get _currentHeader {
     if (_selectedRange != null) {
       final start = _selectedRange!.start;

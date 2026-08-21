@@ -14,6 +14,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import '../kategori_presensi.dart';
+import '../../../core/widgets/riwayat_calendar_dialog.dart';
 
 class RiwayatPage extends StatefulWidget {
   final bool showBottomNav;
@@ -107,10 +108,10 @@ class _RiwayatPageState extends State<RiwayatPage> {
     _fetchForPeriode();
   }
 
-  Future<void> _pickDateRange(BuildContext context) async {
-    final selection = await showDialog<_CalendarSelection>(
+   Future<void> _pickDateRange(BuildContext context) async {
+    final selection = await showDialog<RiwayatCalendarSelection>(
       context: context,
-      builder: (context) => _RiwayatCalendarDialog(
+      builder: (context) => RiwayatCalendarDialog(
         initialDate: _anchorDate,
         initialRange: _customRange,
         today: _today,
@@ -119,13 +120,13 @@ class _RiwayatPageState extends State<RiwayatPage> {
 
     if (selection != null) {
       setState(() {
-        _periode = selection.mode == _CalendarMode.year
+        _periode = selection.mode == RiwayatCalendarMode.year
             ? PeriodeRiwayat.tahunan
-            : selection.mode == _CalendarMode.month
+            : selection.mode == RiwayatCalendarMode.month
             ? PeriodeRiwayat.bulanan
             : _periode;
         _anchorDate = selection.date;
-        _customRange = selection.mode == _CalendarMode.range
+        _customRange = selection.mode == RiwayatCalendarMode.range
             ? selection.range
             : null;
         _selectedKategori = null;
@@ -340,8 +341,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
                       },
                       child: Row(
                         children: const [
-                          Icon(Icons.close, size: 16, color: Color(0xFF9A9A9A)),
-                          SizedBox(width: 4),
+                          Icon(Icons.close, size: 18, color: Color(0xFF9A9A9A)),
+                          SizedBox(width: 8),
                           Text(
                             'Hapus filter rentang tanggal',
                             style: TextStyle(
@@ -427,354 +428,4 @@ class _RiwayatPageState extends State<RiwayatPage> {
   }
 }
 
-enum _CalendarMode { year, month, range }
 
-class _CalendarSelection {
-  final _CalendarMode mode;
-  final DateTime date;
-  final DateTimeRange? range;
-
-  const _CalendarSelection({
-    required this.mode,
-    required this.date,
-    this.range,
-  });
-}
-
-class _RiwayatCalendarDialog extends StatefulWidget {
-  final DateTime initialDate;
-  final DateTimeRange? initialRange;
-  final DateTime today;
-
-  const _RiwayatCalendarDialog({
-    required this.initialDate,
-    required this.initialRange,
-    required this.today,
-  });
-
-  @override
-  State<_RiwayatCalendarDialog> createState() => _RiwayatCalendarDialogState();
-}
-
-class _RiwayatCalendarDialogState extends State<_RiwayatCalendarDialog> {
-  static final DateTime _firstDate = DateTime(2020);
-  late final DateTime _selectedDate;
-  late DateTime _visibleMonth;
-  late _CalendarMode _mode = _CalendarMode.range;
-  DateTime? _rangeStart;
-  DateTime? _rangeEnd;
-
-  DateTime get _lastDate => widget.today;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedDate = widget.initialDate;
-    _visibleMonth = DateTime(widget.initialDate.year, widget.initialDate.month);
-    _rangeStart = widget.initialRange?.start;
-    _rangeEnd = widget.initialRange?.end;
-  }
-
-  bool _isSameDay(DateTime first, DateTime second) =>
-      first.year == second.year &&
-      first.month == second.month &&
-      first.day == second.day;
-
-  void _changeMonth(int offset) {
-    final nextMonth = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month + offset,
-    );
-    if (nextMonth.year < _firstDate.year ||
-        nextMonth.isAfter(DateTime(_lastDate.year, _lastDate.month))) {
-      return;
-    }
-    setState(() => _visibleMonth = nextMonth);
-  }
-
-  void _selectYear(int year) {
-    Navigator.pop(
-      context,
-      _CalendarSelection(mode: _CalendarMode.year, date: DateTime(year, 1, 1)),
-    );
-  }
-
-  void _selectMonth(int month) {
-    Navigator.pop(
-      context,
-      _CalendarSelection(
-        mode: _CalendarMode.month,
-        date: DateTime(_visibleMonth.year, month, 1),
-      ),
-    );
-  }
-
-  void _selectRangeDate(DateTime date) {
-    setState(() {
-      if (_rangeStart == null || _rangeEnd != null) {
-        _rangeStart = date;
-        _rangeEnd = null;
-      } else if (date.isBefore(_rangeStart!)) {
-        _rangeEnd = _rangeStart;
-        _rangeStart = date;
-      } else {
-        _rangeEnd = date;
-        Navigator.pop(
-          context,
-          _CalendarSelection(
-            mode: _CalendarMode.range,
-            date: _rangeStart!,
-            range: DateTimeRange(start: _rangeStart!, end: _rangeEnd!),
-          ),
-        );
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      content: SizedBox(
-        width: 360,
-        height: 320,
-        child: Column(
-          children: [
-            if (_mode == _CalendarMode.range) _buildCalendarHeader(),
-            Expanded(child: _buildCalendar()),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalendarHeader() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            IconButton(
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-              padding: EdgeInsets.zero,
-              onPressed: () => _changeMonth(-1),
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(
-              child: Column(
-                children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _mode = _CalendarMode.month),
-                    child: Text(
-                      DateFormat('MMMM', 'id_ID').format(_visibleMonth),
-                      style: const TextStyle(
-                        color: Color(0xFF1B2559),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => setState(() => _mode = _CalendarMode.year),
-                    child: Text(
-                      _visibleMonth.year.toString(),
-                      style: const TextStyle(
-                        color: Color(0xFF91A0BF),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-              padding: EdgeInsets.zero,
-              onPressed: () => _changeMonth(1),
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  Widget _buildCalendar() {
-    switch (_mode) {
-      case _CalendarMode.year:
-        return Column(
-          children: [
-            TextButton(
-              onPressed: () => setState(() => _mode = _CalendarMode.range),
-              child: Text(_visibleMonth.year.toString()),
-            ),
-            Expanded(
-              child: YearPicker(
-                firstDate: _firstDate,
-                lastDate: _lastDate,
-                selectedDate: _selectedDate,
-                onChanged: (date) {
-                  _visibleMonth = DateTime(date.year, _visibleMonth.month);
-                  _selectYear(date.year);
-                },
-              ),
-            ),
-          ],
-        );
-      case _CalendarMode.month:
-        return Column(
-          children: [
-            TextButton(
-              onPressed: () => setState(() => _mode = _CalendarMode.range),
-              child: Text(_visibleMonth.year.toString()),
-            ),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(8),
-                itemCount: 12,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                ),
-                itemBuilder: (context, index) {
-                  final month = index + 1;
-                  final date = DateTime(_visibleMonth.year, month, 1);
-                  final disabled = date.isAfter(_lastDate);
-                  return OutlinedButton(
-                    onPressed: disabled
-                        ? null
-                        : () {
-                            _visibleMonth = date;
-                            _selectMonth(month);
-                          },
-                    child: Text(DateFormat('MMM', 'id_ID').format(date)),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      case _CalendarMode.range:
-        return _buildRangeCalendar();
-    }
-  }
-
-  Widget _buildRangeCalendar() {
-    final firstWeekday = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month,
-      1,
-    ).weekday;
-    final daysInMonth = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month + 1,
-      0,
-    ).day;
-    final firstCalendarDate = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month,
-      1 - (firstWeekday - 1),
-    );
-    final cells = List.generate(
-      42,
-      (index) => firstCalendarDate.add(Duration(days: index)),
-    );
-    final lastCalendarDate = DateTime(
-      _visibleMonth.year,
-      _visibleMonth.month,
-      daysInMonth,
-    );
-    if (lastCalendarDate.weekday == DateTime.sunday && cells.length > 35) {
-      cells.removeRange(35, cells.length);
-    }
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
-              .map(
-                (day) => SizedBox(
-                  width: 36,
-                  child: Text(
-                    day,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF4E62AF),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 6),
-        Expanded(
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: cells.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 0,
-            ),
-            itemBuilder: (context, index) {
-              final date = cells[index];
-              final disabled =
-                  date.isBefore(_firstDate) || date.isAfter(_lastDate);
-              final isPreview =
-                  date.month != _visibleMonth.month ||
-                  date.year != _visibleMonth.year;
-              final isStart =
-                  _rangeStart != null && _isSameDay(date, _rangeStart!);
-              final isEnd = _rangeEnd != null && _isSameDay(date, _rangeEnd!);
-              final inRange =
-                  _rangeStart != null &&
-                  _rangeEnd != null &&
-                  !date.isBefore(_rangeStart!) &&
-                  !date.isAfter(_rangeEnd!);
-              return GestureDetector(
-                onTap: disabled ? null : () => _selectRangeDate(date),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: inRange ? const Color(0xFF4E62AF) : null,
-                    borderRadius: BorderRadius.horizontal(
-                      left: isStart ? const Radius.circular(20) : Radius.zero,
-                      right: isEnd ? const Radius.circular(20) : Radius.zero,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isStart || isEnd ? const Color(0xFF2F3B69) : null,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        color: disabled
-                            ? const Color(0xFF91A0BF)
-                            : isStart || isEnd
-                            ? Colors.white
-                            : const Color(
-                                0xFF202B4D,
-                              ).withValues(alpha: isPreview ? 0.45 : 1),
-                        fontSize: 14,
-                        fontWeight: isStart || isEnd
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
