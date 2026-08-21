@@ -21,11 +21,15 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../features/history/bloc/history_bloc.dart';
 import '../features/history/repository/history_repository.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:upsend_karyawan/core/services/notification_service.dart';
+import 'package:upsend_karyawan/core/services/background_radius_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Api.init();
   await initializeDateFormatting('id_ID', null);
+  await NotificationService.instance.initialize();
+  await BackgroundRadiusService.instance.configure();
   runApp(const MyApp());
 }
 
