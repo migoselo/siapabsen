@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:upsend_karyawan/features/auth/bloc/auth_bloc.dart';
 import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
+import 'package:upsend_karyawan/features/auth/pages/reset_password_screen.dart';
 
 enum LoginType { email, employeeId, phone }
 
@@ -529,7 +530,14 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        onPressed: () {},
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ResetPasswordScreen(),
+            ),
+          );
+        },
         child: Text(
           'Lupa password',
           style: _jakartaStyle(

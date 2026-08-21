@@ -115,9 +115,6 @@ class KategoriBarChart extends StatelessWidget {
                                 ? k.color
                                 : k.color.withOpacity(0.55),
                             borderRadius: BorderRadius.circular(10),
-                            border: isSelected
-                                ? Border.all(color: k.color, width: 2)
-                                : null,
                           ),
                         ),
                       ),

@@ -195,7 +195,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         .toList();
 
     // filter tahap 2: berdasarkan kategori yang dipilih (kalau ada)
-    final filteredCuti = _selectedKategori == null
+    final filteredCuti = _selectedKategori == null || _selectedKategori == 'semua'
         ? rangeFiltered
         : rangeFiltered
               .where(
