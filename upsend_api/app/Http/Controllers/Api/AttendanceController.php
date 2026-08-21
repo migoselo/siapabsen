@@ -25,6 +25,8 @@ class AttendanceController extends Controller
             return [
                 'id' => $loc->id,
                 'name' => $loc->name,
+                'latitude' => (float) $loc->latitude,
+                'longitude' => (float) $loc->longitude,
                 'distance' => $distance,
                 'radius_meter' => $loc->radius_meter,
                 'within_radius' => $distance <= $loc->radius_meter,

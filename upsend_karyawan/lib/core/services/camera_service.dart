@@ -37,6 +37,8 @@ class CameraService {
 
     try {
       await controller!.initialize();
+      final maxZoom = await controller!.getMaxZoomLevel();
+      await controller!.setZoomLevel(maxZoom.clamp(1.0, 1.25));
     } catch (e) {
       // ensure controller disposed on failure
       await controller?.dispose();
@@ -54,8 +56,6 @@ class CameraService {
 
     _captureInProgress = true;
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
-
       final XFile xfile = await controller!.takePicture();
       final inputImage = InputImage.fromFilePath(xfile.path);
       final faces = await _faceDetector.processImage(inputImage);
@@ -68,6 +68,8 @@ class CameraService {
         await File(xfile.path).delete();
       } catch (_) {}
       return null;
+    } catch (error) {
+      rethrow;
     } finally {
       _captureInProgress = false;
     }

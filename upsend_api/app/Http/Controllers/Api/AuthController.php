@@ -72,6 +72,35 @@ class AuthController extends Controller
         ]);
     }
 
+    public function loginWeb(Request $request)
+    {
+        return $this->login($request);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'old_password' => 'required|string',
+            'new_password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($validated['old_password'], $user->password)) {
+            return response()->json([
+                'message' => 'Password lama salah.',
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['new_password']),
+        ]);
+
+        return response()->json([
+            'message' => 'Password berhasil diubah.',
+        ]);
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();

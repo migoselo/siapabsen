@@ -18,8 +18,6 @@ class CutiModel {
   final Color statusTextColor;
   final String dateRange;
   final String duration;
-  final DateTime startDate;
-  final DateTime endDate;
   final String? attachmentUrl;
   final String? attachmentName;
 
@@ -41,8 +39,6 @@ class CutiModel {
     required this.statusTextColor,
     required this.dateRange,
     required this.duration,
-    required this.startDate,
-    required this.endDate,
     this.attachmentUrl,
     this.attachmentName,
   });
@@ -80,10 +76,12 @@ class CutiModel {
       statusTextColor: _statusTextColor(status),
       dateRange: '${_formatDate(startDate)} - ${_formatDate(endDate)}',
       duration: _formatDuration(type, startDate, endDate, durationDays),
-        attachmentUrl: json['attachment_url']?.toString() ??
+      attachmentUrl:
+          json['attachment_url']?.toString() ??
           json['attachment_path']?.toString() ??
           json['attachment']?.toString(),
-        attachmentName: json['attachment_name']?.toString() ??
+      attachmentName:
+          json['attachment_name']?.toString() ??
           _attachmentName(json['attachment_path']?.toString()),
     );
   }
