@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-enum RiwayatCalendarMode { year, month, range }
+enum RiwayatCalendarMode { year, month, range, single }
 
 class RiwayatCalendarSelection {
   final RiwayatCalendarMode mode;
@@ -19,12 +19,18 @@ class RiwayatCalendarDialog extends StatefulWidget {
   final DateTime initialDate;
   final DateTimeRange? initialRange;
   final DateTime today;
+  final RiwayatCalendarMode initialMode;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
 
   const RiwayatCalendarDialog({
     super.key,
     required this.initialDate,
     required this.initialRange,
     required this.today,
+    this.initialMode = RiwayatCalendarMode.range,
+    this.firstDate,
+    this.lastDate,
   });
 
   @override
@@ -32,18 +38,20 @@ class RiwayatCalendarDialog extends StatefulWidget {
 }
 
 class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
-  static final DateTime _firstDate = DateTime(2020);
   late final DateTime _selectedDate;
   late DateTime _visibleMonth;
-  RiwayatCalendarMode _mode = RiwayatCalendarMode.range;
+  late RiwayatCalendarMode _mode;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
 
-  DateTime get _lastDate => widget.today;
+  DateTime get _firstDate => widget.firstDate ?? DateTime(2000);
+  DateTime get _lastDate => widget.lastDate ?? widget.today;
+  bool get _allowModeSwitch => widget.initialMode != RiwayatCalendarMode.single;
 
   @override
   void initState() {
     super.initState();
+    _mode = widget.initialMode;
     _selectedDate = widget.initialDate;
     _visibleMonth = DateTime(widget.initialDate.year, widget.initialDate.month);
     _rangeStart = widget.initialRange?.start;
@@ -109,6 +117,14 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
     });
   }
 
+  void _selectSingleDate(DateTime date) {
+    Navigator.pop(
+      context,
+      RiwayatCalendarSelection(mode: RiwayatCalendarMode.single, date: date),
+    );
+  }
+
+  @override
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -117,7 +133,9 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
         height: 320,
         child: Column(
           children: [
-            if (_mode == RiwayatCalendarMode.range) _buildCalendarHeader(),
+            if (_mode == RiwayatCalendarMode.range ||
+                _mode == RiwayatCalendarMode.single)
+              _buildCalendarHeader(),
             Expanded(child: _buildCalendar()),
           ],
         ),
@@ -140,8 +158,10 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap: () =>
-                        setState(() => _mode = RiwayatCalendarMode.month),
+                    onTap: _allowModeSwitch
+                        ? () =>
+                              setState(() => _mode = RiwayatCalendarMode.month)
+                        : null,
                     child: Text(
                       DateFormat('MMMM', 'id_ID').format(_visibleMonth),
                       style: const TextStyle(
@@ -152,8 +172,9 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () =>
-                        setState(() => _mode = RiwayatCalendarMode.year),
+                    onTap: _allowModeSwitch
+                        ? () => setState(() => _mode = RiwayatCalendarMode.year)
+                        : null,
                     child: Text(
                       '${_visibleMonth.year}',
                       style: const TextStyle(
@@ -238,14 +259,22 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
         );
       case RiwayatCalendarMode.range:
         return _buildRangeCalendar();
+      case RiwayatCalendarMode.single:
+        return _buildSingleCalendar();
     }
   }
 
   Widget _buildRangeCalendar() {
-    final firstWeekday =
-        DateTime(_visibleMonth.year, _visibleMonth.month, 1).weekday;
-    final daysInMonth =
-        DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
+    final firstWeekday = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      1,
+    ).weekday;
+    final daysInMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    ).day;
     final firstCalendarDate = DateTime(
       _visibleMonth.year,
       _visibleMonth.month,
@@ -297,13 +326,14 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
               final date = cells[index];
               final disabled =
                   date.isBefore(_firstDate) || date.isAfter(_lastDate);
-              final isPreview = date.month != _visibleMonth.month ||
+              final isPreview =
+                  date.month != _visibleMonth.month ||
                   date.year != _visibleMonth.year;
               final isStart =
                   _rangeStart != null && _isSameDay(date, _rangeStart!);
-              final isEnd =
-                  _rangeEnd != null && _isSameDay(date, _rangeEnd!);
-              final inRange = _rangeStart != null &&
+              final isEnd = _rangeEnd != null && _isSameDay(date, _rangeEnd!);
+              final inRange =
+                  _rangeStart != null &&
                   _rangeEnd != null &&
                   !date.isBefore(_rangeStart!) &&
                   !date.isAfter(_rangeEnd!);
@@ -314,12 +344,8 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                   decoration: BoxDecoration(
                     color: inRange ? const Color(0xFF4E62AF) : null,
                     borderRadius: BorderRadius.horizontal(
-                      left: isStart
-                          ? const Radius.circular(20)
-                          : Radius.zero,
-                      right: isEnd
-                          ? const Radius.circular(20)
-                          : Radius.zero,
+                      left: isStart ? const Radius.circular(20) : Radius.zero,
+                      right: isEnd ? const Radius.circular(20) : Radius.zero,
                     ),
                   ),
                   alignment: Alignment.center,
@@ -328,9 +354,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                     height: 32,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: isStart || isEnd
-                          ? const Color(0xFF2F3B69)
-                          : null,
+                      color: isStart || isEnd ? const Color(0xFF2F3B69) : null,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
@@ -340,14 +364,116 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                             ? const Color(0xFF91A0BF)
                             : isStart || isEnd
                             ? Colors.white
-                            : const Color(0xFF202B4D).withValues(
-                                alpha: isPreview ? 0.45 : 1,
-                              ),
+                            : const Color(
+                                0xFF202B4D,
+                              ).withValues(alpha: isPreview ? 0.45 : 1),
                         fontSize: 14,
                         fontWeight: isStart || isEnd
                             ? FontWeight.w600
                             : FontWeight.w400,
                       ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSingleCalendar() {
+    final firstWeekday = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      1,
+    ).weekday;
+    final daysInMonth = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    ).day;
+    final firstCalendarDate = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      1 - (firstWeekday - 1),
+    );
+    final cells = List.generate(
+      42,
+      (index) => firstCalendarDate.add(Duration(days: index)),
+    );
+    final lastCalendarDate = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+      daysInMonth,
+    );
+    if (lastCalendarDate.weekday == DateTime.sunday && cells.length > 35) {
+      cells.removeRange(35, cells.length);
+    }
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
+              .map(
+                (day) => SizedBox(
+                  width: 36,
+                  child: Text(
+                    day,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF4E62AF),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 6),
+        Expanded(
+          child: GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: cells.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 4,
+            ),
+            itemBuilder: (context, index) {
+              final date = cells[index];
+              final disabled =
+                  date.isBefore(_firstDate) || date.isAfter(_lastDate);
+              final isPreview =
+                  date.month != _visibleMonth.month ||
+                  date.year != _visibleMonth.year;
+              final isSelected = _isSameDay(date, _selectedDate);
+
+              return GestureDetector(
+                onTap: disabled ? null : () => _selectSingleDate(date),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF2F3B69) : null,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${date.day}',
+                    style: TextStyle(
+                      color: disabled
+                          ? const Color(0xFF91A0BF)
+                          : isSelected
+                          ? Colors.white
+                          : const Color(
+                              0xFF202B4D,
+                            ).withValues(alpha: isPreview ? 0.45 : 1),
+                      fontSize: 14,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ),

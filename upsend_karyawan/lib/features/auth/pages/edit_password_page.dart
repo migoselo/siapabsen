@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repository/auth_repository.dart';
+import 'reset_password_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 const Color kDarkBlue = Color(0xFF2F3B69);
@@ -215,7 +216,12 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                     Center(
                       child: GestureDetector(
                         onTap: () {
-                          // TODO: arahkan ke flow lupa password kalau udah ada
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ResetPasswordScreen(),
+                            ),
+                          );
                         },
                         child: const Text(
                           'Lupa Password',

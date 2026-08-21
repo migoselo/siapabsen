@@ -18,8 +18,6 @@ class CutiModel {
   final Color statusTextColor;
   final String dateRange;
   final String duration;
-  final DateTime startDate;
-  final DateTime endDate;
   final String? attachmentUrl;
   final String? attachmentName;
 
@@ -41,8 +39,6 @@ class CutiModel {
     required this.statusTextColor,
     required this.dateRange,
     required this.duration,
-    required this.startDate,
-    required this.endDate,
     this.attachmentUrl,
     this.attachmentName,
   });
