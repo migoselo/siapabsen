@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:camera/camera.dart';
 import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_registration_service.dart';
 import '../../../core/services/face_embedding_service.dart';
+import '../../../core/widgets/face_camera_preview.dart';
 import '../../attendance/repository/attendance_repository.dart';
 import 'face_registration_success_dialog.dart';
 
@@ -54,7 +54,9 @@ class _FaceRegistrationCameraPageState
   Future<void> _captureAndSave() async {
     if (!_cameraInitialized || _cameraService.controller == null) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+    });
 
     try {
       final file = await _cameraService.takePictureIfFaceDetected();
@@ -152,7 +154,9 @@ class _FaceRegistrationCameraPageState
                   : ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: _cameraService.controller != null
-                          ? CameraPreview(_cameraService.controller!)
+                          ? FaceCameraPreview(
+                              controller: _cameraService.controller!,
+                            )
                           : const Center(
                               child: CircularProgressIndicator(
                                 color: Colors.white,

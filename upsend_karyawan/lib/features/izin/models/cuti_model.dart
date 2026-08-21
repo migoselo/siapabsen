@@ -76,10 +76,12 @@ class CutiModel {
       statusTextColor: _statusTextColor(status),
       dateRange: '${_formatDate(startDate)} - ${_formatDate(endDate)}',
       duration: _formatDuration(type, startDate, endDate, durationDays),
-        attachmentUrl: json['attachment_url']?.toString() ??
+      attachmentUrl:
+          json['attachment_url']?.toString() ??
           json['attachment_path']?.toString() ??
           json['attachment']?.toString(),
-        attachmentName: json['attachment_name']?.toString() ??
+      attachmentName:
+          json['attachment_name']?.toString() ??
           _attachmentName(json['attachment_path']?.toString()),
     );
   }

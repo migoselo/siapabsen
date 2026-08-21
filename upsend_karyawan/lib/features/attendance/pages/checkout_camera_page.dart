@@ -1,7 +1,6 @@
 import 'package:intl/intl.dart';
 import '../../history/bloc/history_bloc.dart';
 import '../../history/bloc/history_event.dart';
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_embedding_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/face_camera_preview.dart';
 import '../repository/attendance_repository.dart';
 import '../../home/bloc/home_bloc.dart';
 import '../../home/bloc/home_event.dart';
@@ -88,7 +88,9 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
       return;
     }
 
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+    });
 
     try {
       final file = await _cameraService.takePictureIfFaceDetected();
@@ -100,6 +102,8 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
         );
         return;
       }
+
+      setState(() {});
 
       // Gunakan AttendanceRepository untuk backend API calls
       final attendanceRepository = AttendanceRepository();
@@ -263,32 +267,8 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
             fit: StackFit.expand,
             children: [
               _cameraService.controller != null
-                  ? SizedBox.expand(
-                      child: FittedBox(
-                        fit: BoxFit.cover,
-                        child: SizedBox(
-                          width: _cameraService
-                              .controller!
-                              .value
-                              .previewSize!
-                              .height,
-                          height: _cameraService
-                              .controller!
-                              .value
-                              .previewSize!
-                              .width,
-                          child: CameraPreview(_cameraService.controller!),
-                        ),
-                      ),
-                    )
+                  ? FaceCameraPreview(controller: _cameraService.controller!)
                   : const Center(child: CircularProgressIndicator()),
-              if (isBusy)
-                Container(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                ),
             ],
           ),
         ),
@@ -346,28 +326,19 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
                       elevation: 0,
                     ),
                     onPressed: isBusy ? null : _captureAndSubmit,
-                    child: isBusy
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Checkout Sekarang',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Checkout Sekarang',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
