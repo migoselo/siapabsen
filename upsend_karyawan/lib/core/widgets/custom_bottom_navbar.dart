@@ -7,10 +7,10 @@ class CustomBottomNavBar extends StatelessWidget {
   final Function(int) onTap;
 
   const CustomBottomNavBar({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,9 @@ class CustomBottomNavBar extends StatelessWidget {
         // Background Bar
         Builder(
           builder: (context) {
-            final bottomInset = MediaQuery.of(context).padding.bottom.clamp(0.0, 12.0);
+            final bottomInset = MediaQuery.of(
+              context,
+            ).padding.bottom.clamp(0.0, 12.0);
             return Container(
               height: 65 + bottomInset,
               padding: EdgeInsets.only(bottom: bottomInset),
@@ -34,7 +36,7 @@ class CustomBottomNavBar extends StatelessWidget {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, -2),
                   ),
