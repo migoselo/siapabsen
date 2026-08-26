@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import router from '../router'
 
 const api = axios.create({
-  baseURL: 'https://siapabsensi.siapsoft.com/api',
+  baseURL: 'https:localhost/8010/26.214.138.24',
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
