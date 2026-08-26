@@ -352,7 +352,68 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       await Future.delayed(const Duration(milliseconds: 250));
 
       if (!mounted) return;
-      AppSnackbar.success(context, 'Pengajuan berhasil dikirim.');
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => Dialog(
+          child: Builder(
+            builder: (dialogContext) {
+              Future<void>.delayed(const Duration(seconds: 2), () {
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+              });
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(26, 30, 26, 22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF4DBA61),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Pengajuan Tersimpan',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Permohonan Anda telah tersimpan',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        color: const Color(0xFF9A9A9A),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 30),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      );
+
+      if (!mounted) return;
       Navigator.pop(context, true);
     } on DioException catch (e) {
       simulationTimer?.cancel();
@@ -1048,7 +1109,11 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                     ),
                   ),
                 ),
-                Icon(Icons.access_time_filled_outlined, size: 18, color: const Color(0xFF9A9A9A)),
+                Icon(
+                  Icons.access_time_filled_outlined,
+                  size: 18,
+                  color: const Color(0xFF9A9A9A),
+                ),
               ],
             ),
           ),

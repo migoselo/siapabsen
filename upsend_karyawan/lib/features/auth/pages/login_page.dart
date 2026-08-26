@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:upsend_karyawan/features/auth/bloc/auth_bloc.dart';
 import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
+import 'package:upsend_karyawan/features/auth/pages/reset_password_screen.dart';
 
 enum LoginType { email, employeeId, phone }
 
@@ -419,42 +420,43 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildLabel('Nomor Telepon'),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 15,
-                  ),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: borderColor),
-                      left: BorderSide(color: borderColor),
-                      bottom: BorderSide(color: borderColor),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: borderColor),
+                        left: BorderSide(color: borderColor),
+                        bottom: BorderSide(color: borderColor),
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
                     ),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
+                    child: Text(
+                      '+62',
+                      style: _jakartaStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    '+62',
-                    style: _jakartaStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
+                  Expanded(
+                    child: _buildInputField(
+                      controller: _phoneController,
+                      hintText: 'Masukkan nomor telepon',
+                      keyboardType: TextInputType.phone,
+                      isPhonePrefix: true,
                     ),
                   ),
-                ),
-                Expanded(
-                  child: _buildInputField(
-                    controller: _phoneController,
-                    hintText: 'Masukkan nomor telepon',
-                    keyboardType: TextInputType.phone,
-                    isPhonePrefix: true,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 18),
             _buildLabel('Password'),
@@ -584,7 +586,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        onPressed: () {},
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+          );
+        },
         child: Text(
           'Lupa password',
           style: _jakartaStyle(
@@ -637,10 +644,6 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   }
 
   Widget _buildActionButtons() {
-    return Column(
-      children: [
-        _buildPrimaryButton(),
-      ],
-    );
+    return Column(children: [_buildPrimaryButton()]);
   }
 }

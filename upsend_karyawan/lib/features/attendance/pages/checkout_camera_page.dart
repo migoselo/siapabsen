@@ -152,7 +152,8 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
       _showSuccessDialog(attendance.checkOutTime ?? DateTime.now());
     } catch (e) {
       if (!mounted) return;
-      AppSnackbar.error(context, 'Gagal melakukan checkout: ${e.toString()}');
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      AppSnackbar.error(context, 'Gagal melakukan checkout: $errorMessage');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
