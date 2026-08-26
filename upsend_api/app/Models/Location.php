@@ -9,7 +9,15 @@ class Location extends Model
 {
     use HasTenant;
 
-    protected $fillable = ['name', 'latitude', 'longitude', 'radius_meter', 'tenant_id'];
+    protected $fillable = [
+        'name',
+        'latitude',
+        'longitude',
+        'radius_meter',
+        'work_start_time',
+        'work_end_time',
+        'tenant_id',
+    ];
 
     public function employees()
     {

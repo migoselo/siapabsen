@@ -49,6 +49,10 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
       _showSnackBar('Semua field wajib diisi.');
       return;
     }
+    if (newPassword.length < 6) {
+      _showSnackBar('Password baru minimal 6 karakter.');
+      return;
+    }
     if (newPassword != confirmPassword) {
       _showSnackBar('Password baru dan ulangi password tidak sama.');
       return;

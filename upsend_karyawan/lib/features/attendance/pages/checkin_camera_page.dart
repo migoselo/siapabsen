@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 
 import '../bloc/attendance_bloc.dart';
@@ -11,7 +12,7 @@ import '../repository/attendance_repository.dart';
 import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_embedding_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
-import '../../../core/widgets/face_camera_preview.dart';
+import '../../face_regist/pages/face_registration_intro.dart';
 import '../../history/bloc/history_bloc.dart';
 import '../../history/bloc/history_event.dart';
 import '../../home/bloc/home_bloc.dart';
@@ -106,9 +107,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
       return;
     }
 
-    setState(() {
-      _isProcessing = true;
-    });
+    setState(() => _isProcessing = true);
 
     try {
       final file = await _cameraService.takePictureIfFaceDetected();
@@ -122,8 +121,6 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
         return;
       }
 
-      setState(() {});
-
       // Gunakan AttendanceRepository untuk backend API calls
       final attendanceRepository = AttendanceRepository();
 
@@ -132,9 +129,9 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
           .checkFaceRegistrationStatus();
       if (!mounted) return;
       if (!isRegistered) {
-        AppSnackbar.error(
+        Navigator.push(
           context,
-          'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
+          MaterialPageRoute(builder: (_) => const FaceRegistrationIntroPage()),
         );
         return;
       }
@@ -326,10 +323,38 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                     fit: StackFit.expand,
                     children: [
                       _cameraService.controller != null
-                          ? FaceCameraPreview(
-                              controller: _cameraService.controller!,
+                          ? SizedBox.expand(
+                              child: FittedBox(
+                                fit: BoxFit.cover,
+                                child: SizedBox(
+                                  width: _cameraService
+                                      .controller!
+                                      .value
+                                      .previewSize!
+                                      .height,
+                                  height: _cameraService
+                                      .controller!
+                                      .value
+                                      .previewSize!
+                                      .width,
+                                  child: CameraPreview(
+                                    _cameraService.controller!,
+                                  ),
+                                ),
+                              ),
                             )
                           : const Center(child: CircularProgressIndicator()),
+                      // Overlay loading saat proses ambil foto / submit berjalan
+                      if (_isProcessing ||
+                          state.status == AttendanceStatus.loading)
+                        Container(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -372,19 +397,28 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                         onPressed: isBusy
                             ? null
                             : () => _captureAndSubmit(state),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Simpan',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                        child: isBusy
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Simpan',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ),
