@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/profile_header.dart';
+import '../../auth/models/user_model.dart';
 
 const Color kNavy = Color(0xFF2E3A6E);
 const Color kTextPrimary = Color(0xFF0F172A);
@@ -7,19 +8,10 @@ const Color kTextSecondary = Color(0xFF6B7280);
 const Color kBorder = Color(0xFFE5E7EB);
 const String kFontFamily = 'PlusJakartaSans';
 
-/// TODO: SEMUA data di halaman ini masih DUMMY (kecuali nama & email
-/// kalau kamu passing dari user asli). Field-field ini (NIK, golongan,
-/// rekening, dll) belum ada di backend/UserModel — perlu ditambahin
-/// dulu begitu strukturnya jelas.
 class BiodataPage extends StatelessWidget {
-  final String userName;
-  final String userEmail;
+  final UserModel user;
 
-  const BiodataPage({
-    super.key,
-    required this.userName,
-    required this.userEmail,
-  });
+  const BiodataPage({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +60,12 @@ class BiodataPage extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  ClipOval(child: IdenticonAvatar(username: userName, size: 90.0)),
+                  ClipOval(
+                    child: IdenticonAvatar(username: user.name, size: 90.0),
+                  ),
                   const SizedBox(height: 12),
                   Text(
-                    userName,
+                    user.name,
                     style: const TextStyle(
                       fontFamily: kFontFamily,
                       fontSize: 18,
@@ -81,7 +75,7 @@ class BiodataPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    userEmail,
+                    user.email,
                     style: const TextStyle(
                       fontFamily: kFontFamily,
                       fontSize: 13,
@@ -89,23 +83,27 @@ class BiodataPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Full time developer', // TODO: dummy
-                        style: TextStyle(
+                        user.role.isNotEmpty ? user.role : '-',
+                        style: const TextStyle(
                           fontFamily: kFontFamily,
                           fontSize: 12,
                           color: Colors.white70,
                         ),
                       ),
                       SizedBox(width: 12),
-                      Icon(Icons.location_on_outlined, size: 14, color: Colors.white70),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: Colors.white70,
+                      ),
                       SizedBox(width: 2),
                       Text(
-                        'Kantor Pusat', // TODO: dummy
-                        style: TextStyle(
+                        user.homeLocationName ?? '-',
+                        style: const TextStyle(
                           fontFamily: kFontFamily,
                           fontSize: 12,
                           color: Colors.white70,
@@ -125,35 +123,35 @@ class BiodataPage extends StatelessWidget {
                 children: [
                   _SectionCard(
                     title: 'Informasi Pekerjaan',
-                    rows: const [
-                      ('ID Karyawan', 'EMP-0231'),
-                      ('Nama Panggilan', 'Andi'),
-                      ('Departemen', 'Developer'),
-                      ('Jabatan', 'Full time developer'),
-                      ('Golongan', 'IA'),
-                      ('Cabang (Branch)', 'Siap Integrasi'),
-                      ('Tipe Karyawan', 'Daily'),
-                      ('Tanggal Bergabung', '25 Agustus 2022'),
+                    rows: [
+                      ('ID Karyawan', user.employeeCode),
+                      ('Nama Lengkap', user.name),
+                      ('Departemen', '-'),
+                      ('Jabatan', user.role.isNotEmpty ? user.role : '-'),
+                      ('Golongan', '-'),
+                      ('Cabang (Branch)', user.homeLocationName ?? '-'),
+                      ('Tipe Karyawan', '-'),
+                      ('Tanggal Bergabung', '-'),
                     ],
                   ),
                   const SizedBox(height: 20),
                   _SectionCard(
                     title: 'Data Pribadi',
                     rows: const [
-                      ('NIK', '33303003000'),
-                      ('Tempat, Tanggal Lahir', 'Surabaya, 20-09-1990'),
-                      ('Jenis Kelamin', 'Laki-laki'),
-                      ('Agama', 'Kristen'),
-                      ('Golongan Darah', 'AB'),
-                      ('Status Pernikahan', 'Menikah'),
+                      ('NIK', '-'),
+                      ('Tempat, Tanggal Lahir', '-'),
+                      ('Jenis Kelamin', '-'),
+                      ('Agama', '-'),
+                      ('Golongan Darah', '-'),
+                      ('Status Pernikahan', '-'),
                     ],
                   ),
                   const SizedBox(height: 20),
                   _SectionCard(
                     title: 'Kontak & Alamat',
-                    rows: const [
-                      ('No. Hp / Telepon', '081234567890'),
-                      ('Email', 'Andi@yahud.com'),
+                    rows: [
+                      ('No. Hp / Telepon', user.noHp),
+                      ('Email', user.email),
                       ('Alamat Lengkap', '-'),
                       ('Kontak Darurat', '-'),
                     ],
@@ -225,7 +223,9 @@ class _SectionCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
-            children: rows.map((r) => _InfoLine(label: r.$1, value: r.$2)).toList(),
+            children: rows
+                .map((r) => _InfoLine(label: r.$1, value: r.$2))
+                .toList(),
           ),
         ),
       ],
@@ -257,7 +257,14 @@ class _InfoLine extends StatelessWidget {
               ),
             ),
           ),
-          const Text(': ', style: TextStyle(fontFamily: kFontFamily, fontSize: 13, color: kTextSecondary)),
+          const Text(
+            ': ',
+            style: TextStyle(
+              fontFamily: kFontFamily,
+              fontSize: 13,
+              color: kTextSecondary,
+            ),
+          ),
           Expanded(
             flex: 5,
             child: Text(

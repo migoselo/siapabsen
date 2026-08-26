@@ -20,6 +20,8 @@ class LocationController extends Controller
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
             'radius_meter' => 'nullable|integer|min:1',
+            'work_start_time' => 'nullable|date_format:H:i',
+            'work_end_time' => 'nullable|date_format:H:i|after:work_start_time',
         ]);
 
         $location = Location::create($data);
@@ -39,6 +41,8 @@ class LocationController extends Controller
             'latitude' => 'sometimes|required|numeric|between:-90,90',
             'longitude' => 'sometimes|required|numeric|between:-180,180',
             'radius_meter' => 'sometimes|nullable|integer|min:1',
+            'work_start_time' => 'sometimes|date_format:H:i',
+            'work_end_time' => 'sometimes|date_format:H:i|after:work_start_time',
         ]);
 
         $location->update($data);

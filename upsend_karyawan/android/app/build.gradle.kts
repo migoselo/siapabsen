@@ -53,5 +53,6 @@ flutter {
 
 dependencies {
     implementation("com.google.mlkit:face-detection:16.1.7")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

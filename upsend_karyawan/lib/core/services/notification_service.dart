@@ -22,6 +22,8 @@ class NotificationService {
     );
 
     await _plugin.initialize(settings);
+    // Remove the old foreground-service notification from previous app versions.
+    await _plugin.cancel(2001);
 
     final androidImplementation = _plugin
         .resolvePlatformSpecificImplementation<

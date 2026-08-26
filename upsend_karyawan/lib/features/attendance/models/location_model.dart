@@ -6,6 +6,8 @@ class LocationModel {
   final double distance;
   final int radiusMeter;
   final bool withinRadius;
+  final String workStartTime;
+  final String workEndTime;
 
   LocationModel({
     required this.id,
@@ -15,6 +17,8 @@ class LocationModel {
     required this.distance,
     required this.radiusMeter,
     required this.withinRadius,
+    required this.workStartTime,
+    required this.workEndTime,
   });
 
   factory LocationModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,8 @@ class LocationModel {
           json['within_radius'] == true ||
           json['within_radius'] == 1 ||
           json['within_radius'] == '1',
+      workStartTime: json['work_start_time']?.toString() ?? '',
+      workEndTime: json['work_end_time']?.toString() ?? '',
     );
   }
 
@@ -36,8 +42,9 @@ class LocationModel {
     if (value == null) return 0;
     if (value is int) return value;
     if (value is double) return value.toInt();
-    if (value is String)
+    if (value is String) {
       return int.tryParse(value) ?? double.tryParse(value)?.toInt() ?? 0;
+    }
     return 0;
   }
 

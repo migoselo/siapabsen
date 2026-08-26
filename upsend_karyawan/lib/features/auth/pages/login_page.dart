@@ -33,6 +33,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   static const Color primaryColor = Color(0xFF2F3B69);
   static const Color textColor = Color(0xFF0F172A);
   static const Color subtitleColor = Color(0xFF9A9A9A);
+  static const Color selectorBackground = Color(0xFFF3F3F3);
   static const Color borderColor = Color(0xFFCBD5E1);
 
   TextStyle _jakartaStyle({
@@ -160,7 +161,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         final company = _companyController.text.trim();
         final employeeId = _employeeIdController.text.trim();
         if (company.isNotEmpty && !_isValidEmail(company)) {
-          return 'Format nama pengguna tidak valid!';
+          return 'Format kantor cabang tidak valid!';
         }
         if (employeeId.isEmpty) {
           return 'ID karyawan wajib diisi!';
@@ -199,7 +200,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         case LoginType.email:
           return 'Email atau Password salah.';
         case LoginType.employeeId:
-          return 'Nama Pengguna, ID Karyawan, atau Password salah.';
+          return 'Kantor Cabang, ID Karyawan, atau Password salah.';
         case LoginType.phone:
           return 'Nomor Telepon atau Password salah.';
       }
@@ -213,7 +214,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       case LoginType.email:
         return 'Email dan Password wajib diisi!';
       case LoginType.employeeId:
-        return 'Nama Pengguna, ID Karyawan, dan Password wajib diisi!';
+        return 'Kantor Cabang, ID Karyawan, dan Password wajib diisi!';
       case LoginType.phone:
         return 'Nomor Telepon dan Password wajib diisi!';
     }
@@ -224,7 +225,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       case LoginType.email:
         return 'Email wajib diisi!';
       case LoginType.employeeId:
-        return 'Nama Pengguna dan ID Karyawan wajib diisi!';
+        return 'Kantor Cabang dan ID Karyawan wajib diisi!';
       case LoginType.phone:
         return 'Nomor Telepon wajib diisi!';
     }
@@ -296,7 +297,9 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
+                      _buildLoginTypeSelector(),
+                      const SizedBox(height: 24),
                       _buildFormByLoginType(),
                       const SizedBox(height: 24),
                     ],
@@ -310,6 +313,58 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoginTypeSelector() {
+    const options = [
+      (LoginType.email, 'Email'),
+      (LoginType.employeeId, 'ID Karyawan'),
+      (LoginType.phone, 'Telepon'),
+    ];
+
+    return Container(
+      height: 55,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: selectorBackground,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        children: [
+          for (final option in options)
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  if (_currentLoginType != option.$1) {
+                    setState(() => _currentLoginType = option.$1);
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _currentLoginType == option.$1
+                        ? primaryColor
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    option.$2,
+                    textAlign: TextAlign.center,
+                    style: _jakartaStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _currentLoginType == option.$1
+                          ? Colors.white
+                          : subtitleColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -338,10 +393,10 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('Nama Pengguna'),
+            _buildLabel('Kantor Cabang'),
             _buildInputField(
               controller: _companyController,
-              hintText: 'Masukkan Email',
+              hintText: 'Masukkan nama kantor cabang',
               prefixIconAsset: 'assets/images/Message.svg',
               prefixIconSize: const Size(16, 16),
             ),
@@ -590,109 +645,10 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   }
 
   Widget _buildActionButtons() {
-    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
-
     return Column(
       children: [
         _buildPrimaryButton(),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          child: keyboardOpen
-              ? const SizedBox.shrink()
-              : Column(
-                  children: [
-                    const SizedBox(height: 12),
-                    if (_currentLoginType != LoginType.employeeId)
-                      _buildSecondaryButton(
-                        text: 'Masuk dengan ID karyawan',
-                        onPressed: () {
-                          setState(() {
-                            _currentLoginType = LoginType.employeeId;
-                          });
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_keyboardWasOpen) {
-                              _applyScrollPosition();
-                            }
-                          });
-                        },
-                      ),
-                    if (_currentLoginType == LoginType.employeeId)
-                      _buildSecondaryButton(
-                        text: 'Masuk dengan email',
-                        onPressed: () {
-                          setState(() {
-                            _currentLoginType = LoginType.email;
-                          });
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_keyboardWasOpen) {
-                              _applyScrollPosition();
-                            }
-                          });
-                        },
-                      ),
-                    if (_currentLoginType != LoginType.phone)
-                      _buildSecondaryButton(
-                        text: 'Masuk dengan nomor telepon',
-                        onPressed: () {
-                          setState(() {
-                            _currentLoginType = LoginType.phone;
-                          });
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_keyboardWasOpen) {
-                              _applyScrollPosition();
-                            }
-                          });
-                        },
-                      ),
-                    if (_currentLoginType == LoginType.phone)
-                      _buildSecondaryButton(
-                        text: 'Masuk dengan email',
-                        onPressed: () {
-                          setState(() {
-                            _currentLoginType = LoginType.email;
-                          });
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_keyboardWasOpen) {
-                              _applyScrollPosition();
-                            }
-                          });
-                        },
-                      ),
-                  ],
-                ),
-        ),
       ],
-    );
-  }
-
-  Widget _buildSecondaryButton({
-    required String text,
-    required VoidCallback onPressed,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: borderColor),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          child: Text(
-            text,
-            style: _jakartaStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: primaryColor,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
