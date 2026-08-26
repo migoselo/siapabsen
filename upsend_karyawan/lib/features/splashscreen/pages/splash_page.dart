@@ -98,7 +98,7 @@ class _SplashPageState extends State<SplashPage>
     if (!mounted) return;
     _controller.forward();
 
-    // 2. Transisi dari garis ke isian warna utuh (Fill) & munculkan teks "SiapAbsen"
+    // 2. Transisi dari garis ke isian warna utuh (Fill) & munculkan teks "SiapHadir"
     await Future.delayed(const Duration(milliseconds: 900));
     if (!mounted) return;
     setState(() => _showFillAndText = true);
@@ -168,7 +168,7 @@ class _SplashPageState extends State<SplashPage>
                     ),
                     const SizedBox(height: 16),
 
-                    // Teks SiapAbsen dengan animasi Fade In & Slide Up
+                    // Teks SiapHadir dengan animasi Fade In & Slide Up
                     AnimatedOpacity(
                       opacity: _showFillAndText ? 1.0 : 0.0,
                       duration: Duration.zero,
@@ -181,7 +181,7 @@ class _SplashPageState extends State<SplashPage>
                           0,
                         ),
                         child: const Text(
-                          'SiapAbsen',
+                          'SiapHadir',
                           style: TextStyle(
                             fontFamily: 'jakarta',
                             fontWeight: FontWeight.bold,
