@@ -1,12 +1,15 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { Icon } from '@iconify/vue'
 import api from '../api'
+import logo from '../assets/Logo-web.svg'
 
 const router = useRouter()
 
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
 
@@ -51,19 +54,15 @@ async function handleLogin() {
     <div class="login-card">
       <div class="brand">
         <div class="brand-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 21V10L9 6V21M9 21V13L15 9V21M15 21V4L21 8V21M3 21H21" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <img :src="logo" alt="SiapHadir logo" />
         </div>
-        <h1>SiapAbsen</h1>
+        <h1>SiapHadir</h1>
       </div>
 
       <form @submit.prevent="handleLogin">
         <label for="email">Email</label>
         <div class="input-wrap">
-          <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 8L10.89 13.26C11.5 13.67 12.5 13.67 13.11 13.26L21 8M5 19H19C20.1 19 21 18.1 21 17V7C21 5.9 20.1 5 19 5H5C3.9 5 3 5.9 3 7V17C3 18.1 3.9 19 5 19Z" stroke="#9AA5A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <Icon class="input-icon" icon="material-symbols:mail-rounded" width="18" height="18" />
           <input
             id="email"
             type="email"
@@ -75,17 +74,26 @@ async function handleLogin() {
 
         <label for="password">Password</label>
         <div class="input-wrap">
-          <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="5" y="11" width="14" height="9" rx="2" stroke="#9AA5A0" stroke-width="1.6"/>
-            <path d="M8 11V7C8 4.79 9.79 3 12 3C14.21 3 16 4.79 16 7V11" stroke="#9AA5A0" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
+          <Icon class="input-icon" icon="material-symbols:lock-rounded" width="18" height="18" />
           <input
             id="password"
-            type="password"
+            :type="showPassword ? 'text' : 'password'"
             v-model="password"
             placeholder="Masukkan password"
             autocomplete="current-password"
           />
+          <button
+            type="button"
+            class="password-toggle"
+            :aria-label="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
+            @click="showPassword = !showPassword"
+          >
+            <Icon
+              :icon="showPassword ? 'material-symbols:visibility-off-rounded' : 'material-symbols:visibility-rounded'"
+              width="20"
+              height="20"
+            />
+          </button>
         </div>
 
         <p v-if="errorMessage" class="error-msg">{{ errorMessage }}</p>
@@ -99,65 +107,93 @@ async function handleLogin() {
 </template>
 
 <style scoped>
+:global(html),
+:global(body),
+:global(#app) {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
 .login-page {
-  min-height: 100vh;
-  background: #0d5c42;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  height: 100vh;
+  min-height: 100dvh;
+  background: #303e73;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 32px 24px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .login-card {
+  position: relative;
+  z-index: 1;
   background: #fff;
-  border-radius: 20px;
-  padding: 40px 36px 36px;
+  border-radius: 9px;
+  padding: 50px 34px 49px;
   width: 100%;
-  max-width: 380px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  max-width: 330px;
+  box-shadow: 0 12px 30px rgba(22, 31, 67, 0.12);
 }
 
 .brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 39px;
 }
 
 .brand-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: #0d5c42;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
+}
+
+.brand-icon img {
+  display: block;
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
 }
 
 .brand h1 {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1c2521;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1C1C19;
   margin: 0;
+  letter-spacing: -0.4px;
 }
 
 form label {
   display: block;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #1c2521;
-  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1C1C19;
+  margin-bottom: 7px;
 }
 
 .input-wrap {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border: 1px solid #e0e0da;
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 20px;
+  gap: 9px;
+  height: 52px;
+  border: 1px solid #cbd2ce;
+  border-radius: 12px;
+  padding: 12px 10px;
+  margin-bottom: 19px;
+}
+
+.input-wrap:last-of-type {
+  margin-bottom: 32px;
 }
 
 .input-wrap input {
@@ -166,15 +202,31 @@ form label {
   flex: 1;
   font-size: 14px;
   font-family: inherit;
-  color: #1c2521;
+  color: #1C1C19;
+}
+
+.password-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9a9a9a;
+  cursor: pointer;
 }
 
 .input-wrap input::placeholder {
-  color: #a3aca7;
+  color: #9a9a9a;
 }
 
 .input-icon {
   flex-shrink: 0;
+  color: #9aa5a0;
+  opacity: 0.9;
 }
 
 .error-msg {
@@ -184,24 +236,33 @@ form label {
 }
 
 .submit-btn {
+  box-sizing: border-box;
   width: 100%;
-  background: #0d5c42;
+  height: 52px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #303e73;
   color: #fff;
   border: none;
-  padding: 14px;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 700;
+  padding: 0 14px;
+  border-radius: 11px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #0a4a35;
+  background: #26335f;
 }
 
 .submit-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .login-card {
+    padding: 42px 28px 40px;
+  }
 }
 </style>
