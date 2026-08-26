@@ -324,7 +324,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     ];
 
     return Container(
-      height: 60,
+      height: 55,
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: selectorBackground,
@@ -353,7 +353,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                     option.$2,
                     textAlign: TextAlign.center,
                     style: _jakartaStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: _currentLoginType == option.$1
                           ? Colors.white
