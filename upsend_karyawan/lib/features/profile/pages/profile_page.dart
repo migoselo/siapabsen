@@ -8,7 +8,7 @@ import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import 'biodata_page.dart';
 
-const Color kNavy = Color(0xFF2E3A6E);
+const Color kNavy = Color(0xFF2F3B69);
 const Color kTextPrimary = Color(0xFF0F172A);
 const Color kTextSecondary = Color(0xFF9A9A9A);
 const Color kDanger = Color(0xFFE11D48);
