@@ -6,10 +6,15 @@ use App\Helpers\DistanceHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Location;
+use App\Services\AttendanceStatusService;
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
 {
+    public function __construct(
+        protected AttendanceStatusService $attendanceStatusService,
+    ) {}
+
     public function nearbyLocations(Request $request)
     {
         $request->validate([
@@ -29,6 +34,8 @@ class AttendanceController extends Controller
                 'longitude' => (float) $loc->longitude,
                 'distance' => $distance,
                 'radius_meter' => $loc->radius_meter,
+                'work_start_time' => $loc->work_start_time ?? '09:15:00',
+                'work_end_time' => $loc->work_end_time ?? '17:00:00',
                 'within_radius' => $distance <= $loc->radius_meter,
             ];
         })->sortBy('distance')->values();
@@ -81,8 +88,12 @@ class AttendanceController extends Controller
         'check_in_long' => $data['lng'],
         'check_in_distance' => $distance,
         'check_in_photo' => $photoPath,
-        'status' => 'approved',
+            'status' => 'pending',
     ]);
+
+        $attendance->update([
+            'status' => $this->attendanceStatusService->determine($attendance),
+        ]);
 
     return response()->json($attendance->load('location'), 201);
 }
@@ -119,6 +130,11 @@ class AttendanceController extends Controller
             'check_out_long' => $data['lng'],
             'check_out_distance' => $distance,
             'check_out_photo' => $checkOutPhotoPath ?? $attendance->check_out_photo,
+            'status' => 'pending',
+        ]);
+
+        $attendance->update([
+            'status' => $this->attendanceStatusService->determine($attendance->fresh()),
         ]);
 
         return response()->json($attendance->fresh()->load('location'));
@@ -148,6 +164,12 @@ class AttendanceController extends Controller
             $query->whereDate('check_in_time', '<=', $request->end_date);
         }
 
-        return response()->json($query->orderByDesc('check_in_time')->paginate(20));
+        $page = $query->orderByDesc('check_in_time')->paginate(20);
+        $page->getCollection()->transform(function (Attendance $attendance): Attendance {
+            $attendance->status = $this->attendanceStatusService->determine($attendance);
+            return $attendance;
+        });
+
+        return response()->json($page);
     }
 }

@@ -112,6 +112,10 @@ class ProfilePage extends StatelessWidget {
           final user = state.user;
           final userName = user?.name ?? '-';
           final userEmail = user?.email ?? '-';
+          final userRole = user?.role.isNotEmpty == true ? user!.role : '-';
+          final locationName = user?.homeLocationName?.isNotEmpty == true
+              ? user!.homeLocationName!
+              : '-';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -144,6 +148,172 @@ class ProfilePage extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            userRole,
+                            style: const TextStyle(
+                              fontFamily: kFontFamily,
+                              fontSize: 12,
+                              color: kTextSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: kTextSecondary,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            locationName,
+                            style: const TextStyle(
+                              fontFamily: kFontFamily,
+                              fontSize: 12,
+                              color: kTextSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: user == null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BiodataPage(user: user),
+                              ),
+                            );
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kNavy,
+                      minimumSize: const Size.fromHeight(54),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 0,
+                      alignment: Alignment.center,
+                    ),
+                    child: const Text(
+                      'Lihat Biodata Lengkap',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: kFontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                const Text(
+                  'Informasi Akun',
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorder),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _InfoRow(
+                        label: 'ID karyawan',
+                        value: user?.employeeCode ?? '-',
+                      ),
+                      const Divider(height: 1, color: kBorder),
+                      _InfoRow(label: 'Nomor HP', value: user?.noHp ?? '-'),
+                      const Divider(height: 1, color: kBorder),
+                      _InfoRow(label: 'Role', value: userRole),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                const Text(
+                  'Pengaturan',
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorder),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Column(
+                    children: [
+                      _SettingRow(
+                        label: 'Edit Password',
+                        showChevron: true,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const EditPasswordPage(),
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1, color: kBorder),
+                      _SettingRow(
+                        label: 'Daftarkan Wajah',
+                        showChevron: true,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const FaceRegistrationIntroPage(),
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1, color: kBorder),
+                      _SettingRow(
+                        label: 'Log Out',
+                        textColor: kDanger,
+                        onTap: () => context.read<AuthBloc>().add(
+                          const AuthLogoutRequested(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/*
+                      const SizedBox(height: 6),
                       const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -156,8 +326,8 @@ class ProfilePage extends StatelessWidget {
                             ),
                           ),
                           SizedBox(width: 12),
-                          Icon(
-                            Icons.location_on_outlined,
+                            Text(
+                              locationName,
                             size: 14,
                             color: kTextSecondary,
                           ),
@@ -178,8 +348,7 @@ class ProfilePage extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
+                            user: user!,
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -317,6 +486,8 @@ class ProfilePage extends StatelessWidget {
     );
   }
 }
+
+*/
 
 class _InfoRow extends StatelessWidget {
   final String label;

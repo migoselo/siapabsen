@@ -9,6 +9,7 @@ import '../repository/attendance_repository.dart';
 import '../widgets/location_card.dart';
 import '../widgets/searching_location_view.dart';
 import '../widgets/map_control_button.dart';
+import '../../face_regist/pages/face_registration_intro.dart';
 import 'checkin_camera_page.dart';
 
 class CheckinLocationPage extends StatefulWidget {
@@ -231,26 +232,24 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
                     final attendanceRepository = AttendanceRepository();
                     final hasRegisteredFace = await attendanceRepository
                         .checkFaceRegistrationStatus();
+                    if (!context.mounted) return;
 
-                    if (!hasRegisteredFace && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
-                          ),
+                    if (!hasRegisteredFace) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const FaceRegistrationIntroPage(),
                         ),
                       );
                       return;
                     }
 
-                    if (mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CheckinCameraPage(),
-                        ),
-                      );
-                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CheckinCameraPage(),
+                      ),
+                    );
                   },
                   child: const Text(
                     "Lanjut",

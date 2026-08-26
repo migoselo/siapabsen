@@ -6,12 +6,15 @@ import '../models/user_model.dart';
 class AuthRepository {
   static const _tokenKey = 'auth_token';
 
-  Future<UserModel> login({required String noHp, required String password}) async {
+  Future<UserModel> login({
+    required String noHp,
+    required String password,
+  }) async {
     try {
-      final response = await Api.dio.post('/login', data: {
-        'no_hp': noHp,
-        'password': password,
-      });
+      final response = await Api.dio.post(
+        '/login',
+        data: {'no_hp': noHp, 'password': password},
+      );
 
       final token = response.data['token'] as String;
       final user = UserModel.fromJson(response.data['user']);
@@ -31,7 +34,9 @@ class AuthRepository {
           throw Exception(data['message'].toString());
         }
       }
-      throw Exception('Gagal terhubung ke server. Periksa koneksi internet Anda.');
+      throw Exception(
+        'Gagal terhubung ke server. Periksa koneksi internet Anda.',
+      );
     }
   }
 
@@ -58,35 +63,38 @@ class AuthRepository {
     await _clearToken();
   }
 
-  // =====================================================================
-  // BELUM DIKONFIRMASI — endpoint & nama field di bawah ini ASUMSI,
-  // gak ada di AuthController.php yang pernah kamu kasih (cuma ada
-  // register/login/logout/me). Perlu ditambahin dulu di backend,
-  // atau disesuaikan namanya kalau ternyata udah ada dengan nama beda.
-  // =====================================================================
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,
     required String newPasswordConfirmation,
   }) async {
     try {
-      await Api.dio.post('/change-password', data: {
-        'old_password': oldPassword,
-        'new_password': newPassword,
-        'new_password_confirmation': newPasswordConfirmation,
-      });
+      await Api.dio.post(
+        '/change-password',
+        data: {
+          'old_password': oldPassword,
+          'new_password': newPassword,
+          'new_password_confirmation': newPasswordConfirmation,
+        },
+      );
     } on DioException catch (e) {
-      if (e.response?.data != null && e.response!.data is Map) {
-        final data = e.response!.data as Map;
-        if (data['errors'] != null) {
-          final firstError = (data['errors'] as Map).values.first[0];
-          throw Exception(firstError.toString());
+      final data = e.response?.data;
+      if (data is Map) {
+        final errors = data['errors'];
+        if (errors is Map && errors.isNotEmpty) {
+          final firstErrors = errors.values.first;
+          if (firstErrors is List && firstErrors.isNotEmpty) {
+            throw Exception(firstErrors.first.toString());
+          }
         }
-        if (data['message'] != null) {
-          throw Exception(data['message'].toString());
+        final message = data['message'];
+        if (message != null) {
+          throw Exception(message.toString());
         }
       }
-      throw Exception('Gagal terhubung ke server. Periksa koneksi internet Anda.');
+      throw Exception(
+        'Gagal mengubah password (${e.response?.statusCode ?? 'koneksi'}).',
+      );
     }
   }
 
