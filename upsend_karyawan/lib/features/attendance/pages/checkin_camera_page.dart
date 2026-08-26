@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
 
 import '../bloc/attendance_bloc.dart';
@@ -12,6 +11,7 @@ import '../repository/attendance_repository.dart';
 import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_embedding_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
+import '../../../core/widgets/face_camera_preview.dart';
 import '../../face_regist/pages/face_registration_intro.dart';
 import '../../history/bloc/history_bloc.dart';
 import '../../history/bloc/history_event.dart';
@@ -323,25 +323,8 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                     fit: StackFit.expand,
                     children: [
                       _cameraService.controller != null
-                          ? SizedBox.expand(
-                              child: FittedBox(
-                                fit: BoxFit.cover,
-                                child: SizedBox(
-                                  width: _cameraService
-                                      .controller!
-                                      .value
-                                      .previewSize!
-                                      .height,
-                                  height: _cameraService
-                                      .controller!
-                                      .value
-                                      .previewSize!
-                                      .width,
-                                  child: CameraPreview(
-                                    _cameraService.controller!,
-                                  ),
-                                ),
-                              ),
+                          ? FaceCameraPreview(
+                              controller: _cameraService.controller!,
                             )
                           : const Center(child: CircularProgressIndicator()),
                       // Overlay loading saat proses ambil foto / submit berjalan

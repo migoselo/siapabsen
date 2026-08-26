@@ -105,7 +105,6 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
 
       setState(() {});
 
-      // Gunakan AttendanceRepository untuk backend API calls
       final attendanceRepository = AttendanceRepository();
 
       // Check apakah user sudah mendaftar wajah
@@ -327,19 +326,23 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
                       elevation: 0,
                     ),
                     onPressed: isBusy ? null : _captureAndSubmit,
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Checkout Sekarang',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                    child: isBusy
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Checkout Sekarang',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
