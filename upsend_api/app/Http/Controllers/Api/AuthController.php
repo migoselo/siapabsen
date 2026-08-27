@@ -74,7 +74,35 @@ class AuthController extends Controller
 
     public function loginWeb(Request $request)
     {
-        return $this->login($request);
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        $user = User::where('email', trim($request->email))->first();
+
+        if (! $user || ! Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Email atau password salah.',
+            ], 401);
+        }
+
+        if (! $user->is_active) {
+            return response()->json(['message' => 'Akun sudah dinonaktifkan.'], 403);
+        }
+
+        if (! in_array($user->role, ['admin', 'super_admin'], true)) {
+            return response()->json([
+                'message' => 'Akun ini tidak memiliki akses dashboard.',
+            ], 403);
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'user' => $user->load('homeLocation'),
+            'token' => $token,
+        ]);
     }
 
     public function changePassword(Request $request)

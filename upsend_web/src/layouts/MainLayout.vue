@@ -8,8 +8,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-// sesuaikan path ini dengan lokasi asli "Logo Container.svg" di project kamu
-import logoUrl from '../assets/Logo Container.svg'
+import logoUrl from '../assets/Logo-web.svg'
 
 const profile = computed(() => ({
   name: authStore.user?.name ?? 'Pengguna',

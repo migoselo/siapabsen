@@ -42,7 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/leave-balances', [LeaveRequestController::class, 'balances']);
 
     // ==== Khusus admin ====
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:admin,super_admin')->group(function () {
         Route::apiResource('locations', LocationController::class);
 
         Route::apiResource('users', UserController::class);
