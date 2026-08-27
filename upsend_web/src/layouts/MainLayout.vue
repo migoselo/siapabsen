@@ -21,42 +21,52 @@ const navigation = [
     id: 'dashboard',
     text: 'Dashboard',
     icon: 'material-symbols:dashboard-outline',
+    activeIcon: 'material-symbols:dashboard',
     path: '/dashboard',
   },
   {
     id: 'lokasi',
     text: 'Lokasi Kerja',
     icon: 'material-symbols:location-on-outline',
+    activeIcon: 'material-symbols:location-on',
     path: '/lokasi-kerja',
   },
   {
     id: 'karyawan',
     text: 'Data Karyawan',
     icon: 'material-symbols:group-outline',
+    activeIcon: 'material-symbols:group',
     path: '/karyawan',
   },
   {
     id: 'absensi',
     text: 'Data Absensi',
     icon: 'material-symbols:history',
+    activeIcon: 'material-symbols:history',
     path: '/absensi',
   },
   {
     id: 'izin-cuti',
     text: 'Data Izin dan Cuti',
     icon: 'material-symbols:calendar-month-outline',
+    activeIcon: 'material-symbols:calendar-month',
     path: '/izin-cuti',
   },
   {
     id: 'lembur',
     text: 'Data Lembur',
     icon: 'material-symbols:more-time',
+    activeIcon: 'material-symbols:more-time',
     path: '/lembur',
   },
 ]
 
 function isActive(item) {
   return route.path === item.path || (route.path.startsWith(item.path) && item.path !== '/')
+}
+
+function iconFor(item) {
+  return isActive(item) ? item.activeIcon : item.icon
 }
 
 const currentRouteName = computed(() => {
@@ -107,7 +117,7 @@ onUnmounted(() => {
           class="nav-item"
           :class="{ active: isActive(item) }"
         >
-          <Icon :icon="item.icon" class="menu-icon" />
+          <Icon :icon="iconFor(item)" class="menu-icon" />
           <span class="nav-label">{{ item.text }}</span>
         </router-link>
       </nav>
@@ -146,7 +156,7 @@ onUnmounted(() => {
         class="bottom-nav-item"
         :class="{ active: isActive(item) }"
       >
-        <Icon :icon="item.icon" class="menu-icon" />
+        <Icon :icon="iconFor(item)" class="menu-icon" />
         <span>{{ item.text.split(' ')[0] }}</span>
       </router-link>
     </nav>
@@ -154,18 +164,30 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+:global(html),
+:global(body),
+:global(#app) {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 * {
   box-sizing: border-box;
 }
 
 .layout {
-  --sidebar-active-bg: #eae6df;
-  --sidebar-accent: #252f58;
+  --sidebar-bg: #2f3b69;
+  --sidebar-active-bg: #eef0f5;
+  --sidebar-accent: #2f3b69;
+  --sidebar-text: #e5e7f0;
+  --sidebar-line: rgba(255, 255, 255, 0.25);
   --ink-dark: #2c3345;
   --ink-soft: #667085;
   --line: #e4e7ec;
   --bg: #ffffff;
-  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   background: var(--bg);
   color: var(--ink-dark);
   display: flex;
@@ -179,28 +201,36 @@ onUnmounted(() => {
 .sidebar {
   width: 250px;
   flex-shrink: 0;
-  background: #ffffff;
-  border-right: 1px solid var(--line);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-line);
   display: flex;
   flex-direction: column;
   padding: 24px 16px 20px;
   position: sticky;
   top: 0;
   height: 100vh;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.sidebar * {
+  font-family: inherit;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 8px 32px 8px;
+  padding: 0 8px 16px 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--sidebar-line);
 }
 
 .brand-mark {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   flex-shrink: 0;
+  filter: brightness(0) invert(1);
 }
 
 .brand-text strong {
@@ -208,7 +238,7 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 800;
   line-height: 1.2;
-  color: #252f58;
+  color: #ffffff;
 }
 
 .brand-text span {
@@ -217,7 +247,7 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--sidebar-text);
   margin-top: 2px;
 }
 
@@ -238,16 +268,23 @@ onUnmounted(() => {
   padding: 0 16px;
   border-radius: 8px;
   background: transparent;
-  color: #3e4756;
+  color: var(--sidebar-text);
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
   overflow: hidden;
+  outline: none;
+  border: none;
+}
+
+.nav-item:focus,
+.nav-item:focus-visible {
+  outline: none;
 }
 
 .nav-item:hover {
-  background: #f4f5f8;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .nav-item.active {
@@ -263,7 +300,7 @@ onUnmounted(() => {
   right: 0;
   width: 4px;
   height: 100%;
-  background: var(--sidebar-accent);
+  background: #b7c0df;
   border-radius: 4px 0 0 4px;
 }
 
@@ -281,19 +318,19 @@ onUnmounted(() => {
   padding: 16px;
   font-size: 14px;
   font-weight: 500;
-  color: #3e4756;
+  color: var(--sidebar-text);
   cursor: pointer;
   border: none;
   background: none;
   width: calc(100% + 32px);
   margin: 0 -16px;
   padding-left: 32px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--sidebar-line);
   transition: background 0.2s ease;
 }
 
 .logout:hover {
-  background: #f4f5f8;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .main-area {
@@ -353,7 +390,7 @@ onUnmounted(() => {
   justify-content: center;
   font-weight: 700;
   font-size: 14px;
-  color: #252f58;
+  color: #2f3b69;
   overflow: hidden;
 }
 
