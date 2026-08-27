@@ -42,6 +42,11 @@ const routes = [
         name: 'Profile',
         component: () => import('../views/ProfileView.vue'),
       },
+      {
+        path: 'izin-cuti', 
+        name: 'izin-cuti', 
+        component: () => import('@/views/DataIzinCuti.vue')
+      },
     ],
   },
 ]
