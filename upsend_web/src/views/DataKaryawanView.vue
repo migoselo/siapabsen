@@ -274,11 +274,11 @@ onMounted(() => {
 
 <style scoped>
 .karyawan {
-  --green-900: #173d31;
-  --ink: #1c2521;
-  --ink-soft: #5b6864;
-  --line: #e7e7e2;
-  --bg: #ffffff;
+  --blue-900: #2f3b69;
+  --ink: #1c1c19;
+  --ink-soft: #667085;
+  --line: #d9dde5;
+  --bg: #f7f8fa;
   --card: #ffffff;
 }
 .karyawan * {
@@ -331,7 +331,7 @@ onMounted(() => {
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  background: var(--green-900);
+  background: var(--blue-900);
   border: none;
   display: flex;
   align-items: center;
@@ -341,7 +341,7 @@ onMounted(() => {
   transition: background 0.15s ease;
 }
 .icon-btn-solid:hover {
-  background: #0f2b22;
+  background: #273258;
 }
 .icon-btn-solid svg,
 .icon-btn-solid .iconify {
@@ -353,10 +353,10 @@ table {
   border-collapse: collapse;
 }
 thead tr {
-  background: var(--green-900);
+  background: var(--blue-900);
 }
 thead th {
-  color: #dfe9e3;
+  color: #eef0f7;
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -391,8 +391,8 @@ tbody tr:last-child td {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #e9e8e3;
-  color: #4b5450;
+  background: #e2e5f0;
+  color: #2f3b69;
   font-weight: 700;
   font-size: 12px;
   display: flex;
@@ -413,7 +413,7 @@ tbody tr:last-child td {
   font-size: 13px;
   color: var(--ink-soft);
   border-top: 1px solid var(--line);
-  background: #f6f5f1;
+  background: var(--bg);
 }
 .pager {
   display: flex;
@@ -443,7 +443,7 @@ tbody tr:last-child td {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(28, 37, 33, 0.55);
+  background: rgba(28, 32, 55, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -456,7 +456,7 @@ tbody tr:last-child td {
   max-height: 90vh;
   overflow-y: auto;
   background: #fff;
-  border: 1px solid #e7e7e2;
+  border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -483,8 +483,8 @@ tbody tr:last-child td {
   align-items: center;
   justify-content: space-between;
   padding: 22px 24px;
-  background: #f6f5f1;
-  border-bottom: 1px solid #e7e7e2;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
   border-radius: 18px 18px 0 0;
 }
 .modal-title {
@@ -493,13 +493,13 @@ tbody tr:last-child td {
   gap: 10px;
 }
 .modal-title .iconify {
-  color: #173d31;
+  color: var(--blue-900);
 }
 .modal-title h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #154538;
+  color: var(--blue-900);
 }
 .modal-body {
   padding: 24px;
@@ -516,22 +516,22 @@ tbody tr:last-child td {
 .field label {
   font-size: 13.5px;
   font-weight: 600;
-  color: #404945;
+  color: var(--ink-soft);
 }
 .field input,
 .field select {
-  border: 1px solid #e7e7e2;
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
   font-family: inherit;
-  color: #1c2521;
+  color: var(--ink);
   outline: none;
   background: #fff;
 }
 .field input:focus,
 .field select:focus {
-  border-color: #173d31;
+  border-color: var(--blue-900);
 }
 .field-row {
   display: flex;
@@ -542,22 +542,22 @@ tbody tr:last-child td {
   justify-content: flex-end;
   gap: 12px;
   padding: 18px 24px;
-  border-top: 1px solid #e7e7e2;
-  background: #f6f5f1;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
   border-radius: 0 0 18px 18px;
 }
 .btn-cancel {
   padding: 12px 20px;
   border-radius: 10px;
-  border: 1px solid #e7e7e2;
+  border: 1px solid var(--line);
   background: #fff;
-  color: #1c2521;
+  color: var(--ink);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
 .btn-cancel:hover {
-  background: #f0f0eb;
+  background: #eef0f7;
 }
 .btn-save {
   display: flex;
@@ -566,7 +566,7 @@ tbody tr:last-child td {
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: #2F5D4F;
+  background: var(--blue-900);
   color: #fff;
   font-size: 14px;
   font-weight: 700;
@@ -574,7 +574,7 @@ tbody tr:last-child td {
   transition: background 0.15s ease;
 }
 .btn-save:hover {
-  background: #0f2b22;
+  background: #273258;
 }
 .btn-save:disabled,
 .btn-cancel:disabled {
@@ -604,10 +604,10 @@ tbody tr:last-child td {
   align-items: center;
   justify-content: center;
   padding: 4px;
-  color: var(--ink-soft, #5b6864);
+  color: var(--ink-soft);
 }
 .eye-toggle:hover {
-  color: #173d31;
+  color: var(--blue-900);
 }
 
 @media (max-width: 700px) {

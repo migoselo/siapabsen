@@ -122,7 +122,7 @@ async function handleLogin() {
   box-sizing: border-box;
   height: 100vh;
   min-height: 100dvh;
-  background: #303e73;
+  background: #2F3B69;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,7 +240,7 @@ form label {
   width: 100%;
   height: 52px;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  background: #303e73;
+  background: #2F3B69;
   color: #fff;
   border: none;
   padding: 0 14px;
@@ -252,7 +252,7 @@ form label {
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #26335f;
+  background: #2F3B69;
 }
 
 .submit-btn:disabled {

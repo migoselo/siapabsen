@@ -40,9 +40,9 @@ const user = computed(() => authStore.user || {})
 
 <style scoped>
 .profile-page {
-  --ink: #1c2521;
-  --ink-soft: #5b6864;
-  --line: #e7e7e2;
+  --ink: #1c1c19;
+  --ink-soft: #667085;
+  --line: #d9dde5;
   --card: #ffffff;
 }
 .profile-page * {
@@ -72,7 +72,7 @@ const user = computed(() => authStore.user || {})
   gap: 16px;
 }
 .profile-card {
-  background: #f8faf7;
+  background: #f7f8fa;
   padding: 18px;
   border-radius: 14px;
   border: 1px solid var(--line);

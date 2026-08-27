@@ -108,10 +108,10 @@ onMounted(() => {
 
 <style scoped>
 .detail-absen-page {
-  --green-900: #173d31;
-  --ink: #1c2521;
-  --ink-soft: #5b6864;
-  --line: #e7e7e2;
+  --blue-900: #2f3b69;
+  --ink: #1c1c19;
+  --ink-soft: #667085;
+  --line: #d9dde5;
   --card: #ffffff;
   padding: 24px;
   min-height: calc(100vh - 80px);

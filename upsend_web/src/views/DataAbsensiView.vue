@@ -134,11 +134,11 @@ onMounted(() => {
 
 <style scoped>
 .attendance-page {
-  --green-900: #173d31;
-  --ink: #1c2521;
-  --ink-soft: #5b6864;
-  --line: #e7e7e2;
-  --bg: #ffffff;
+  --blue-900: #2f3b69;
+  --ink: #1c1c19;
+  --ink-soft: #667085;
+  --line: #d9dde5;
+  --bg: #f7f8fa;
   --card: #ffffff;
 }
 .attendance-page * {
@@ -163,10 +163,10 @@ table {
   border-collapse: collapse;
 }
 thead tr {
-  background: var(--green-900);
+  background: var(--blue-900);
 }
 thead th {
-  color: #dfe9e3;
+  color: #eef0f7;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -206,7 +206,7 @@ tbody tr:last-child td {
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--card);
   font-size: 14px;
   color: var(--ink);
 }
@@ -242,10 +242,10 @@ tbody tr:last-child td {
   justify-content: center;
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease;
-  box-shadow: 0 6px 14px rgba(15, 43, 34, 0.04);
+  box-shadow: 0 6px 14px rgba(47, 59, 105, 0.08);
 }
 .pager button:hover:not(:disabled) {
-  background: #fbfbf9;
+  background: var(--bg);
 }
 .pager button svg,
 .pager button .iconify {
@@ -259,7 +259,7 @@ tbody tr:last-child td {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--green-900);
+    color: var(--blue-900);
     font-weight: 700;
     text-decoration: none;
   }

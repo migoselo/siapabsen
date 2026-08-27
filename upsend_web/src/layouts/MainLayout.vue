@@ -91,9 +91,9 @@ onUnmounted(() => {
 
     <aside v-if="!isMobile" class="sidebar">
       <div class="brand">
-        <img :src="logoUrl" alt="SiapAbsen" class="brand-mark" />
+        <img :src="logoUrl" alt="SiapHadir" class="brand-mark" />
         <div class="brand-text">
-          <strong>SiapAbsen</strong>
+          <strong>SiapHadir</strong>
           <span>HR ADMINISTRATION</span>
         </div>
       </div>
@@ -158,13 +158,13 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 .layout {
-  --green-900: #173d31;
-  --green-800: #1e4a3c;
-  --green-100: #e6f0ea;
-  --green-50: #f2f7f4;
-  --ink: #1c2521;
-  --ink-soft: #5b6864;
-  --line: #e7e7e2;
+  --blue-900: #2f3b69;
+  --blue-800: #273258;
+  --blue-100: #e2e5f0;
+  --blue-50: #eef0f7;
+  --ink: #1c1c19;
+  --ink-soft: #667085;
+  --line: #d9dde5;
   --bg: #ffffff;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--bg);
@@ -207,7 +207,7 @@ onUnmounted(() => {
   font-weight: 700;
   line-height: 22.5px;
   letter-spacing: 0;
-  color: #154538;
+  color: #2f3b69;
 }
 .brand-text span {
   display: block;
@@ -217,7 +217,7 @@ onUnmounted(() => {
   line-height: 15px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #404945;
+  color: #667085;
 }
 
 .nav {
@@ -243,16 +243,16 @@ onUnmounted(() => {
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 14px;
   font-weight: 600;
-  color: #4f5b58;
+  color: #667085;
   text-decoration: none;
   transition: all 0.2s ease;
 }
 .nav-item:hover {
-  background: var(--green-50);
+  background: var(--blue-50);
 }
 .nav-item.active {
-  background: #ecefe8;
-  color: #173d31;
+  background: #e2e5f0;
+  color: #2f3b69;
   font-weight: 700;
 }
 .nav-item.active::after {
@@ -262,19 +262,19 @@ onUnmounted(() => {
   right: 0;
   width: 8px;
   height: 100%;
-  background: #173d31;
+  background: #2f3b69;
   border-radius: 0 12px 12px 0;
 }
 
 .menu-icon {
   width: 22px;
   height: 22px;
-  color: #66706c;
+  color: #7b8497;
   flex-shrink: 0;
   transition: color 0.2s ease;
 }
 .nav-item.active .menu-icon {
-  color: #173d31;
+  color: #2f3b69;
 }
 
 .logout {
@@ -284,7 +284,7 @@ onUnmounted(() => {
   padding: 11px 12px;
   font-size: 14.5px;
   font-weight: 500;
-  color: #3b4541;
+  color: #3f4654;
   cursor: pointer;
   border: none;
   background: none;
@@ -297,7 +297,7 @@ onUnmounted(() => {
 .logout .menu-icon {
   width: 19px;
   height: 19px;
-  color: #5b6864;
+  color: #667085;
 }
 
 .main-area {
@@ -313,7 +313,7 @@ onUnmounted(() => {
   padding: 28px 36px 20px;
   margin-bottom: 26px;
 
-  border-bottom: 2px solid #E7E7E2;
+  border-bottom: 2px solid #d9dde5;
 }
 .topbar h1 {
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -330,7 +330,7 @@ onUnmounted(() => {
   gap: 12px;
   cursor: pointer;
 
-  border-left: 2px solid #E7E7E2;
+  border-left: 2px solid #d9dde5;
   padding-left: 24px;
   margin-left: 24px;
 }
@@ -351,13 +351,13 @@ onUnmounted(() => {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #cfe3d8, #9cc4ac);
+  background: linear-gradient(135deg, #e2e5f0, #b9c1dd);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 14px;
-  color: var(--green-900);
+  color: var(--blue-900);
   overflow: hidden;
 }
 .avatar img {
@@ -391,14 +391,14 @@ onUnmounted(() => {
   text-decoration: none;
 }
 .bottom-nav-item.active {
-  color: var(--green-900);
+  color: var(--blue-900);
   font-weight: 700;
 }
 .bottom-nav-item .menu-icon {
   color: var(--ink-soft);
 }
 .bottom-nav-item.active .menu-icon {
-  color: var(--green-900);
+  color: var(--blue-900);
 }
 
 @media (max-width: 600px) {
