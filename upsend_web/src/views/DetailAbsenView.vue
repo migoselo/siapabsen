@@ -53,10 +53,10 @@ const statusClass = computed(() => statusLabel.value.toLowerCase().replace(' ', 
 
 const checkInCoordinates = computed(() => attendance.value?.check_in_location || attendance.value?.checkin_location || {})
 const checkOutCoordinates = computed(() => attendance.value?.check_out_location || attendance.value?.checkout_location || {})
-const checkInLatitude = computed(() => attendance.value?.check_in_latitude || attendance.value?.checkin_latitude || attendance.value?.check_in_lat || checkInCoordinates.value.latitude || attendance.value?.latitude || attendance.value?.lat || '-')
-const checkInLongitude = computed(() => attendance.value?.check_in_longitude || attendance.value?.checkin_longitude || attendance.value?.check_in_lng || checkInCoordinates.value.longitude || attendance.value?.longitude || attendance.value?.lng || '-')
-const checkOutLatitude = computed(() => attendance.value?.check_out_latitude || attendance.value?.checkout_latitude || attendance.value?.check_out_lat || checkOutCoordinates.value.latitude || attendance.value?.latitude || attendance.value?.lat || '-')
-const checkOutLongitude = computed(() => attendance.value?.check_out_longitude || attendance.value?.checkout_longitude || attendance.value?.check_out_lng || checkOutCoordinates.value.longitude || attendance.value?.longitude || attendance.value?.lng || '-')
+const checkInLatitude = computed(() => attendance.value?.check_in_latitude || attendance.value?.checkin_latitude || attendance.value?.check_in_lat || checkInCoordinates.value.latitude || '-')
+const checkInLongitude = computed(() => attendance.value?.check_in_longitude || attendance.value?.checkin_longitude || attendance.value?.check_in_long || attendance.value?.check_in_lng || checkInCoordinates.value.longitude || '-')
+const checkOutLatitude = computed(() => attendance.value?.check_out_latitude || attendance.value?.checkout_latitude || attendance.value?.check_out_lat || checkOutCoordinates.value.latitude || '-')
+const checkOutLongitude = computed(() => attendance.value?.check_out_longitude || attendance.value?.checkout_longitude || attendance.value?.check_out_long || attendance.value?.check_out_lng || checkOutCoordinates.value.longitude || '-')
 
 const totalDuration = computed(() => {
   if (!attendance.value?.check_in_time || !attendance.value?.check_out_time) return '-'
@@ -94,27 +94,17 @@ async function loadAttendancePhoto(attendanceId) {
 }
 
 async function loadCheckoutPhoto(attendanceId) {
-  checkoutPhotoUrl.value = resolvePhotoUrl(checkOutPhotoSource.value)
-  if (checkoutPhotoUrl.value) return
+  if (!attendance.value?.checkout_photo_available) return
 
-  const endpoints = [
-    `/attendances/${attendanceId}/checkout-photo`,
-    `/attendances/${attendanceId}/photo-checkout`,
-    `/attendances/${attendanceId}/check-out-photo`,
-    `/attendances/${attendanceId}/photo?type=checkout`,
-    `/attendances/${attendanceId}/photo?photo_type=checkout`,
-  ]
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await api.get(endpoint, { responseType: 'blob' })
-      if (currentCheckoutPhotoObjectUrl) URL.revokeObjectURL(currentCheckoutPhotoObjectUrl)
-      currentCheckoutPhotoObjectUrl = URL.createObjectURL(response.data)
-      checkoutPhotoUrl.value = currentCheckoutPhotoObjectUrl
-      return
-    } catch (err) {
-      // Coba nama endpoint berikutnya untuk kompatibilitas backend.
-    }
+  try {
+    const response = await api.get(`/attendances/${attendanceId}/checkout-photo`, {
+      responseType: 'blob',
+    })
+    if (currentCheckoutPhotoObjectUrl) URL.revokeObjectURL(currentCheckoutPhotoObjectUrl)
+    currentCheckoutPhotoObjectUrl = URL.createObjectURL(response.data)
+    checkoutPhotoUrl.value = currentCheckoutPhotoObjectUrl
+  } catch (err) {
+    console.error('Gagal memuat foto check-out:', err)
   }
 }
 
@@ -172,13 +162,13 @@ onMounted(() => {
           <h3><i></i>Check In - {{ formatDateTime(attendance.check_in_time) }}</h3>
           <div v-if="checkInPhotoUrl" class="photo-preview"><img :src="checkInPhotoUrl" alt="Foto Check In" /></div>
           <div v-else class="photo-empty">Foto check-in tidak tersedia</div>
-          <div class="location-card"><strong>{{ attendance.location?.name || 'Lokasi tidak tersedia' }}</strong><span>{{ checkInLatitude }}, {{ checkInLongitude }}</span><b>Jarak lokasi</b><em>{{ attendance.check_in_distance || attendance.checkin_distance || attendance.check_in_distance_meter || attendance.distance_meter || '-' }}{{ (attendance.check_in_distance || attendance.checkin_distance || attendance.check_in_distance_meter || attendance.distance_meter) ? ' Meter' : '' }}</em></div>
+          <div class="location-card"><strong>{{ attendance.location?.name || 'Lokasi tidak tersedia' }}</strong><span>{{ checkInLatitude }}, {{ checkInLongitude }}</span><div class="distance"><b>Jarak lokasi</b><em>{{ attendance.check_in_distance || attendance.checkin_distance || attendance.check_in_distance_meter || attendance.distance_meter || '-' }}{{ (attendance.check_in_distance || attendance.checkin_distance || attendance.check_in_distance_meter || attendance.distance_meter) ? ' Meter' : '' }}</em></div></div>
         </div>
         <div class="attendance-event check-out">
           <h3><i></i>Check Out - {{ formatDateTime(attendance.check_out_time) }}</h3>
           <div v-if="checkoutPhotoUrl" class="photo-preview"><img :src="checkoutPhotoUrl" alt="Foto Check Out" /></div>
           <div v-else class="photo-empty">{{ attendance.check_out_time ? 'Foto check-out tidak tersedia' : 'Belum melakukan check-out' }}</div>
-          <div class="location-card"><strong>{{ attendance.location?.name || 'Lokasi tidak tersedia' }}</strong><span>{{ checkOutLatitude }}, {{ checkOutLongitude }}</span><b>Jarak lokasi</b><em>{{ attendance.check_out_distance || attendance.checkout_distance || attendance.check_out_distance_meter || attendance.distance_meter || '-' }}{{ (attendance.check_out_distance || attendance.checkout_distance || attendance.check_out_distance_meter || attendance.distance_meter) ? ' Meter' : '' }}</em></div>
+          <div class="location-card"><strong>{{ attendance.location?.name || 'Lokasi tidak tersedia' }}</strong><span>{{ checkOutLatitude }}, {{ checkOutLongitude }}</span><div class="distance"><b>Jarak lokasi</b><em>{{ attendance.check_out_distance || attendance.checkout_distance || attendance.check_out_distance_meter || attendance.distance_meter || '-' }}{{ (attendance.check_out_distance || attendance.checkout_distance || attendance.check_out_distance_meter || attendance.distance_meter) ? ' Meter' : '' }}</em></div></div>
         </div>
       </div>
       <div class="summary-card"><small>RINGKASAN HARI INI</small><div><span>Total Jam Kerja<strong>{{ totalDuration }}</strong></span><span>Durasi<strong>{{ totalDuration }}</strong></span></div></div>
@@ -333,11 +323,13 @@ onMounted(() => {
 .photo-preview { display: flex; align-items: center; justify-content: center; background: #f7f8fa; }
 .photo-preview img { display: block; width: auto; height: auto; max-width: 100%; max-height: 280px; object-fit: contain; border: 0; border-radius: 0; }
 .photo-empty { display: grid; place-items: center; padding: 16px; color: var(--ink-soft); background: #f7f8fa; border: 1px dashed var(--line); text-align: center; font-size: 14px; }
-.location-card { margin-top: 14px; padding: 16px; min-height: 70px; display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; border: 1px solid var(--line); border-radius: 10px; }
-.location-card strong { grid-column: 1 / -1; font-size: 13px; text-transform: uppercase; }
-.location-card span { font-size: 12px; color: var(--ink-soft); }
-.location-card b { font-size: 10px; text-align: right; text-transform: uppercase; }
-.location-card em { grid-column: 2; color: var(--blue-900); font-size: 14px; font-style: normal; font-weight: 700; text-align: right; }
+.location-card { margin-top: 14px; padding: 16px; min-height: 84px; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 18px; align-items: center; border: 1px solid var(--line); border-radius: 10px; }
+.location-card strong { grid-column: 1; grid-row: 1; min-width: 0; font-size: 13px; text-transform: uppercase; overflow-wrap: anywhere; }
+.location-card > span { grid-column: 1; grid-row: 2; min-width: 0; font-size: 12px; color: var(--ink); font-family: monospace; overflow-wrap: anywhere; }
+.distance { grid-column: 2; grid-row: 1 / 3; display: grid; gap: 4px; justify-items: end; align-content: center; }
+.location-card b { font-size: 10px; text-align: right; text-transform: uppercase; white-space: nowrap; }
+.location-card em { color: var(--blue-900); font-size: 14px; font-style: normal; font-weight: 700; text-align: right; white-space: nowrap; }
+.attendance-event.check-in .location-card em { color: var(--success); }
 .summary-card { padding: 18px 28px; color: #fff; background: var(--blue-900); }
 .summary-card > small { color: #cbd2eb; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
 .summary-card > div { display: flex; gap: 24px; margin-top: 8px; }
@@ -349,5 +341,11 @@ onMounted(() => {
   .attendance-columns { grid-template-columns: 1fr; }
   .attendance-event { padding: 20px; }
   .attendance-event + .attendance-event { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 520px) {
+  .location-card { grid-template-columns: 1fr auto; }
+  .location-card strong { grid-column: 1; }
+  .location-card > span { grid-column: 1; }
+  .distance { grid-column: 2; grid-row: 1 / 3; }
 }
 </style>

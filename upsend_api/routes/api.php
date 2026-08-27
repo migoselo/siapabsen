@@ -50,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/attendances', [AttendanceAdminController::class, 'index']);
         Route::get('/attendances/{attendance}/photo', [AttendanceAdminController::class, 'photo']);
+        Route::get('/attendances/{attendance}/checkout-photo', [AttendanceAdminController::class, 'checkoutPhoto']);
         Route::get('/attendances/{attendance}', [AttendanceAdminController::class, 'show']);
         Route::patch('/attendances/{attendance}/approve', [AttendanceAdminController::class, 'approve']);
         Route::patch('/attendances/{attendance}/reject', [AttendanceAdminController::class, 'reject']);
