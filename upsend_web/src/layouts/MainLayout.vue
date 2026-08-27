@@ -21,40 +21,42 @@ const navigation = [
     id: 'dashboard',
     text: 'Dashboard',
     icon: 'material-symbols:dashboard-outline',
-    activeIcon: 'material-symbols:dashboard',
     path: '/dashboard',
   },
   {
     id: 'lokasi',
     text: 'Lokasi Kerja',
     icon: 'material-symbols:location-on-outline',
-    activeIcon: 'material-symbols:location-on',
     path: '/lokasi-kerja',
   },
   {
     id: 'karyawan',
     text: 'Data Karyawan',
     icon: 'material-symbols:group-outline',
-    activeIcon: 'material-symbols:group',
     path: '/karyawan',
   },
   {
     id: 'absensi',
     text: 'Data Absensi',
     icon: 'material-symbols:history',
-    activeIcon: 'material-symbols:history',
     path: '/absensi',
+  },
+  {
+    id: 'izin-cuti',
+    text: 'Data Izin dan Cuti',
+    icon: 'material-symbols:calendar-month-outline',
+    path: '/izin-cuti',
+  },
+  {
+    id: 'lembur',
+    text: 'Data Lembur',
+    icon: 'material-symbols:more-time',
+    path: '/lembur',
   },
 ]
 
-// satu fungsi dipakai di semua tempat (sidebar, bottom-nav) biar konsisten
 function isActive(item) {
   return route.path === item.path || (route.path.startsWith(item.path) && item.path !== '/')
-}
-
-// ikon berubah ke versi "filled" pas item lagi aktif
-function iconFor(item) {
-  return isActive(item) ? item.activeIcon : item.icon
 }
 
 const currentRouteName = computed(() => {
@@ -88,7 +90,6 @@ onUnmounted(() => {
 
 <template>
   <div class="layout" :class="{ 'is-mobile': isMobile }">
-
     <aside v-if="!isMobile" class="sidebar">
       <div class="brand">
         <img :src="logoUrl" alt="SiapHadir" class="brand-mark" />
@@ -106,14 +107,14 @@ onUnmounted(() => {
           class="nav-item"
           :class="{ active: isActive(item) }"
         >
-          <Icon :icon="iconFor(item)" class="menu-icon" />
-          {{ item.text }}
+          <Icon :icon="item.icon" class="menu-icon" />
+          <span class="nav-label">{{ item.text }}</span>
         </router-link>
       </nav>
 
       <button class="logout" @click="handleLogout">
         <Icon icon="material-symbols:logout" class="menu-icon" />
-        Logout
+        <span>Logout</span>
       </button>
     </aside>
 
@@ -145,11 +146,10 @@ onUnmounted(() => {
         class="bottom-nav-item"
         :class="{ active: isActive(item) }"
       >
-        <Icon :icon="iconFor(item)" class="menu-icon" />
+        <Icon :icon="item.icon" class="menu-icon" />
         <span>{{ item.text.split(' ')[0] }}</span>
       </router-link>
     </nav>
-
   </div>
 </template>
 
@@ -157,147 +157,143 @@ onUnmounted(() => {
 * {
   box-sizing: border-box;
 }
+
 .layout {
-  --blue-900: #2f3b69;
-  --blue-800: #273258;
-  --blue-100: #e2e5f0;
-  --blue-50: #eef0f7;
-  --ink: #1c1c19;
+  --sidebar-active-bg: #eae6df;
+  --sidebar-accent: #252f58;
+  --ink-dark: #2c3345;
   --ink-soft: #667085;
-  --line: #d9dde5;
+  --line: #e4e7ec;
   --bg: #ffffff;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   background: var(--bg);
-  color: var(--ink);
+  color: var(--ink-dark);
   display: flex;
   min-height: 100vh;
 }
+
 .layout.is-mobile {
   flex-direction: column;
 }
 
 .sidebar {
-  width: 230px;
+  width: 250px;
   flex-shrink: 0;
-  background: #fff;
-  border-right: 2px solid var(--line);
+  background: #ffffff;
+  border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  padding: 20px 16px;
+  padding: 24px 16px 20px;
   position: sticky;
   top: 0;
   height: 100vh;
 }
+
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 6px 26px 6px;
+  gap: 12px;
+  padding: 0 8px 32px 8px;
 }
+
 .brand-mark {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
   flex-shrink: 0;
 }
+
 .brand-text strong {
   display: block;
-  font-family: 'Inter', sans-serif;
   font-size: 18px;
-  font-weight: 700;
-  line-height: 22.5px;
-  letter-spacing: 0;
-  color: #2f3b69;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #252f58;
 }
+
 .brand-text span {
   display: block;
-  font-family: 'Inter', sans-serif;
   font-size: 10px;
-  font-weight: 600;
-  line-height: 15px;
-  letter-spacing: 1px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: #667085;
+  color: #64748b;
+  margin-top: 2px;
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 8px;
+  gap: 6px;
   flex: 1;
 }
+
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   position: relative;
   width: 100%;
-  height: 56px;
-  padding: 0 18px;
-  border: none;
-  border-radius: 12px;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 8px;
   background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: #667085;
+  color: #3e4756;
   text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
   transition: all 0.2s ease;
+  overflow: hidden;
 }
+
 .nav-item:hover {
-  background: var(--blue-50);
+  background: #f4f5f8;
 }
+
 .nav-item.active {
-  background: #e2e5f0;
-  color: #2f3b69;
-  font-weight: 700;
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-accent);
+  font-weight: 600;
 }
+
 .nav-item.active::after {
   content: '';
   position: absolute;
   top: 0;
   right: 0;
-  width: 8px;
+  width: 4px;
   height: 100%;
-  background: #2f3b69;
-  border-radius: 0 12px 12px 0;
+  background: var(--sidebar-accent);
+  border-radius: 4px 0 0 4px;
 }
 
 .menu-icon {
   width: 22px;
   height: 22px;
-  color: #7b8497;
+  color: currentColor;
   flex-shrink: 0;
-  transition: color 0.2s ease;
-}
-.nav-item.active .menu-icon {
-  color: #2f3b69;
 }
 
 .logout {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 11px 12px;
-  font-size: 14.5px;
+  gap: 14px;
+  padding: 16px;
+  font-size: 14px;
   font-weight: 500;
-  color: #3f4654;
+  color: #3e4756;
   cursor: pointer;
   border: none;
   background: none;
-  width: 100%;
-  text-align: left;
-  border-top: 2px solid var(--line);
-  margin-top: 8px;
-  padding-top: 18px;
+  width: calc(100% + 32px);
+  margin: 0 -16px;
+  padding-left: 32px;
+  border-top: 1px solid var(--line);
+  transition: background 0.2s ease;
 }
-.logout .menu-icon {
-  width: 19px;
-  height: 19px;
-  color: #667085;
+
+.logout:hover {
+  background: #f4f5f8;
 }
 
 .main-area {
@@ -306,60 +302,61 @@ onUnmounted(() => {
   flex-direction: column;
   min-width: 0;
 }
+
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 28px 36px 20px;
-  margin-bottom: 26px;
-
-  border-bottom: 2px solid #d9dde5;
+  padding: 24px 36px 20px;
+  border-bottom: 1px solid var(--line);
 }
+
 .topbar h1 {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 32px;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: 0;
-  color: #000000;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1f36;
   margin: 0;
 }
+
 .profile {
   display: flex;
   align-items: center;
   gap: 12px;
   cursor: pointer;
-
-  border-left: 2px solid #d9dde5;
+  border-left: 1px solid var(--line);
   padding-left: 24px;
-  margin-left: 24px;
 }
+
 .profile-text {
   text-align: right;
 }
+
 .profile-text strong {
   display: block;
   font-size: 14px;
   font-weight: 700;
 }
+
 .profile-text span {
   display: block;
   font-size: 12px;
   color: var(--ink-soft);
 }
+
 .avatar {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #e2e5f0, #b9c1dd);
+  background: #e2e5f0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 14px;
-  color: var(--blue-900);
+  color: #252f58;
   overflow: hidden;
 }
+
 .avatar img {
   width: 100%;
   height: 100%;
@@ -368,7 +365,7 @@ onUnmounted(() => {
 
 .page-content {
   flex: 1;
-  padding: 0 36px 60px;
+  padding: 24px 36px;
   overflow-y: auto;
 }
 
@@ -376,37 +373,32 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-around;
   background: #fff;
-  border-top: 2px solid var(--line);
-  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
   flex-shrink: 0;
 }
+
 .bottom-nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ink-soft);
-  cursor: pointer;
   text-decoration: none;
 }
+
 .bottom-nav-item.active {
-  color: var(--blue-900);
-  font-weight: 700;
-}
-.bottom-nav-item .menu-icon {
-  color: var(--ink-soft);
-}
-.bottom-nav-item.active .menu-icon {
-  color: var(--blue-900);
+  color: var(--sidebar-accent);
+  font-weight: 600;
 }
 
 @media (max-width: 600px) {
   .topbar {
-    padding: 20px 16px 0;
+    padding: 16px;
   }
   .page-content {
-    padding: 0 16px 40px;
+    padding: 16px;
   }
 }
 </style>

@@ -13,10 +13,18 @@ class DashboardController extends Controller
 {
     public function summary(Request $request)
     {
-        $today = now()->toDateString();
+        [$startDate, $endDate] = $this->periodDates($request);
 
-        $usersQuery = User::where('role', 'karyawan')->where('is_active', true);
-        $attendanceQuery = Attendance::whereDate('check_in_time', $today);
+        $usersQuery = User::whereNotIn('role', ['admin', 'super_admin'])
+            ->where('is_active', true);
+        $attendanceQuery = Attendance::whereBetween('check_in_time', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59',
+            ])
+            ->whereHas('employee', function ($query) {
+                $query->whereNotIn('role', ['admin', 'super_admin'])
+                    ->where('is_active', true);
+            });
 
         if ($request->filled('location_id')) {
             $usersQuery->where('home_location_id', $request->location_id);
@@ -35,12 +43,20 @@ class DashboardController extends Controller
     {
         $startDate = now()->subDays(6)->toDateString();
 
-        $attendanceQuery = Attendance::whereDate('check_in_time', '>=', $startDate);
+        $attendanceQuery = Attendance::selectRaw(
+                'CAST(check_in_time AS date) as attendance_date, COUNT(DISTINCT employee_id) as total'
+            )
+            ->whereDate('check_in_time', '>=', $startDate)
+            ->whereHas('employee', function ($query) {
+                $query->whereNotIn('role', ['admin', 'super_admin'])
+                    ->where('is_active', true);
+            })
+            ->groupByRaw('CAST(check_in_time AS date)');
         if ($request->filled('location_id')) {
             $attendanceQuery->where('location_id', $request->location_id);
         }
 
-        $attendances = $attendanceQuery->get()->groupBy(fn ($attendance) => $attendance->check_in_time->format('Y-m-d'));
+        $attendances = $attendanceQuery->get()->keyBy('attendance_date');
 
         $chartData = [];
         $totalCount = 0;
@@ -48,7 +64,7 @@ class DashboardController extends Controller
         for ($i = 6; $i >= 0; $i--) {
             $day = now()->subDays($i);
             $dayKey = $day->format('Y-m-d');
-            $count = $attendances->get($dayKey)?->unique('employee_id')->count() ?? 0;
+            $count = (int) ($attendances->get($dayKey)?->total ?? 0);
             $totalCount += $count;
 
             $chartData[] = [
@@ -68,21 +84,64 @@ class DashboardController extends Controller
 
     public function todayAttendance(Request $request)
     {
-        $date = $request->filled('date') ? $request->date : now()->toDateString();
+        [$startDate, $endDate] = $this->periodDates($request);
 
-        $employees = User::where('role', 'karyawan')
-            ->where('is_active', true)
-            ->with('homeLocation:id,name')
-            ->orderBy('name')
-            ->get();
-
-        $attendanceQuery = Attendance::whereDate('check_in_time', $date);
+        $attendanceQuery = Attendance::select(
+                'employee_id',
+                'location_id',
+                'check_in_time',
+                'check_out_time',
+            )
+            ->whereBetween('check_in_time', [
+                $startDate . ' 00:00:00',
+                $endDate . ' 23:59:59',
+            ])
+            ->orderBy('check_in_time')
+            ->with(['location:id,name', 'employee:id,name,home_location_id'])
+            ->whereHas('employee', function ($query) {
+                $query->whereNotIn('role', ['admin', 'super_admin'])
+                    ->where('is_active', true);
+            });
 
         if ($request->filled('location_id')) {
             $attendanceQuery->where('location_id', $request->location_id);
         }
 
-        $attendances = $attendanceQuery->get()->keyBy('employee_id');
+        $attendanceRecords = $attendanceQuery->get();
+        $attendances = $attendanceRecords->keyBy('employee_id');
+
+        $isPeriodView = !$request->filled('date') && $request->input('period', 'hari') !== 'hari';
+        if ($isPeriodView) {
+            $data = $attendanceRecords->map(function ($attendance) {
+                return [
+                    'id' => $attendance->employee_id,
+                    'name' => $attendance->employee?->name ?? '-',
+                    'location' => $attendance->location?->name ?? '-',
+                    'checkIn' => optional($attendance->check_in_time)->format('H:i'),
+                    'checkOut' => optional($attendance->check_out_time)->format('H:i'),
+                    'status' => $attendance->check_out_time ? 'checkout' : 'working',
+                ];
+            })->values();
+
+            return response()->json([
+                'date' => $startDate === $endDate ? $startDate : "$startDate - $endDate",
+                'employees' => $data,
+            ]);
+        }
+
+        $employeesQuery = User::whereNotIn('role', ['admin', 'super_admin'])
+            ->where('is_active', true)
+            ->select('id', 'name', 'home_location_id')
+            ->with('homeLocation:id,name')
+            ->orderBy('name');
+
+        // With a location filter, activity means employees who actually
+        // checked in at that location on the selected date.
+        if ($request->filled('location_id')) {
+            $employeesQuery->whereIn('id', $attendances->keys());
+        }
+
+        $employees = $employeesQuery->get();
 
         $data = $employees->map(function ($emp) use ($attendances) {
             $att = $attendances->get($emp->id);
@@ -95,7 +154,7 @@ class DashboardController extends Controller
             return [
                 'id' => $emp->id,
                 'name' => $emp->name,
-                'location' => $emp->homeLocation->name ?? '-',
+                'location' => $att?->location?->name ?? $emp->homeLocation?->name ?? '-',
                 'checkIn' => optional($att?->check_in_time)->format('H:i'),
                 'checkOut' => optional($att?->check_out_time)->format('H:i'),
                 'status' => $status,
@@ -103,9 +162,29 @@ class DashboardController extends Controller
         });
 
         return response()->json([
-            'date' => $date,
+            'date' => $startDate === $endDate ? $startDate : "$startDate - $endDate",
             'employees' => $data,
         ]);
+    }
+
+    private function periodDates(Request $request): array
+    {
+        if ($request->filled('date')) {
+            return [$request->date, $request->date];
+        }
+
+        $today = now();
+        return match ($request->input('period', 'hari')) {
+            'minggu' => [
+                $today->copy()->startOfWeek()->toDateString(),
+                $today->copy()->endOfWeek()->toDateString(),
+            ],
+            'bulan' => [
+                $today->copy()->startOfMonth()->toDateString(),
+                $today->copy()->endOfMonth()->toDateString(),
+            ],
+            default => [$today->toDateString(), $today->toDateString()],
+        };
     }
 
     public function byLocation(Request $request)

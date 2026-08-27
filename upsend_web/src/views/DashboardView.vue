@@ -5,7 +5,7 @@ import api from '../api'
 
 /*
   View ini cuma berisi KONTEN halaman (filter, kartu statistik, chart,
-  insight, tabel). Sidebar & topbar sudah ditangani MainLayout.vue lewat
+  tabel). Sidebar & topbar sudah ditangani MainLayout.vue lewat
   router-view, jadi tidak diulang di sini — ikut pola project satunya
   (lihat layouts/MainLayout.vue di sana).
 */
@@ -33,15 +33,8 @@ const stats = ref({
 })
 
 const currentDate = ref('')
-// TODO: belum ada endpoint tren 7 hari & insight operasional di backend,
-// jadi dua bagian ini masih statis sampai endpointnya dibikin
 const weeklyAverageLabel = ref('Data tren belum tersedia')
 const chartData = ref([])
-const insight = ref({
-  summary: 'Data insight belum tersedia dari server.',
-  topPerformerLabel: '-',
-  needAttentionLabel: '-',
-})
 const employees = ref([])
 const loading = ref(false)
 
@@ -53,7 +46,13 @@ const statusMeta = {
 }
 
 const chartDayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
-const highlightIndex = computed(() => chartData.value.length - 1) // default: hari terakhir
+const selectedTrendDate = ref('')
+const highlightIndex = computed(() => {
+  const selectedIndex = chartData.value.findIndex(
+    (item) => item.date === selectedTrendDate.value,
+  )
+  return selectedIndex >= 0 ? selectedIndex : chartData.value.length - 1
+})
 const chartMax = computed(() => {
   const values = chartData.value.map((item) => item.count ?? 0)
   return values.length ? Math.max(...values, 1) : 1
@@ -65,6 +64,10 @@ const periods = [
   { key: 'bulan', label: 'Bulan Ini' },
 ]
 const activePeriod = ref('hari')
+const activityPeriodLabel = computed(() => {
+  if (selectedTrendDate.value) return selectedTrendDate.value
+  return periods.find((period) => period.key === activePeriod.value)?.label ?? 'Hari Ini'
+})
 
 const searchQuery = ref('')
 
@@ -103,7 +106,10 @@ async function fetchLocations() {
 async function fetchDashboard() {
   loading.value = true
   try {
-    const params = selectedLocationId.value ? { location_id: selectedLocationId.value } : {}
+    const params = {
+      period: activePeriod.value,
+      ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
+    }
     const [summaryRes, attendanceRes, trendRes] = await Promise.all([
       api.get('/dashboard/summary', { params }),
       api.get('/dashboard/today-attendance', { params }),
@@ -132,8 +138,28 @@ async function fetchDashboard() {
     weeklyAverageLabel.value = trend.weeklyAverageLabel
     chartData.value = trend.chartData
     employees.value = emps
+    selectedTrendDate.value = ''
   } catch (err) {
     console.error('Gagal mengambil data dashboard:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function selectTrendDay(item) {
+  if (!item?.date || selectedTrendDate.value === item.date) return
+
+  selectedTrendDate.value = item.date
+  loading.value = true
+  try {
+    const params = {
+      date: item.date,
+      ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
+    }
+    const response = await api.get('/dashboard/today-attendance', { params })
+    employees.value = response.data.employees || []
+  } catch (err) {
+    console.error('Gagal mengambil data kehadiran tanggal terpilih:', err)
   } finally {
     loading.value = false
   }
@@ -158,11 +184,6 @@ function selectPeriod(key) {
   // TODO: backend today-attendance/summary baru dukung "hari ini" (tanggal tunggal).
   // Filter minggu/bulan belum ada di controller, jadi belum berefek ke data.
   fetchDashboard()
-}
-
-function handleDownloadPdf() {
-  // TODO: endpoint /dashboard/export masih return JSON mentah, belum generate PDF/Excel beneran
-  alert('Fitur unduh laporan belum tersedia di backend.')
 }
 
 onMounted(() => {
@@ -282,7 +303,13 @@ onBeforeUnmount(() => {
             <div
               v-for="(item, idx) in chartData"
               :key="item.date"
-              class="tick-col"
+              class="tick-col clickable"
+              role="button"
+              tabindex="0"
+              :aria-label="`Lihat kehadiran ${item.label}`"
+              @click="selectTrendDay(item)"
+              @keydown.enter="selectTrendDay(item)"
+              @keydown.space.prevent="selectTrendDay(item)"
             >
               <div v-if="idx === highlightIndex" class="tick-tooltip">
                 <span>Hari</span>
@@ -295,36 +322,14 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-
-      <div class="panel insight">
-        <h2>Insight Operasional</h2>
-        <p class="desc">{{ insight.summary }}</p>
-
-        <div class="insight-item">
-          <div class="ic"><Icon icon="material-symbols:star-rounded" width="18" height="18" /></div>
-          <div>
-            <div class="lbl">TOP PERFORMER</div>
-            <div class="val">{{ insight.topPerformerLabel }}</div>
-          </div>
-        </div>
-
-        <div class="insight-item">
-          <div class="ic">
-            <Icon icon="material-symbols:warning-outline-rounded" width="18" height="18" />
-          </div>
-          <div>
-            <div class="lbl">NEED ATTENTION</div>
-            <div class="val">{{ insight.needAttentionLabel }}</div>
-          </div>
-        </div>
-
-        <button class="insight-cta" @click="handleDownloadPdf">Unduh Laporan PDF</button>
-      </div>
     </section>
 
     <section class="panel table-panel">
       <div class="table-head">
-        <h2>Aktivitas Absensi Hari Ini</h2>
+        <h2>
+          Aktivitas Absensi
+          ({{ activityPeriodLabel }})
+        </h2>
         <div class="table-tools">
           <div class="search">
             <Icon icon="material-symbols:search-rounded" width="18" height="18" />
@@ -388,7 +393,7 @@ onBeforeUnmount(() => {
 
       <div class="table-footer">
         <span
-          >Menampilkan {{ filteredEmployees.length }} dari {{ stats.totalEmployees }} karyawan</span
+          >Menampilkan {{ filteredEmployees.length }} aktivitas</span
         >
         <div class="pager">
           <button disabled>
@@ -486,7 +491,7 @@ onBeforeUnmount(() => {
 .mini-avatars .dots span:nth-child(2){background:#8ad0c4;}
 .mini-avatars .dots span:nth-child(3){background:#c9c9c9;}
 
-.middle-row{display:grid;grid-template-columns:1.65fr 1fr;gap:18px;margin-bottom:20px;align-items:stretch;}
+.middle-row{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:20px;align-items:stretch;}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;}
 .panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
 .panel-head h2{font-size:16px;font-weight:700;margin:0 0 4px;}
@@ -495,8 +500,11 @@ onBeforeUnmount(() => {
 .chart-wrap{margin-top:22px;height:190px;}
 .chart-ticks{display:flex;width:100%;height:100%;}
 .tick-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;}
+.tick-col.clickable{cursor:pointer;border-radius:10px;}
+.tick-col.clickable:hover .tick{background:var(--blue-900);transform:translateY(-2px);}
+.tick-col.clickable:focus-visible{outline:2px solid var(--blue-900);outline-offset:4px;}
 .tick-value{font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
-.tick{width:72%;max-width:92px;border-radius:4px;background:#e1e4eb;position:relative;}
+.tick{width:72%;max-width:92px;border-radius:4px;background:#e1e4eb;position:relative;transition:background .15s ease,transform .15s ease;}
 .tick.active{background:var(--blue-900);}
 .tick-label{margin-top:10px;font-size:12px;color:var(--ink-soft);}
 .tick-tooltip{
