@@ -37,6 +37,8 @@ class AttendanceAdminController extends Controller
         $attendance->load(['employee', 'location']);
         $attendance->photo_available = (bool) $attendance->check_in_photo
             && Storage::disk('public')->exists($attendance->check_in_photo);
+        $attendance->checkout_photo_available = (bool) $attendance->check_out_photo
+            && Storage::disk('public')->exists($attendance->check_out_photo);
 
         return response()->json($attendance);
     }
@@ -46,6 +48,16 @@ class AttendanceAdminController extends Controller
         $photoPath = $attendance->check_in_photo;
         if (! $photoPath || ! Storage::disk('public')->exists($photoPath)) {
             return response()->json(['message' => 'Foto tidak ditemukan.'], 404);
+        }
+
+        return response()->file(Storage::disk('public')->path($photoPath));
+    }
+
+    public function checkoutPhoto(Attendance $attendance)
+    {
+        $photoPath = $attendance->check_out_photo;
+        if (! $photoPath || ! Storage::disk('public')->exists($photoPath)) {
+            return response()->json(['message' => 'Foto checkout tidak ditemukan.'], 404);
         }
 
         return response()->file(Storage::disk('public')->path($photoPath));
