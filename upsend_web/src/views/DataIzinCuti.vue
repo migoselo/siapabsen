@@ -4,20 +4,10 @@
  * Halaman "Data Izin dan Cuti" — daftar & approval pengajuan cuti/izin karyawan.
  * Dirender di dalam <router-view> milik Layout.vue, jadi TIDAK membuat topbar/profil
  * sendiri — judul halaman & profil admin sudah ditangani oleh Layout.
- *
- * Asumsi yang dipakai (cek ini sesuai proyekmu):
- * - Tidak ada Tailwind, styling pakai <style scoped> biasa mengikuti token warna
- *   yang sama dengan Layout.vue (--sidebar-accent, --ink-dark, --ink-soft, --line).
- *   Karena custom property CSS itu diwariskan ke elemen turunan, variabel-variabel
- *   itu otomatis kebaca di sini selama komponen ini dirender di dalam <div class="layout">.
- * - Ikon pakai @iconify/vue set 'material-symbols', sama seperti Sidebar.
- * - Ekspor PDF pakai 'jspdf' + 'jspdf-autotable' (npm i jspdf jspdf-autotable),
- *   di-dynamic import supaya tidak membengkakkan bundle awal.
- * - Data pengajuan (requests) masih data contoh/mock — ganti dengan fetch API asli
- *   (mis. di dalam onMounted, atau lewat store seperti authStore).
  */
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import api from '../api'
 
 /* ------------------------------------------------------------------ */
 /* Palet warna untuk badge jenis cuti (dikelola admin)                 */
@@ -69,14 +59,19 @@ const leaveTypes = reactive(
 const departments = reactive(loadFromStorage('siaphadir_departments', defaultDepartments))
 
 function persistSettings() {
+  try {
   localStorage.setItem(
-    'siaphadir_leave_types',
-    JSON.stringify(leaveTypes.map(({ id, name, colorKey }) => ({ id, name, colorKey })))
-  )
-  localStorage.setItem(
-    'siaphadir_departments',
-    JSON.stringify(departments.map(({ id, name }) => ({ id, name })))
-  )
+      'siaphadir_leave_types',
+      JSON.stringify(leaveTypes.map(({ id, name, colorKey }) => ({ id, name, colorKey })))
+    )
+    localStorage.setItem(
+      'siaphadir_departments',
+      JSON.stringify(departments.map(({ id, name }) => ({ id, name })))
+    )
+  }
+  catch (error) {
+    console.error('Gagal menyimpan pengaturan ke localStorage:', error)
+  }
 }
 
 function applyColor(lt) {
@@ -113,51 +108,26 @@ function removeDepartment(id) {
 }
 
 function leaveTypeById(id) {
-  return leaveTypes.find((lt) => lt.id === id)
+  return leaveTypes.find((lt) => String(lt.id) === String(id))
 }
 function departmentName(id) {
   return departments.find((d) => d.id === id)?.name || '-'
 }
 
 /* ------------------------------------------------------------------ */
-/* Data pengajuan cuti (ganti dengan fetch API di proyekmu)            */
+/* Data pengajuan cuti dari API admin                                  */
 /* ------------------------------------------------------------------ */
-const requests = reactive([
-  mkReq('Bambang Kusuma', 'Senior Developer', 'd1', 'lt1', '2023-10-12', '2023-10-15', 4, 'Acara keluarga tahunan di luar kota bersama seluruh anggota keluarga besar.'),
-  mkReq('Dewi Sartika', 'Marketing Specialist', 'd2', 'lt2', '2023-10-14', '2023-10-14', 1, 'Demam dan butuh istirahat total (surat dokter terlampir).'),
-  mkReq('Andi Saputra', 'Accountant', 'd3', 'lt3', '2023-10-18', '2023-10-19', 2, 'Urusan administrasi perbankan mendesak.'),
-  mkReq('Siti Aminah', 'Lead Designer', 'd4', 'lt1', '2023-10-25', '2023-10-30', 4, 'Cuti akhir bulan untuk refreshment.'),
-  mkReq('Rian Hidayat', 'Backend Engineer', 'd1', 'lt2', '2023-10-16', '2023-10-17', 2, 'Sakit tifus, perlu rawat jalan.'),
-  mkReq('Putri Wulandari', 'HR Officer', 'd5', 'lt1', '2023-10-20', '2023-10-22', 3, 'Menghadiri pernikahan saudara di Yogyakarta.'),
-  mkReq('Fajar Nugraha', 'Operations Staff', 'd6', 'lt3', '2023-10-11', '2023-10-11', 1, 'Mengurus dokumen kependudukan.'),
-  mkReq('Maya Anggraini', 'Content Writer', 'd2', 'lt4', '2023-11-01', '2023-12-10', 30, 'Cuti melahirkan anak pertama.'),
-  mkReq('Budi Santoso', 'Finance Staff', 'd3', 'lt1', '2023-10-23', '2023-10-24', 2, 'Liburan keluarga ke Bali.'),
-  mkReq('Nadia Ramadhani', 'UI Designer', 'd4', 'lt2', '2023-10-13', '2023-10-13', 1, 'Migrain berat, disarankan istirahat oleh dokter.'),
-  mkReq('Yusuf Firmansyah', 'DevOps Engineer', 'd1', 'lt3', '2023-10-19', '2023-10-19', 1, 'Mengurus perpanjangan SIM.'),
-  mkReq('Lina Marlina', 'Marketing Lead', 'd2', 'lt1', '2023-10-27', '2023-10-28', 2, 'Cuti tahunan bersama keluarga.', 'approved'),
-  mkReq('Agus Prasetyo', 'Accountant', 'd3', 'lt5', '2023-10-09', '2023-10-09', 1, 'Tidak hadir tanpa keterangan sebelumnya.', 'rejected'),
-  mkReq('Sri Wahyuni', 'Creative Director', 'd4', 'lt1', '2023-10-30', '2023-11-02', 3, 'Menghadiri workshop desain di luar kota.', 'approved'),
-])
-
-function mkReq(name, position, departmentId, leaveTypeId, start, end, workDays, reason, status = 'pending') {
-  return reactive({
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-    requester: { name, position, departmentId, avatarUrl: '' },
-    leaveTypeId,
-    startDate: start,
-    endDate: end,
-    workDaysLabel: workDays === 1 ? '1 Hari' : `${workDays} Hari Kerja`,
-    reason,
-    status, // 'pending' | 'approved' | 'rejected'
-  })
-}
+const requests = ref([])
+const pagination = ref({ current_page: 1, last_page: 1, total: 0 })
+const statusCounts = ref({ pending: 0, approved: 0, rejected: 0 })
+const isLoading = ref(false)
+const errorMessage = ref('')
 
 /* ------------------------------------------------------------------ */
 /* Statistik ringkas                                                   */
 /* ------------------------------------------------------------------ */
-const pendingCount = computed(() => requests.filter((r) => r.status === 'pending').length)
-const newSinceYesterday = ref(8) // ganti dengan angka dari API kalau tersedia
-const avgApprovalTime = ref('1.2 Jam')
+const pendingCount = computed(() => statusCounts.value.pending)
+const approvedCount = computed(() => statusCounts.value.approved)
 
 /* ------------------------------------------------------------------ */
 /* Tabs, pencarian, filter, pagination                                 */
@@ -175,53 +145,69 @@ const currentPage = ref(1)
 const pageSize = 10
 
 function countByStatus(status) {
-  return requests.filter((r) => r.status === status).length
+  return statusCounts.value[status] || 0
 }
 
-const filteredRequests = computed(() => {
-  return requests.filter((r) => {
-    if (r.status !== activeTab.value) return false
-    if (leaveTypeFilter.value && r.leaveTypeId !== leaveTypeFilter.value) return false
-    if (departmentFilter.value && r.requester.departmentId !== departmentFilter.value) return false
-    if (searchQuery.value.trim()) {
-      const q = searchQuery.value.trim().toLowerCase()
-      if (!r.requester.name.toLowerCase().includes(q)) return false
-    }
-    return true
-  })
-})
+const filteredRequests = computed(() => requests.value)
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRequests.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, pagination.value.last_page))
 
-const paginatedRequests = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredRequests.value.slice(start, start + pageSize)
-})
+const paginatedRequests = computed(() => requests.value)
 
 const paginationLabel = computed(() => {
-  if (filteredRequests.value.length === 0) return '0'
-  const start = (currentPage.value - 1) * pageSize + 1
-  const end = Math.min(currentPage.value * pageSize, filteredRequests.value.length)
+  if (pagination.value.total === 0) return '0'
+  const start = (pagination.value.current_page - 1) * pageSize + 1
+  const end = Math.min(pagination.value.current_page * pageSize, pagination.value.total)
   return `${start}-${end}`
 })
 
-watch([activeTab, leaveTypeFilter, departmentFilter, searchQuery], () => {
+let searchTimer
+async function fetchRequests() {
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    const { data } = await api.get('/admin/leave-requests', {
+      params: {
+        status: activeTab.value,
+        search: searchQuery.value.trim() || undefined,
+        leave_type_id: leaveTypeFilter.value || undefined,
+        page: currentPage.value,
+        per_page: pageSize,
+      },
+    })
+    requests.value = data.data || []
+    pagination.value = data
+    statusCounts.value = data.counts || statusCounts.value
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Data izin dan cuti gagal dimuat.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+watch([activeTab, leaveTypeFilter, departmentFilter], () => {
   currentPage.value = 1
+  fetchRequests()
+})
+watch(searchQuery, () => {
+  currentPage.value = 1
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(fetchRequests, 300)
 })
 
 /* ------------------------------------------------------------------ */
 /* Aksi approve / reject                                               */
 /* ------------------------------------------------------------------ */
-function approveRequest(id) {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'approved'
-  // TODO: panggil API PATCH /leave-requests/:id { status: 'approved' }
+async function updateRequestStatus(id, status) {
+  try {
+    await api.patch(`/admin/leave-requests/${id}/status`, { status })
+    await fetchRequests()
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Status pengajuan gagal diperbarui.'
+  }
 }
-function rejectRequest(id) {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'rejected'
-  // TODO: panggil API PATCH /leave-requests/:id { status: 'rejected' }
-}
+function approveRequest(id) { updateRequestStatus(id, 'approved') }
+function rejectRequest(id) { updateRequestStatus(id, 'rejected') }
 
 /* ------------------------------------------------------------------ */
 /* Helper tampilan                                                     */
@@ -271,9 +257,9 @@ async function exportPDF() {
   const { default: jsPDF } = await import('jspdf')
   await import('jspdf-autotable')
   const doc = new jsPDF({ orientation: 'landscape' })
-  doc.setFontSize(14)
+  doc.setFontSize(16)
   doc.text('Data Izin dan Cuti', 14, 15)
-  doc.setFontSize(10)
+  doc.setFontSize(14)
   doc.text(`Status: ${tabs.find((t) => t.key === activeTab.value)?.label}`, 14, 21)
   const headers = Object.keys(rows[0])
   const body = rows.map((row) => headers.map((h) => row[h]))
@@ -282,7 +268,7 @@ async function exportPDF() {
     head: [headers],
     body,
     startY: 26,
-    styles: { fontSize: 8, cellPadding: 2 },
+    styles: { fontSize: 12, cellPadding: 2 },
     headStyles: { fillColor: [37, 47, 88] }, // samakan dengan --sidebar-accent
   })
   doc.save(`data-izin-cuti-${activeTab.value}-${todayStamp()}.pdf`)
@@ -314,7 +300,11 @@ function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
 }
 onMounted(() => document.addEventListener('click', handleOutsideClick))
-onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
+onMounted(fetchRequests)
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick)
+  clearTimeout(searchTimer)
+})
 </script>
 
 <template>
@@ -323,14 +313,16 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-top">
-          <div class="stat-icon"><Icon icon="material-symbols:pending-actions-outline" width="22" /></div>
+          <div class="stat-icon">
+            <Icon icon="material-symbols:pending-actions-outline" width="22" />
+          </div>
           <span class="trend trend-up">
             <Icon icon="material-symbols:arrow-upward" width="12" /> 12%
           </span>
         </div>
         <p class="stat-label">Permintaan tertunda</p>
         <p class="stat-value">{{ pendingCount }}</p>
-        <p class="stat-sub">{{ newSinceYesterday }} baru sejak kemarin</p>
+        <p class="stat-sub">Data langsung dari leave request</p>
       </div>
 
       <div class="stat-card">
@@ -340,9 +332,9 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             <Icon icon="material-symbols:arrow-downward" width="12" /> 4m
           </span>
         </div>
-        <p class="stat-label">Rata-rata waktu persetujuan</p>
-        <p class="stat-value">{{ avgApprovalTime }}</p>
-        <p class="stat-sub">Performa seluruh perusahaan</p>
+        <p class="stat-label">Permintaan diterima</p>
+        <p class="stat-value">{{ approvedCount }}</p>
+        <p class="stat-sub">Data langsung dari leave request</p>
       </div>
     </div>
 
@@ -375,8 +367,22 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               <Icon icon="material-symbols:download" width="16" /> Ekspor Laporan
             </button>
             <div v-if="showExportMenu" class="dropdown">
-              <button @click="exportCSV(); showExportMenu = false">Ekspor sebagai CSV</button>
-              <button @click="exportPDF(); showExportMenu = false">Ekspor sebagai PDF</button>
+              <button
+                @click="
+                  exportCSV(),
+                  showExportMenu = false
+                "
+              >
+                Ekspor sebagai CSV
+              </button>
+              <button
+                @click="
+                  exportPDF(),
+                  showExportMenu = false
+                "
+              >
+                Ekspor sebagai PDF
+              </button>
             </div>
           </div>
         </div>
@@ -413,15 +419,28 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             </tr>
           </thead>
           <tbody>
+            <tr v-if="isLoading">
+              <td colspan="5" class="empty-row">Memuat data...</td>
+            </tr>
+            <tr v-else-if="errorMessage">
+              <td colspan="5" class="empty-row">{{ errorMessage }}</td>
+            </tr>
             <tr v-for="req in paginatedRequests" :key="req.id">
               <td>
                 <div class="requester">
-                  <img v-if="req.requester.avatarUrl" :src="req.requester.avatarUrl" class="avatar-sm" />
-                  <div v-else class="avatar-sm avatar-fallback">{{ initials(req.requester.name) }}</div>
+                  <img
+                    v-if="req.requester.avatarUrl"
+                    :src="req.requester.avatarUrl"
+                    class="avatar-sm"
+                  />
+                  <div v-else class="avatar-sm avatar-fallback">
+                    {{ initials(req.requester.name) }}
+                  </div>
                   <div>
                     <p class="requester-name">{{ req.requester.name }}</p>
                     <p class="requester-sub">
-                      {{ req.requester.position }} • {{ departmentName(req.requester.departmentId) }}
+                      {{ req.requester.position }} •
+                      {{ departmentName(req.requester.departmentId) }}
                     </p>
                   </div>
                 </div>
@@ -429,9 +448,12 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               <td>
                 <span
                   class="badge"
-                  :style="{ background: leaveTypeById(req.leaveTypeId)?.bg, color: leaveTypeById(req.leaveTypeId)?.text }"
+                  :style="{
+                    background: leaveTypeById(req.leaveTypeId)?.bg,
+                    color: leaveTypeById(req.leaveTypeId)?.text,
+                  }"
                 >
-                  {{ leaveTypeById(req.leaveTypeId)?.name }}
+                  {{ leaveTypeById(req.leaveTypeId)?.name || req.leaveTypeName || '-' }}
                 </span>
               </td>
               <td class="nowrap">
@@ -444,19 +466,29 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               <td>
                 <div class="actions">
                   <template v-if="req.status === 'pending'">
-                    <button class="icon-btn icon-btn-reject" title="Tolak" @click="rejectRequest(req.id)">
+                    <button
+                      class="icon-btn icon-btn-reject"
+                      title="Tolak"
+                      @click="rejectRequest(req.id)"
+                    >
                       <Icon icon="material-symbols:close" width="16" />
                     </button>
-                    <button class="icon-btn icon-btn-approve" title="Terima" @click="approveRequest(req.id)">
+                    <button
+                      class="icon-btn icon-btn-approve"
+                      title="Terima"
+                      @click="approveRequest(req.id)"
+                    >
                       <Icon icon="material-symbols:check" width="16" />
                     </button>
                   </template>
                   <span
                     v-else
                     class="badge"
-                    :style="req.status === 'approved'
-                      ? { background: '#E9F9EF', color: '#1B8A5A' }
-                      : { background: '#FDEEEE', color: '#C53030' }"
+                    :style="
+                      req.status === 'approved'
+                        ? { background: '#E9F9EF', color: '#1B8A5A' }
+                        : { background: '#FDEEEE', color: '#C53030' }
+                    "
                   >
                     {{ req.status === 'approved' ? 'Diterima' : 'Ditolak' }}
                   </span>
@@ -464,7 +496,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               </td>
             </tr>
 
-            <tr v-if="paginatedRequests.length === 0">
+            <tr v-if="!isLoading && !errorMessage && paginatedRequests.length === 0">
               <td colspan="5" class="empty-row">Tidak ada permintaan yang cocok dengan filter saat ini.</td>
             </tr>
           </tbody>
@@ -472,7 +504,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
       </div>
 
       <div class="pagination">
-        <button class="page-nav" :disabled="currentPage === 1" @click="currentPage--">
+        <button class="page-nav" :disabled="currentPage === 1 || isLoading" @click="currentPage--; fetchRequests()">
           <Icon icon="material-symbols:chevron-left" width="18" /> Sebelumnya
         </button>
         <div class="page-numbers">
@@ -481,12 +513,12 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             :key="p"
             class="page-num"
             :class="{ 'page-num-active': p === currentPage }"
-            @click="currentPage = p"
+            @click="currentPage = p; fetchRequests()"
           >
             {{ p }}
           </button>
         </div>
-        <button class="page-nav" :disabled="currentPage === totalPages" @click="currentPage++">
+        <button class="page-nav" :disabled="currentPage === totalPages || isLoading" @click="currentPage++; fetchRequests()">
           Berikutnya <Icon icon="material-symbols:chevron-right" width="18" />
         </button>
       </div>
@@ -538,7 +570,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               class="manage-input"
               @keyup.enter="addLeaveType"
             />
-            <button class="btn-primary" @click="addLeaveType">Tambah</button>
+            <button type="button" class="btn-primary" @click.prevent="addLeaveType">Tambah</button>
           </div>
         </div>
 
@@ -557,7 +589,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               class="manage-input"
               @keyup.enter="addDepartment"
             />
-            <button class="btn-primary" @click="addDepartment">Tambah</button>
+            <button type="button" class="btn-primary" @click.prevent="addDepartment">Tambah</button>
           </div>
         </div>
       </div>
@@ -574,8 +606,17 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   --ink-soft: var(--ink-soft, #667085);
   --line: var(--line, #e4e7ec);
   font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--ink-dark);
+}
+
+/* Browser tidak mewariskan font-family ke elemen form secara default (button,
+   input, select punya font sistem sendiri) — dipaksa ikut di sini supaya semua
+   teks di halaman ini, termasuk tombol dan dropdown, konsisten Plus Jakarta Sans. */
+.izin-cuti button,
+.izin-cuti input,
+.izin-cuti select {
+  font-family: inherit;
 }
 
 /* Stat cards */
@@ -611,7 +652,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 999px;
@@ -625,20 +666,20 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   background: #eaf0ff;
 }
 .stat-label {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   letter-spacing: 0.6px;
   color: var(--ink-soft);
   margin: 0 0 4px;
 }
 .stat-value {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 800;
   margin: 0 0 4px;
   color: var(--ink-dark);
 }
 .stat-sub {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink-soft);
   margin: 0;
 }
@@ -667,7 +708,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   border: none;
   border-bottom: 2px solid transparent;
   padding: 0 0 12px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-soft);
   display: flex;
@@ -680,7 +721,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   border-bottom-color: var(--accent);
 }
 .tab-count {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   background: #f1f2f5;
   color: var(--ink-soft);
@@ -722,17 +763,14 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: #f2bd48;
+  color: var(--ink-dark);
   font-size: 15px;
   font-weight: 700;
   border: none;
   border-radius: 8px;
   padding: 9px 16px;
   cursor: pointer;
-}
-.btn-primary:hover {
-  background: #1c2645;
 }
 .btn-ghost {
   display: inline-flex;
@@ -773,7 +811,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   background: none;
   border: none;
   padding: 10px 14px;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--ink-dark);
   cursor: pointer;
 }
@@ -804,7 +842,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   background: #fff;
 }
 .pagination-label {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--ink-soft);
   margin: 0;
 }
@@ -816,20 +854,21 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 15px;
+  font-size: 14px;
 }
 .table thead tr {
+  background-color: #2f3b69;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
 .table th {
   text-align: left;
   padding: 12px 24px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: var(--ink-soft);
+  color: #ffffff;
 }
 .col-actions {
   text-align: right;
@@ -865,7 +904,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 .requester-name {
@@ -880,7 +919,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 }
 .badge {
   display: inline-block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 6px;
@@ -895,7 +934,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 }
 .duration-sub {
   margin: 2px 0 0;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--ink-soft);
 }
 .col-reason {
@@ -1013,7 +1052,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   border-bottom: 1px solid var(--line);
 }
 .modal-header h2 {
-  font-size: 18px;
+  font-size: 16px;
   margin: 0;
 }
 .icon-btn-plain {
@@ -1064,7 +1103,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .manage-input {
   flex: 1;
   border: none;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--ink-dark);
 }
 .manage-input:focus {
