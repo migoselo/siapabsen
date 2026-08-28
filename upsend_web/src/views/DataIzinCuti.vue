@@ -328,7 +328,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             <Icon icon="material-symbols:arrow-upward" width="12" /> 12%
           </span>
         </div>
-        <p class="stat-label">Permintaan Tertunda</p>
+        <p class="stat-label">Permintaan tertunda</p>
         <p class="stat-value">{{ pendingCount }}</p>
         <p class="stat-sub">{{ newSinceYesterday }} baru sejak kemarin</p>
       </div>
@@ -340,7 +340,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             <Icon icon="material-symbols:arrow-downward" width="12" /> 4m
           </span>
         </div>
-        <p class="stat-label">Rata-rata Waktu Persetujuan</p>
+        <p class="stat-label">Rata-rata waktu persetujuan</p>
         <p class="stat-value">{{ avgApprovalTime }}</p>
         <p class="stat-sub">Performa seluruh perusahaan</p>
       </div>
@@ -566,13 +566,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 </template>
 
 <style scoped>
-/* Mengikuti token warna yang sama dengan Layout.vue lewat CSS variable inheritance:
-   --sidebar-accent, --ink-dark, --ink-soft, --line. Fallback disediakan agar tetap
-   aman dipakai di luar Layout. */
-/* Safety net: kalau 'Plus Jakarta Sans' belum di-load secara global di proyekmu
-   (mis. lewat <link> Google Fonts di index.html atau @import di CSS global),
-   baris @import ini memuatnya khusus untuk komponen ini. Kalau sudah di-load
-   global, baris ini tidak masalah dan browser cukup pakai cache-nya. */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 .izin-cuti {
@@ -635,7 +628,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.6px;
-  text-transform: uppercase;
   color: var(--ink-soft);
   margin: 0 0 4px;
 }
