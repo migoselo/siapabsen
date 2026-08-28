@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -32,25 +33,40 @@ class RiwayatCutiScreen extends StatefulWidget {
 
 class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   DateTime? _selectedDate;
-  DateTimeRange? _selectedRange; // BARU — nampung hasil pick range dari kalender
+  DateTimeRange?
+  _selectedRange; // BARU — nampung hasil pick range dari kalender
   String? _selectedKategori;
   PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
 
   final DateTime _today = DateTime.now();
   List<CutiModel> _cutiHistory = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _loadError;
+  Timer? _refreshTimer;
+  String? _dataSignature;
 
   @override
   void initState() {
     super.initState();
     _loadCutiHistory();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _refreshCutiHistory(),
+    );
   }
 
-  Future<void> _loadCutiHistory() async {
+  Future<void> _refreshCutiHistory() async {
+    if (_isLoading || _isRefreshing) return;
+    await _loadCutiHistory(showLoading: false);
+  }
+
+  Future<void> _loadCutiHistory({bool showLoading = true}) async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
     if (mounted) {
       setState(() {
-        _isLoading = true;
+        if (showLoading) _isLoading = true;
         _loadError = null;
       });
     }
@@ -64,29 +80,46 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         ),
       );
       final data = response.data is List ? response.data as List : const [];
+      final signature = data
+          .map(
+            (item) => '${item['id']}:${item['status']}:${item['updated_at']}',
+          )
+          .join('|');
       if (!mounted) return;
+      if (!showLoading && signature == _dataSignature) return;
       setState(() {
+        _dataSignature = signature;
         _cutiHistory = data.map((json) => CutiModel.fromJson(json)).toList();
         _isLoading = false;
       });
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
+        if (showLoading) _isLoading = false;
         _loadError =
             e.type == DioExceptionType.connectionTimeout ||
                 e.type == DioExceptionType.receiveTimeout
             ? 'Server terlalu lama merespons.'
             : 'Gagal memuat riwayat cuti.';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e.response?.data['message'] ?? 'Gagal memuat Formulir.',
+      if (showLoading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.response?.data['message'] ?? 'Gagal memuat Formulir.',
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } finally {
+      _isRefreshing = false;
     }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _openPengajuanCuti() async {
@@ -108,7 +141,10 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
     switch (_periode) {
       case PeriodeRiwayat.mingguan:
         final start = anchor.subtract(Duration(days: anchor.weekday - 1));
-        return DateTimeRange(start: start, end: start.add(const Duration(days: 6)));
+        return DateTimeRange(
+          start: start,
+          end: start.add(const Duration(days: 6)),
+        );
       case PeriodeRiwayat.bulanan:
         final start = DateTime(anchor.year, anchor.month, 1);
         final end = DateTime(anchor.year, anchor.month + 1, 0);
@@ -167,6 +203,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       _selectedKategori = null;
     });
   }
+
   String get _currentHeader {
     if (_selectedRange != null) {
       final start = _selectedRange!.start;
@@ -195,7 +232,8 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         .toList();
 
     // filter tahap 2: berdasarkan kategori yang dipilih (kalau ada)
-    final filteredCuti = _selectedKategori == null || _selectedKategori == 'semua'
+    final filteredCuti =
+        _selectedKategori == null || _selectedKategori == 'semua'
         ? rangeFiltered
         : rangeFiltered
               .where(
@@ -373,7 +411,9 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
             KategoriBarChart(
               title: 'Kategori Cuti',
               kategoriList: kategoriCutiList,
-              counts: hitungKategoriCuti(rangeFiltered), // sekarang ikut rentang aktif
+              counts: hitungKategoriCuti(
+                rangeFiltered,
+              ), // sekarang ikut rentang aktif
               selectedKategori: _selectedKategori,
               onKategoriTap: (key) {
                 setState(() => _selectedKategori = key);

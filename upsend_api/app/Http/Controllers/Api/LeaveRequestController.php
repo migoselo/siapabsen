@@ -81,6 +81,85 @@ class LeaveRequestController extends Controller
         return response()->json($query->get());
     }
 
+    public function adminIndex(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => 'nullable|in:pending,approved,rejected',
+            'search' => 'nullable|string|max:100',
+            'leave_type_id' => 'nullable|integer|exists:leave_types,id',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:50',
+        ]);
+
+        $baseQuery = LeaveRequest::query();
+        $query = (clone $baseQuery)->with(['user:id,name,role']);
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (!empty($filters['leave_type_id'])) {
+            $query->where('leave_type_id', $filters['leave_type_id']);
+        }
+
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->whereHas('user', fn ($userQuery) => $userQuery->where('name', 'like', "%{$search}%"));
+        }
+
+        $perPage = $filters['per_page'] ?? 10;
+        $requests = $query->orderByDesc('created_at')->paginate($perPage);
+        $counts = $baseQuery
+            ->selectRaw("status, COUNT(*) as total")
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return response()->json([
+            'data' => $requests->getCollection()->map(fn (LeaveRequest $leaveRequest) => [
+                'id' => $leaveRequest->id,
+                'requester' => [
+                    'name' => $leaveRequest->user?->name ?? 'Unknown',
+                    'position' => $leaveRequest->user?->role ?? '-',
+                    'departmentId' => null,
+                    'avatarUrl' => '',
+                ],
+                'leaveTypeId' => $leaveRequest->leave_type_id,
+                'leaveTypeName' => $leaveRequest->type,
+                'startDate' => $leaveRequest->start_date?->format('Y-m-d'),
+                'endDate' => $leaveRequest->end_date?->format('Y-m-d'),
+                'workDaysLabel' => $leaveRequest->total_days === 1
+                    ? '1 Hari'
+                    : "{$leaveRequest->total_days} Hari Kerja",
+                'reason' => $leaveRequest->reason,
+                'status' => $leaveRequest->status,
+            ]),
+            'current_page' => $requests->currentPage(),
+            'last_page' => $requests->lastPage(),
+            'per_page' => $requests->perPage(),
+            'total' => $requests->total(),
+            'counts' => [
+                'pending' => (int) ($counts['pending'] ?? 0),
+                'approved' => (int) ($counts['approved'] ?? 0),
+                'rejected' => (int) ($counts['rejected'] ?? 0),
+            ],
+        ]);
+    }
+
+    public function updateStatus(Request $request, LeaveRequest $leaveRequest)
+    {
+        $data = $request->validate([
+            'status' => 'required|in:approved,rejected',
+        ]);
+
+        if ($leaveRequest->status !== 'pending') {
+            return response()->json(['message' => 'Pengajuan sudah diproses.'], 422);
+        }
+
+        $leaveRequest->update(['status' => $data['status']]);
+
+        return response()->json(['id' => $leaveRequest->id, 'status' => $leaveRequest->status]);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([

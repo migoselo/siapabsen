@@ -56,7 +56,7 @@ class AttendanceStatusService
         return LeaveRequest::query()
             ->where('user_id', $attendance->employee_id)
             ->whereRaw('LOWER(type) = ?', ['lembur'])
-            ->whereIn('status', ['pending', 'approved'])
+            ->where('status', 'approved')
             ->whereDate('start_date', '<=', $date)
             ->whereDate('end_date', '>=', $date)
             ->whereNotNull('start_time')
@@ -64,10 +64,7 @@ class AttendanceStatusService
             ->get()
             ->contains(function (LeaveRequest $request) use ($attendance, $checkOut): bool {
                 $start = $this->timeOnDate($attendance->check_in_time, $request->start_time);
-                $end = $this->timeOnDate($attendance->check_in_time, $request->end_time);
-
-                return $checkOut->greaterThanOrEqualTo($start)
-                    && $checkOut->lessThanOrEqualTo($end);
+                return $checkOut->greaterThanOrEqualTo($start);
             });
     }
 
