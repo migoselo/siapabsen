@@ -132,6 +132,10 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
     }
   }
 
+  void _goHome() {
+    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+  }
+
   // Rentang tanggal yang lagi aktif — dari pick range manual (prioritas),
   // atau dihitung dari periode toggle kalau nggak ada range manual
   DateTimeRange get _activeRange {
@@ -251,17 +255,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         leading: widget.showBackButton
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () {
-                  if (Navigator.canPop(context)) {
-                    Navigator.popUntil(context, ModalRoute.withName('/home'));
-                  } else {
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (route) => false,
-                    );
-                  }
-                },
+                onPressed: _goHome,
               )
             : null,
         title: Text(
@@ -316,15 +310,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                     Navigator.pop(context);
                   }
                 } else {
-                  if (Navigator.canPop(context)) {
-                    Navigator.popUntil(context, ModalRoute.withName('/home'));
-                  } else {
-                    await Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (route) => false,
-                    );
-                  }
+                  _goHome();
                 }
               },
             )
