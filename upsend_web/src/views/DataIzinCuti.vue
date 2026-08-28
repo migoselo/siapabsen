@@ -7,6 +7,7 @@
  */
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import api from '../api'
 
 /* ------------------------------------------------------------------ */
 /* Palet warna untuk badge jenis cuti (dikelola admin)                 */
@@ -107,51 +108,26 @@ function removeDepartment(id) {
 }
 
 function leaveTypeById(id) {
-  return leaveTypes.find((lt) => lt.id === id)
+  return leaveTypes.find((lt) => String(lt.id) === String(id))
 }
 function departmentName(id) {
   return departments.find((d) => d.id === id)?.name || '-'
 }
 
 /* ------------------------------------------------------------------ */
-/* Data pengajuan cuti (ganti dengan fetch API di proyekmu)            */
+/* Data pengajuan cuti dari API admin                                  */
 /* ------------------------------------------------------------------ */
-const requests = reactive([
-  mkReq('Bambang Kusuma', 'Senior Developer', 'd1', 'lt1', '2023-10-12', '2023-10-15', 4, 'Acara keluarga tahunan di luar kota bersama seluruh anggota keluarga besar.'),
-  mkReq('Dewi Sartika', 'Marketing Specialist', 'd2', 'lt2', '2023-10-14', '2023-10-14', 1, 'Demam dan butuh istirahat total (surat dokter terlampir).'),
-  mkReq('Andi Saputra', 'Accountant', 'd3', 'lt3', '2023-10-18', '2023-10-19', 2, 'Urusan administrasi perbankan mendesak.'),
-  mkReq('Siti Aminah', 'Lead Designer', 'd4', 'lt1', '2023-10-25', '2023-10-30', 4, 'Cuti akhir bulan untuk refreshment.'),
-  mkReq('Rian Hidayat', 'Backend Engineer', 'd1', 'lt2', '2023-10-16', '2023-10-17', 2, 'Sakit tifus, perlu rawat jalan.'),
-  mkReq('Putri Wulandari', 'HR Officer', 'd5', 'lt1', '2023-10-20', '2023-10-22', 3, 'Menghadiri pernikahan saudara di Yogyakarta.'),
-  mkReq('Fajar Nugraha', 'Operations Staff', 'd6', 'lt3', '2023-10-11', '2023-10-11', 1, 'Mengurus dokumen kependudukan.'),
-  mkReq('Maya Anggraini', 'Content Writer', 'd2', 'lt4', '2023-11-01', '2023-12-10', 30, 'Cuti melahirkan anak pertama.'),
-  mkReq('Budi Santoso', 'Finance Staff', 'd3', 'lt1', '2023-10-23', '2023-10-24', 2, 'Liburan keluarga ke Bali.'),
-  mkReq('Nadia Ramadhani', 'UI Designer', 'd4', 'lt2', '2023-10-13', '2023-10-13', 1, 'Migrain berat, disarankan istirahat oleh dokter.'),
-  mkReq('Yusuf Firmansyah', 'DevOps Engineer', 'd1', 'lt3', '2023-10-19', '2023-10-19', 1, 'Mengurus perpanjangan SIM.'),
-  mkReq('Lina Marlina', 'Marketing Lead', 'd2', 'lt1', '2023-10-27', '2023-10-28', 2, 'Cuti tahunan bersama keluarga.', 'approved'),
-  mkReq('Agus Prasetyo', 'Accountant', 'd3', 'lt5', '2023-10-09', '2023-10-09', 1, 'Tidak hadir tanpa keterangan sebelumnya.', 'rejected'),
-  mkReq('Sri Wahyuni', 'Creative Director', 'd4', 'lt1', '2023-10-30', '2023-11-02', 3, 'Menghadiri workshop desain di luar kota.', 'approved'),
-])
-
-function mkReq(name, position, departmentId, leaveTypeId, start, end, workDays, reason, status = 'pending') {
-  return reactive({
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-    requester: { name, position, departmentId, avatarUrl: '' },
-    leaveTypeId,
-    startDate: start,
-    endDate: end,
-    workDaysLabel: workDays === 1 ? '1 Hari' : `${workDays} Hari Kerja`,
-    reason,
-    status, // 'pending' | 'approved' | 'rejected'
-  })
-}
+const requests = ref([])
+const pagination = ref({ current_page: 1, last_page: 1, total: 0 })
+const statusCounts = ref({ pending: 0, approved: 0, rejected: 0 })
+const isLoading = ref(false)
+const errorMessage = ref('')
 
 /* ------------------------------------------------------------------ */
 /* Statistik ringkas                                                   */
 /* ------------------------------------------------------------------ */
-const pendingCount = computed(() => requests.filter((r) => r.status === 'pending').length)
-const newSinceYesterday = ref(8) // ganti dengan angka dari API kalau tersedia
-const avgApprovalTime = ref('1.2 Jam')
+const pendingCount = computed(() => statusCounts.value.pending)
+const approvedCount = computed(() => statusCounts.value.approved)
 
 /* ------------------------------------------------------------------ */
 /* Tabs, pencarian, filter, pagination                                 */
@@ -169,53 +145,69 @@ const currentPage = ref(1)
 const pageSize = 10
 
 function countByStatus(status) {
-  return requests.filter((r) => r.status === status).length
+  return statusCounts.value[status] || 0
 }
 
-const filteredRequests = computed(() => {
-  return requests.filter((r) => {
-    if (r.status !== activeTab.value) return false
-    if (leaveTypeFilter.value && r.leaveTypeId !== leaveTypeFilter.value) return false
-    if (departmentFilter.value && r.requester.departmentId !== departmentFilter.value) return false
-    if (searchQuery.value.trim()) {
-      const q = searchQuery.value.trim().toLowerCase()
-      if (!r.requester.name.toLowerCase().includes(q)) return false
-    }
-    return true
-  })
-})
+const filteredRequests = computed(() => requests.value)
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRequests.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, pagination.value.last_page))
 
-const paginatedRequests = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredRequests.value.slice(start, start + pageSize)
-})
+const paginatedRequests = computed(() => requests.value)
 
 const paginationLabel = computed(() => {
-  if (filteredRequests.value.length === 0) return '0'
-  const start = (currentPage.value - 1) * pageSize + 1
-  const end = Math.min(currentPage.value * pageSize, filteredRequests.value.length)
+  if (pagination.value.total === 0) return '0'
+  const start = (pagination.value.current_page - 1) * pageSize + 1
+  const end = Math.min(pagination.value.current_page * pageSize, pagination.value.total)
   return `${start}-${end}`
 })
 
-watch([activeTab, leaveTypeFilter, departmentFilter, searchQuery], () => {
+let searchTimer
+async function fetchRequests() {
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    const { data } = await api.get('/admin/leave-requests', {
+      params: {
+        status: activeTab.value,
+        search: searchQuery.value.trim() || undefined,
+        leave_type_id: leaveTypeFilter.value || undefined,
+        page: currentPage.value,
+        per_page: pageSize,
+      },
+    })
+    requests.value = data.data || []
+    pagination.value = data
+    statusCounts.value = data.counts || statusCounts.value
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Data izin dan cuti gagal dimuat.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+watch([activeTab, leaveTypeFilter, departmentFilter], () => {
   currentPage.value = 1
+  fetchRequests()
+})
+watch(searchQuery, () => {
+  currentPage.value = 1
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(fetchRequests, 300)
 })
 
 /* ------------------------------------------------------------------ */
 /* Aksi approve / reject                                               */
 /* ------------------------------------------------------------------ */
-function approveRequest(id) {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'approved'
-  // TODO: panggil API PATCH /leave-requests/:id { status: 'approved' }
+async function updateRequestStatus(id, status) {
+  try {
+    await api.patch(`/admin/leave-requests/${id}/status`, { status })
+    await fetchRequests()
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Status pengajuan gagal diperbarui.'
+  }
 }
-function rejectRequest(id) {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'rejected'
-  // TODO: panggil API PATCH /leave-requests/:id { status: 'rejected' }
-}
+function approveRequest(id) { updateRequestStatus(id, 'approved') }
+function rejectRequest(id) { updateRequestStatus(id, 'rejected') }
 
 /* ------------------------------------------------------------------ */
 /* Helper tampilan                                                     */
@@ -308,7 +300,11 @@ function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
 }
 onMounted(() => document.addEventListener('click', handleOutsideClick))
-onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
+onMounted(fetchRequests)
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick)
+  clearTimeout(searchTimer)
+})
 </script>
 
 <template>
@@ -326,7 +322,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
         </div>
         <p class="stat-label">Permintaan tertunda</p>
         <p class="stat-value">{{ pendingCount }}</p>
-        <p class="stat-sub">{{ newSinceYesterday }} baru sejak kemarin</p>
+        <p class="stat-sub">Data langsung dari leave request</p>
       </div>
 
       <div class="stat-card">
@@ -336,9 +332,9 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             <Icon icon="material-symbols:arrow-downward" width="12" /> 4m
           </span>
         </div>
-        <p class="stat-label">Rata-rata waktu persetujuan</p>
-        <p class="stat-value">{{ avgApprovalTime }}</p>
-        <p class="stat-sub">Performa seluruh perusahaan</p>
+        <p class="stat-label">Permintaan diterima</p>
+        <p class="stat-value">{{ approvedCount }}</p>
+        <p class="stat-sub">Data langsung dari leave request</p>
       </div>
     </div>
 
@@ -423,6 +419,12 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             </tr>
           </thead>
           <tbody>
+            <tr v-if="isLoading">
+              <td colspan="5" class="empty-row">Memuat data...</td>
+            </tr>
+            <tr v-else-if="errorMessage">
+              <td colspan="5" class="empty-row">{{ errorMessage }}</td>
+            </tr>
             <tr v-for="req in paginatedRequests" :key="req.id">
               <td>
                 <div class="requester">
@@ -451,7 +453,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                     color: leaveTypeById(req.leaveTypeId)?.text,
                   }"
                 >
-                  {{ leaveTypeById(req.leaveTypeId)?.name }}
+                  {{ leaveTypeById(req.leaveTypeId)?.name || req.leaveTypeName || '-' }}
                 </span>
               </td>
               <td class="nowrap">
@@ -494,17 +496,15 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               </td>
             </tr>
 
-            <tr v-if="paginatedRequests.length === 0">
-              <td colspan="5" class="empty-row">
-                Tidak ada permintaan yang cocok dengan filter saat ini.
-              </td>
+            <tr v-if="!isLoading && !errorMessage && paginatedRequests.length === 0">
+              <td colspan="5" class="empty-row">Tidak ada permintaan yang cocok dengan filter saat ini.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="pagination">
-        <button class="page-nav" :disabled="currentPage === 1" @click="currentPage--">
+        <button class="page-nav" :disabled="currentPage === 1 || isLoading" @click="currentPage--; fetchRequests()">
           <Icon icon="material-symbols:chevron-left" width="18" /> Sebelumnya
         </button>
         <div class="page-numbers">
@@ -513,12 +513,12 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             :key="p"
             class="page-num"
             :class="{ 'page-num-active': p === currentPage }"
-            @click="currentPage = p"
+            @click="currentPage = p; fetchRequests()"
           >
             {{ p }}
           </button>
         </div>
-        <button class="page-nav" :disabled="currentPage === totalPages" @click="currentPage++">
+        <button class="page-nav" :disabled="currentPage === totalPages || isLoading" @click="currentPage++; fetchRequests()">
           Berikutnya <Icon icon="material-symbols:chevron-right" width="18" />
         </button>
       </div>
