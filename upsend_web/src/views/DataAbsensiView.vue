@@ -12,9 +12,53 @@ const totalRecords = ref(0)
 const perPage = ref(20)
 
 const locations = ref([])
-const filter = ref({ date: '', location_id: '' })
+const filter = ref({ period: 'all', startDate: '', endDate: '', location_id: '' })
 const searchQuery = ref('')
 const showLocationMenu = ref(false)
+const periodOptions = [
+  { value: 'all', label: 'Semua' },
+  { value: 'today', label: 'Hari Ini' },
+  { value: 'week', label: 'Minggu Ini' },
+  { value: 'month', label: 'Bulan Ini' },
+  { value: 'custom', label: 'Custom' },
+]
+const quickPeriodOptions = periodOptions.slice(0, 4)
+const customPreviousPeriod = ref('all')
+const customStartDate = ref('')
+const customEndDate = ref('')
+const showCustomPanel = ref(false)
+const activeDateField = ref('start')
+const showCalendar = ref(false)
+const visibleMonth = ref(new Date())
+const weekdayLabels = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' })
+
+const calendarMonthLabel = computed(() => monthFormatter.format(visibleMonth.value))
+const todayDateValue = computed(() => formatDateInput(new Date()))
+const calendarDays = computed(() => {
+  const year = visibleMonth.value.getFullYear()
+  const month = visibleMonth.value.getMonth()
+  const firstDay = new Date(year, month, 1).getDay()
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(year, month, index - firstDay + 1)
+    const value = formatDateInput(date)
+    const otherDate = activeDateField.value === 'start' ? customEndDate.value : customStartDate.value
+    const disabledByRange = activeDateField.value === 'start'
+      ? Boolean(otherDate && value > otherDate)
+      : Boolean(otherDate && value < otherDate)
+    const disabled = value > todayDateValue.value || disabledByRange
+
+    return {
+      day: date.getDate(),
+      value,
+      isCurrentMonth: date.getMonth() === month,
+      isToday: value === formatDateInput(new Date()),
+      isSelected: value === (activeDateField.value === 'start' ? customStartDate.value : customEndDate.value),
+      disabled,
+    }
+  })
+})
 
 const locationLabel = computed(() => {
   if (!filter.value.location_id) return 'Semua Lokasi'
@@ -22,10 +66,19 @@ const locationLabel = computed(() => {
   return location?.name || 'Semua Lokasi'
 })
 
+const periodFilteredRecords = computed(() => {
+  const dateRange = dateRangeForPeriod()
+  return records.value.filter((record) => {
+    if (!dateRange.startDate || !dateRange.endDate) return true
+    const recordDate = String(record.date || record.attendance_date || record.check_in_time || '').slice(0, 10)
+    return recordDate >= dateRange.startDate && recordDate <= dateRange.endDate
+  })
+})
+
 const filteredRecords = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  if (!query) return records.value
-  return records.value.filter((record) => record.employee?.name?.toLowerCase().includes(query))
+  if (!query) return periodFilteredRecords.value
+  return periodFilteredRecords.value.filter((record) => record.employee?.name?.toLowerCase().includes(query))
 })
 
 function isLate(record) {
@@ -43,10 +96,10 @@ function isOvertime(record) {
 
 const summary = computed(() => ({
   total: totalRecords.value,
-  onTime: records.value.filter((record) => record.check_in_time && !isLate(record)).length,
-  late: records.value.filter((record) => isLate(record)).length,
-  missed: records.value.filter((record) => !record.check_in_time).length,
-  overtime: records.value.filter((record) => isOvertime(record)).length,
+  onTime: periodFilteredRecords.value.filter((record) => record.check_in_time && !isLate(record)).length,
+  late: periodFilteredRecords.value.filter((record) => isLate(record)).length,
+  missed: periodFilteredRecords.value.filter((record) => !record.check_in_time).length,
+  overtime: periodFilteredRecords.value.filter((record) => isOvertime(record)).length,
 }))
 
 function formatTime(value) {
@@ -63,6 +116,82 @@ function statusFor(record) {
   if (isOvertime(record)) return { label: 'Lembur', className: 'overtime' }
   if (isLate(record)) return { label: 'Terlambat', className: 'late' }
   return { label: 'Tepat Waktu', className: 'on-time' }
+}
+
+function formatDateInput(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatDateDisplay(value) {
+  if (!value) return 'dd / mm / yyyy'
+  const [year, month, day] = value.split('-')
+  return `${day} / ${month} / ${year}`
+}
+
+function parseDateInput(value) {
+  if (!value) return new Date()
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function openCalendar(field) {
+  activeDateField.value = field
+  const value = field === 'start' ? customStartDate.value : customEndDate.value
+  visibleMonth.value = parseDateInput(value)
+  showCalendar.value = true
+}
+
+function changeCalendarMonth(offset) {
+  visibleMonth.value = new Date(
+    visibleMonth.value.getFullYear(),
+    visibleMonth.value.getMonth() + offset,
+    1,
+  )
+}
+
+function selectCalendarDate(day) {
+  if (day.disabled || !day.isCurrentMonth) return
+  if (activeDateField.value === 'start') {
+    customStartDate.value = day.value
+  } else {
+    customEndDate.value = day.value
+  }
+  showCalendar.value = false
+}
+
+function dateRangeForPeriod() {
+  const today = new Date()
+  const todayValue = formatDateInput(today)
+
+  if (filter.value.period === 'all') {
+    return { startDate: '', endDate: '' }
+  }
+
+  if (filter.value.period === 'today') {
+    return { startDate: todayValue, endDate: todayValue }
+  }
+
+  if (filter.value.period === 'week') {
+    const start = new Date(today)
+    const day = start.getDay()
+    const daysSinceMonday = day === 0 ? 6 : day - 1
+    start.setDate(today.getDate() - daysSinceMonday)
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6)
+    return { startDate: formatDateInput(start), endDate: formatDateInput(end) }
+  }
+
+  if (filter.value.period === 'month') {
+    return {
+      startDate: formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
+      endDate: formatDateInput(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+    }
+  }
+
+  return { startDate: filter.value.startDate, endDate: filter.value.endDate }
 }
 
 function handleExport() {
@@ -86,7 +215,12 @@ async function fetchAttendance(page = 1) {
       page,
       per_page: perPage.value,
     }
-    if (filter.value.date) params.date = filter.value.date
+    const dateRange = dateRangeForPeriod()
+    if (dateRange.startDate && dateRange.endDate) {
+      params.start_date = dateRange.startDate
+      params.end_date = dateRange.endDate
+      if (filter.value.period === 'today') params.date = dateRange.startDate
+    }
     if (filter.value.location_id) params.location_id = filter.value.location_id
 
     const res = await api.get('/attendances', { params })
@@ -114,6 +248,54 @@ function nextPage() {
 }
 
 function applyFilters() {
+  if (
+    filter.value.period === 'custom'
+    && (!filter.value.startDate
+      || !filter.value.endDate
+      || filter.value.startDate > filter.value.endDate
+      || filter.value.startDate > todayDateValue.value
+      || filter.value.endDate > todayDateValue.value)
+  ) return
+  fetchAttendance(1)
+}
+
+function selectPeriod(period) {
+  if (period === 'custom') {
+    customPreviousPeriod.value = filter.value.period === 'custom'
+      ? customPreviousPeriod.value
+      : filter.value.period
+    customStartDate.value = filter.value.startDate
+    customEndDate.value = filter.value.endDate
+    filter.value.period = period
+    showCustomPanel.value = true
+    return
+  }
+
+  filter.value.period = period
+  showCustomPanel.value = false
+  if (period !== 'custom') applyFilters()
+}
+
+function cancelCustomPeriod() {
+  filter.value.period = customPreviousPeriod.value
+  customStartDate.value = filter.value.startDate
+  customEndDate.value = filter.value.endDate
+  showCustomPanel.value = false
+}
+
+function saveCustomPeriod() {
+  if (
+    !customStartDate.value
+    || !customEndDate.value
+    || customStartDate.value > customEndDate.value
+    || customStartDate.value > todayDateValue.value
+    || customEndDate.value > todayDateValue.value
+  ) return
+  filter.value.startDate = customStartDate.value
+  filter.value.endDate = customEndDate.value
+  filter.value.period = 'custom'
+  showCalendar.value = false
+  showCustomPanel.value = false
   fetchAttendance(1)
 }
 
@@ -123,6 +305,7 @@ function toggleLocationMenu() {
 
 function closeLocationMenu() {
   showLocationMenu.value = false
+  showCalendar.value = false
 }
 
 function selectLocation(id) {
@@ -153,7 +336,90 @@ onBeforeUnmount(() => {
 
     <section class="panel table-panel">
       <div class="filter-bar">
-        <div class="filter-title"><span>Tanggal</span><input type="date" v-model="filter.date" @change="applyFilters" /></div>
+        <div class="period-filter">
+          <span>Periode</span>
+          <div class="period-controls">
+            <div class="period-segmented">
+              <button
+                v-for="option in quickPeriodOptions"
+                :key="option.value"
+                type="button"
+                :class="{ active: filter.period === option.value }"
+                @click="selectPeriod(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <div class="custom-period">
+              <button
+                type="button"
+                class="custom-period-button"
+                :class="{ active: filter.period === 'custom' }"
+                @click="selectPeriod('custom')"
+              >
+                <Icon icon="material-symbols:calendar-today-outline" width="16" height="16" />
+                Custom
+              </button>
+              <div v-if="showCustomPanel" class="custom-date-range">
+                <div class="date-range-fields">
+                  <label>
+                    <span>Dari</span>
+                    <button type="button" class="date-field" :class="{ focused: activeDateField === 'start' && showCalendar }" @click.stop="openCalendar('start')">
+                      {{ formatDateDisplay(customStartDate) }}
+                      <Icon icon="material-symbols:calendar-today-outline" width="16" height="16" />
+                    </button>
+                  </label>
+                  <span class="range-separator">-</span>
+                  <label>
+                    <span>Sampai</span>
+                    <button type="button" class="date-field" :class="{ focused: activeDateField === 'end' && showCalendar }" @click.stop="openCalendar('end')">
+                      {{ formatDateDisplay(customEndDate) }}
+                      <Icon icon="material-symbols:calendar-today-outline" width="16" height="16" />
+                    </button>
+                  </label>
+                  <div v-if="showCalendar" class="calendar-popup" :class="{ 'calendar-for-end': activeDateField === 'end' }" @click.stop>
+                    <div class="calendar-header">
+                      <button type="button" aria-label="Bulan sebelumnya" @click="changeCalendarMonth(-1)">
+                        <Icon icon="material-symbols:chevron-left-rounded" width="20" height="20" />
+                      </button>
+                      <strong>{{ calendarMonthLabel }}</strong>
+                      <button type="button" aria-label="Bulan berikutnya" @click="changeCalendarMonth(1)">
+                        <Icon icon="material-symbols:chevron-right-rounded" width="20" height="20" />
+                      </button>
+                    </div>
+                    <div class="calendar-weekdays">
+                      <span v-for="weekday in weekdayLabels" :key="weekday">{{ weekday }}</span>
+                    </div>
+                    <div class="calendar-grid">
+                      <button
+                        v-for="day in calendarDays"
+                        :key="day.value"
+                        type="button"
+                        class="calendar-day"
+                        :class="{ muted: !day.isCurrentMonth, today: day.isToday, selected: day.isSelected }"
+                        :disabled="day.disabled"
+                        @click="selectCalendarDate(day)"
+                      >
+                        {{ day.day }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="custom-date-actions">
+                  <button type="button" class="cancel-button" @click="cancelCustomPeriod">Batal</button>
+                  <button
+                    type="button"
+                    class="save-button"
+                    :disabled="!customStartDate || !customEndDate || customStartDate > customEndDate"
+                    @click="saveCustomPeriod"
+                  >
+                    Simpan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="location-select" @click.stop="toggleLocationMenu">
           <span>{{ locationLabel }}</span>
           <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
@@ -304,23 +570,56 @@ onBeforeUnmount(() => {
   padding: 0;
   overflow: visible;
 }
-.filter-title { display: flex; flex-direction: column; gap: 5px; }
-.filter-title span { color: var(--ink-soft); font-size: 11px; }
+.period-filter { display: flex; flex-direction: column; gap: 5px; }
+.period-filter > span { color: var(--ink-soft); font-size: 11px; }
+.period-controls { display: flex; align-items: center; gap: 8px; }
+.period-segmented { display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.period-segmented button { height: 32px; padding: 0 16px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.period-segmented button.active { background: var(--blue-900); color: #fff; }
+.custom-period { position: relative; }
+.custom-period-button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink-soft); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.custom-period-button.active { border-color: var(--blue-900); background: var(--blue-900); color: #fff; }
 .location-select,
-.filter-title input,
 .search { height: 38px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
-.location-select { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: max-content; min-width: 170px; max-width: none; min-height: 40px; padding: 10px 16px; border-radius: 10px; font-size: 14px; line-height: 1.2; cursor: pointer; }
+.location-select { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: max-content; min-width: 150px; min-height: 40px; padding: 10px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; line-height: 1.2; cursor: pointer; }
 .location-select > span { white-space: nowrap; }
-.location-select > .iconify { flex-shrink: 0; color: var(--ink-soft); }
-.location-menu { position: absolute; z-index: 20; top: calc(100% + 7px); left: 0; width: max-content; min-width: 100%; max-height: 300px; overflow-y: auto; padding: 6px 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 28px rgba(47, 59, 105, 0.14); }
-.location-item { display: block; width: 100%; padding: 10px 16px; border: 0; background: transparent; color: var(--ink); text-align: left; white-space: nowrap; font: inherit; font-size: 14px; cursor: pointer; }
-.location-item:hover { background: #eef0f7; color: var(--blue-900); }
-.filter-title input { padding: 8px 11px; font-size: 13px; font-family: inherit; }
-.filter-title input { width: 150px; min-width: 150px; }
+.location-select > .iconify { width: 14px; height: 14px; flex-shrink: 0; color: var(--ink-soft); }
+.location-menu { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: 100%; max-height: 300px; overflow-y: auto; padding: 6px 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 30px rgba(0, 0, 0, 0.08); }
+.location-item { display: block; width: 100%; padding: 10px 14px; border: 0; background: transparent; color: var(--ink); text-align: left; font: inherit; font-size: 14px; cursor: pointer; }
+.location-item:hover { background: #eef0f7; }
+.custom-date-range { position: absolute; z-index: 40; top: calc(100% + 14px); left: 0; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; min-width: 356px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); box-shadow: 0 16px 30px rgba(0, 0, 0, 0.1); }
+.date-range-fields { position: relative; display: flex; align-items: flex-end; gap: 12px; width: 100%; }
+.custom-date-range label { display: flex; flex-direction: column; gap: 5px; }
+.custom-date-range label span { color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+.date-field { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; width: 148px; min-width: 148px; height: 40px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.date-field.focused { border-color: var(--blue-900); box-shadow: 0 0 0 3px rgba(47, 59, 105, 0.12); }
+.date-field .iconify { flex-shrink: 0; color: var(--ink-soft); }
+.range-separator { padding-bottom: 11px; color: var(--ink-soft); font-size: 14px; font-weight: 600; }
+.custom-date-actions { display: flex; justify-content: flex-end; gap: 8px; width: 100%; margin-top: 4px; }
+.custom-date-actions button { height: 34px; padding: 0 14px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cancel-button { border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); }
+.save-button { border: 1px solid var(--blue-900); background: var(--blue-900); color: #fff; }
+.save-button:disabled { opacity: 0.45; cursor: not-allowed; }
+.calendar-popup { position: absolute; z-index: 50; top: calc(100% + 10px); left: 0; width: 328px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); box-shadow: 0 18px 36px rgba(28, 28, 25, 0.16); }
+.calendar-popup.calendar-for-end { left: auto; right: 0; }
+.calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.calendar-header strong { color: var(--ink); font-size: 15px; text-transform: capitalize; }
+.calendar-header button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.calendar-header button:hover { background: var(--bg); color: var(--blue-900); }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calendar-weekdays { margin-bottom: 6px; }
+.calendar-weekdays span { color: var(--ink-soft); font-size: 11px; font-weight: 700; text-align: center; }
+.calendar-weekdays span:first-child, .calendar-weekdays span:last-child { color: #c65a5a; }
+.calendar-day { display: grid; place-items: center; width: 100%; aspect-ratio: 1; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.calendar-day:hover:not(:disabled) { background: #eef0f7; color: var(--blue-900); }
+.calendar-day.muted { color: #b7bcc7; }
+.calendar-day.today { box-shadow: inset 0 0 0 1px var(--blue-900); }
+.calendar-day.selected { background: var(--blue-900); color: #fff; font-weight: 700; }
+.calendar-day:disabled { color: #d5d8df; cursor: not-allowed; }
 .search { display: flex; align-items: center; gap: 8px; padding: 10px 16px; width: 280px; min-width: 280px; margin-left: auto; background: var(--bg); }
 .search svg, .search .iconify { width: 18px; height: 18px; color: var(--ink-soft); flex-shrink: 0; }
 .search input { border: 0; outline: 0; width: 100%; color: var(--ink); font-size: 14px; font-family: inherit; background: transparent; }
-.export-btn { height: 40px; margin-left: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; border: 0; border-radius: 8px; background: #f2bd48; color: #392d0d; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.export-btn { height: 40px; margin-left: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; border: 0; border-radius: 8px; background: #2F3B69; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .export-btn svg { width: 16px; height: 16px; }
 table {
   width: 100%;
@@ -445,6 +744,11 @@ tbody tr:last-child td {
   }
 @media (max-width: 700px) {
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .custom-date-range { left: auto; right: 0; min-width: min(356px, calc(100vw - 32px)); }
+  .date-range-fields { gap: 8px; }
+  .date-range-fields label { flex: 1; }
+  .date-field { width: 100%; min-width: 0; }
+  .calendar-popup { left: auto; right: 0; width: min(328px, calc(100vw - 32px)); }
   .search { margin-left: 0; width: 100%; min-width: 0; }
   .export-btn { margin-left: 0; }
   .table-panel { overflow-x: auto; }
