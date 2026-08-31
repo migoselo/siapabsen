@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
@@ -15,6 +15,13 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const lastPage = ref(1)
 const totalEmployees = ref(0)
+const perPage = ref(20)
+const pageInput = ref(1)
+
+watch(currentPage, (newPage) => {
+  pageInput.value = newPage
+})
+
 const showModal = ref(false)
 const saving = ref(false)
 const locations = ref([])
@@ -27,7 +34,6 @@ const form = ref({
   home_location_id: '',
 })
 
-// 🔽 TAMBAHAN: toggle show/hide password
 const showPassword = ref(false)
 
 const filteredEmployees = computed(() => {
@@ -46,7 +52,7 @@ function initials(name) {
 async function fetchEmployees(page = 1) {
   loading.value = true
   try {
-    const res = await api.get('/users', { params: { page, per_page: 10 } })
+    const res = await api.get('/users', { params: { page, per_page: perPage.value } })
     employees.value = res.data.data || []
     totalEmployees.value = res.data.total || 0
     currentPage.value = res.data.current_page || page
@@ -72,6 +78,20 @@ function nextPage() {
   if (currentPage.value < lastPage.value) {
     fetchEmployees(currentPage.value + 1)
   }
+}
+
+function goToInputPage() {
+  let page = Number(pageInput.value)
+  if (isNaN(page) || page < 1) page = 1
+  if (page > lastPage.value) page = lastPage.value
+  pageInput.value = page
+  if (page !== currentPage.value) {
+    fetchEmployees(page)
+  }
+}
+
+function changePerPage() {
+  fetchEmployees(1)
 }
 
 function openAddModal() {
@@ -178,18 +198,54 @@ onMounted(() => {
         </tbody>
       </table>
 
-      <div class="table-footer">
-        <span>Menampilkan {{ filteredEmployees.length }} dari {{ totalEmployees }} karyawan</span>
-        <div class="pager">
-          <button :disabled="currentPage === 1" @click="prevPage">
-            <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
-          </button>
-          <div style="display:flex;align-items:center;padding:0 8px;font-weight:600;color:var(--ink-soft);">
-            Halaman {{ currentPage }} / {{ lastPage }}
+            <div class="table-footer">
+        <div class="table-footer-content">
+          <div class="pager">
+            <button
+              type="button"
+              class="pager-btn"
+              :disabled="currentPage === 1 || loading"
+              @click="prevPage"
+              title="Halaman Sebelumnya"
+            >
+              <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
+            </button>
+
+            <div class="page-input-wrapper">
+              <span>Halaman</span>
+              <input
+                type="number"
+                v-model.number="pageInput"
+                @keydown.enter="goToInputPage"
+                @blur="goToInputPage"
+                min="1"
+                :max="lastPage"
+                class="page-input"
+              />
+              <span>dari {{ lastPage }}</span>
+            </div>
+
+            <button
+              type="button"
+              class="pager-btn"
+              :disabled="currentPage === lastPage || loading"
+              @click="nextPage"
+              title="Halaman Berikutnya"
+            >
+              <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
+            </button>
           </div>
-          <button :disabled="currentPage === lastPage" @click="nextPage">
-            <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
-          </button>
+
+          <div class="per-page-select">
+            <select v-model="perPage" @change="changePerPage" :disabled="loading">
+              <option :value="10">10 baris</option>
+              <option :value="20">20 baris</option>
+              <option :value="50">50 baris</option>
+              <option :value="100">100 baris</option>
+            </select>
+          </div>
+
+          <span class="total-records-info">{{ totalEmployees }} karyawan</span>
         </div>
       </div>
     </section>
@@ -407,36 +463,119 @@ tbody tr:last-child td {
 
 .table-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  padding: 16px 24px;
+  padding: 12px 20px;
   font-size: 13px;
   color: var(--ink-soft);
   border-top: 1px solid var(--line);
   background: var(--bg);
+  border-radius: 0 0 15px 15px;
 }
+
+.table-footer-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .pager {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
 }
-.pager button {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+
+.pager-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
   border: 1px solid var(--line);
-  background: #fff;
-  display: flex;
+  background: var(--card);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-}
-.pager button svg,
-.pager button .iconify {
+  transition: all 0.15s ease;
   color: var(--ink-soft);
 }
-.pager button:disabled {
+
+.pager-btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: var(--blue-900);
+  color: var(--blue-900);
+}
+
+.pager-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.page-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.page-input {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  width: 44px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.page-input:focus {
+  border-color: var(--blue-900);
+  box-shadow: 0 0 0 2px rgba(47, 59, 105, 0.12);
+}
+
+.per-page-select select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+.per-page-select select:focus {
+  border-color: var(--blue-900);
+}
+
+.per-page-select select option {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--card);
+}
+
+.total-records-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 /* ================= MODAL ================= */

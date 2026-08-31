@@ -5,66 +5,91 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 
-/*
-  Free map picker using Leaflet + OpenStreetMap tiles + Nominatim search.
-  No API key required.
-*/
-
+// Data & State Utama
 const locations = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
-const currentPage = ref(1)
-const perPage = ref(10)
-const totalCount = ref(0)
 
+// Pagination State (Sama persis dengan dataabsensi)
+const currentPage = ref(1)
+const lastPage = ref(1)
+const totalRecords = ref(0)
+const perPage = ref(20)
+const pageInput = ref(1)
+
+// Filter & Pagination Logic
 const filteredLocations = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return locations.value
-  return locations.value.filter((l) => {
-    const addressText = String(l.address || '').toLowerCase()
-    return (
-      l.name.toLowerCase().includes(q)
-      || addressText.includes(q)
-      || String(l.latitude).toLowerCase().includes(q)
-      || String(l.longitude).toLowerCase().includes(q)
-      || String(l.radius_meter || '').toLowerCase().includes(q)
-    )
-  })
-})
+  let result = locations.value
 
-const totalPages = computed(() => {
-  const total = Math.max(1, Math.ceil(filteredLocations.value.length / perPage.value))
-  if (currentPage.value > total) currentPage.value = total
-  return total
-})
+  if (q) {
+    result = result.filter((l) => {
+      const addressText = String(l.address || '').toLowerCase()
+      return (
+        l.name.toLowerCase().includes(q) ||
+        addressText.includes(q) ||
+        String(l.latitude).toLowerCase().includes(q) ||
+        String(l.longitude).toLowerCase().includes(q) ||
+        String(l.radius_meter || '')
+          .toLowerCase()
+          .includes(q)
+      )
+    })
+  }
 
-const paginatedLocations = computed(() => {
+  // Hitung total halaman berdasarkan data yang tersaring
+  lastPage.value = Math.ceil(result.length / perPage.value) || 1
+
+  // Potong array sesuai halaman saat ini (Client-side pagination)
   const start = (currentPage.value - 1) * perPage.value
-  return filteredLocations.value.slice(start, start + perPage.value)
+  return result.slice(start, start + perPage.value)
 })
 
-const displayTotal = computed(() => {
-  return searchQuery.value.trim() ? filteredLocations.value.length : (totalCount.value || locations.value.length)
+// Watcher untuk menyinkronkan input halaman
+watch(currentPage, (newPage) => {
+  pageInput.value = newPage
 })
 
+watch([searchQuery], () => {
+  currentPage.value = 1
+  pageInput.value = 1
+})
+
+// Fungsi Aksi Pagination
 function prevPage() {
-  if (currentPage.value > 1) currentPage.value -= 1
+  if (currentPage.value > 1) {
+    currentPage.value--
+    pageInput.value = currentPage.value
+  }
 }
 
 function nextPage() {
-  if (currentPage.value < totalPages.value) currentPage.value += 1
+  if (currentPage.value < lastPage.value) {
+    currentPage.value++
+    pageInput.value = currentPage.value
+  }
 }
 
-watch([() => searchQuery.value, () => filteredLocations.value.length], () => {
-  currentPage.value = 1
-})
+function goToInputPage() {
+  let page = Number(pageInput.value)
+  if (isNaN(page) || page < 1) page = 1
+  if (page > lastPage.value) page = lastPage.value
+  currentPage.value = page
+  pageInput.value = page
+}
 
+function changePerPage() {
+  currentPage.value = 1
+  pageInput.value = 1
+}
+
+// Fetch API
 async function fetchLocations() {
   loading.value = true
   try {
     const res = await api.get('/locations')
-    locations.value = res.data
-    totalCount.value = Array.isArray(res.data) ? res.data.length : 0
+    locations.value = res.data || []
+    totalRecords.value = Array.isArray(res.data) ? res.data.length : 0
   } catch (err) {
     console.error('Gagal mengambil data lokasi:', err)
   } finally {
@@ -73,7 +98,7 @@ async function fetchLocations() {
 }
 
 function onSearchInput() {
-  // TODO: server-side search
+  // Tempat pencarian server-side jika diperlukan di masa depan
 }
 
 /* ---------------- Modal Tambah Lokasi Baru ---------------- */
@@ -171,7 +196,8 @@ function useCurrentLocation() {
   navigator.geolocation.getCurrentPosition(
     (position) => {
       setCoordinates(position.coords.latitude, position.coords.longitude)
-      if (mapInstance) mapInstance.setView([position.coords.latitude, position.coords.longitude], 15)
+      if (mapInstance)
+        mapInstance.setView([position.coords.latitude, position.coords.longitude], 15)
       geolocating.value = false
     },
     () => {
@@ -275,7 +301,8 @@ onBeforeUnmount(() => destroyMap())
           <tr v-else-if="filteredLocations.length === 0">
             <td colspan="5" class="empty-cell">Tidak ada lokasi ditemukan.</td>
           </tr>
-          <tr v-for="loc in paginatedLocations" :key="loc.id">
+          <!-- UBAH DI SINI: panggil filteredLocations langsung -->
+          <tr v-for="loc in filteredLocations" :key="loc.id">
             <td>
               <div class="loc-name">{{ loc.name }}</div>
               <div class="loc-id">ID: {{ loc.id }}</div>
@@ -283,26 +310,67 @@ onBeforeUnmount(() => destroyMap())
             <td>{{ loc.latitude }}</td>
             <td>{{ loc.longitude }}</td>
             <td>{{ loc.radius_meter ?? '-' }}</td>
-            <td>{{ loc.created_at ? new Date(loc.created_at).toLocaleDateString('id-ID') : '-' }}</td>
+            <td>
+              {{ loc.created_at ? new Date(loc.created_at).toLocaleDateString('id-ID') : '-' }}
+            </td>
           </tr>
         </tbody>
       </table>
 
       <div class="table-footer">
-        <span>Menampilkan {{ paginatedLocations.length }} dari {{ displayTotal }} lokasi</span>
-        <div class="pager">
-          <button :disabled="currentPage === 1" @click="prevPage">
-            <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
-          </button>
-          <div style="display:flex;align-items:center;padding:0 8px;font-weight:600;color:var(--ink-soft);">Halaman {{ currentPage }} / {{ totalPages }}</div>
-          <button :disabled="currentPage === totalPages" @click="nextPage">
-            <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
-          </button>
+        <div class="table-footer-content">
+          <!-- Kontrol Pagination -->
+          <div class="pager">
+            <button
+              type="button"
+              class="pager-btn"
+              :disabled="currentPage === 1 || loading"
+              @click="prevPage"
+              title="Halaman Sebelumnya"
+            >
+              <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
+            </button>
+
+            <div class="page-input-wrapper">
+              <span>Halaman</span>
+              <input
+                type="number"
+                v-model.number="pageInput"
+                @keydown.enter="goToInputPage"
+                @blur="goToInputPage"
+                min="1"
+                :max="lastPage"
+                class="page-input"
+              />
+              <span>dari {{ lastPage }}</span>
+            </div>
+
+            <button
+              type="button"
+              class="pager-btn"
+              :disabled="currentPage === lastPage || loading"
+              @click="nextPage"
+              title="Halaman Berikutnya"
+            >
+              <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
+            </button>
+          </div>
+
+          <!-- Dropdown Per Page / Rows -->
+          <div class="per-page-select">
+            <select v-model="perPage" @change="changePerPage" :disabled="loading">
+              <option :value="10">10 baris</option>
+              <option :value="20">20 baris</option>
+              <option :value="50">50 baris</option>
+              <option :value="100">100 baris</option>
+            </select>
+          </div>
+
+          <!-- Informasi Total Records -->
+          <span class="total-records-info">{{ locations.length }} catatan</span>
         </div>
       </div>
     </section>
-
-    
 
     <!-- ================= MODAL TAMBAH LOKASI ================= -->
     <Teleport to="body">
@@ -351,11 +419,21 @@ onBeforeUnmount(() => destroyMap())
                     placeholder="Cari nama tempat / alamat"
                     @keydown.enter.prevent="searchLocation"
                   />
-                  <button class="map-search-btn" type="button" @click="searchLocation" :disabled="searchingLocation">
+                  <button
+                    class="map-search-btn"
+                    type="button"
+                    @click="searchLocation"
+                    :disabled="searchingLocation"
+                  >
                     <Icon icon="material-symbols:search-rounded" width="16" height="16" />
                   </button>
                 </div>
-                <button class="map-action-btn" type="button" @click="useCurrentLocation" :disabled="geolocating">
+                <button
+                  class="map-action-btn"
+                  type="button"
+                  @click="useCurrentLocation"
+                  :disabled="geolocating"
+                >
                   <Icon icon="material-symbols:my-location-rounded" width="16" height="16" />
                   {{ geolocating ? 'Mengambil lokasi...' : 'Gunakan lokasi saya' }}
                 </button>
@@ -397,8 +475,18 @@ onBeforeUnmount(() => destroyMap())
   --bg: #f7f8fa;
   --card: #ffffff;
 }
+.lokasi {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
 .lokasi * {
   box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.lokasi button,
+.lokasi input,
+.lokasi select,
+.lokasi textarea {
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .panel {
@@ -523,35 +611,119 @@ tbody tr:last-child td {
 
 .table-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  padding: 16px 24px;
+  padding: 12px 20px;
   font-size: 13px;
   color: var(--ink-soft);
   border-top: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 0 0 15px 15px;
 }
+
+.table-footer-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .pager {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
 }
-.pager button {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+
+.pager-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
   border: 1px solid var(--line);
-  background: #fff;
-  display: flex;
+  background: var(--card);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-}
-.pager button svg,
-.pager button .iconify {
+  transition: all 0.15s ease;
   color: var(--ink-soft);
 }
-.pager button:disabled {
+
+.pager-btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: var(--blue-900);
+  color: var(--blue-900);
+}
+
+.pager-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.page-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.page-input {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  width: 44px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.page-input:focus {
+  border-color: var(--blue-900);
+  box-shadow: 0 0 0 2px rgba(47, 59, 105, 0.12);
+}
+
+.per-page-select select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+.per-page-select select:focus {
+  border-color: var(--blue-900);
+}
+
+.per-page-select select option {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--card);
+}
+
+.total-records-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 .add-btn-row {
@@ -593,6 +765,16 @@ tbody tr:last-child td {
 
 /* ================= MODAL ================= */
 .modal-overlay {
+  --blue-900: #2f3b69;
+  --red: #d91e2e;
+  --red-bg: #fdebed;
+  --mint-bg: #ddf5ec;
+  --mint-text: #177a5b;
+  --ink: #1c1c19;
+  --ink-soft: #667085;
+  --line: #d9dde5;
+  --bg: #f7f8fa;
+  --card: #ffffff;
   position: fixed;
   inset: 0;
   background: rgba(28, 32, 55, 0.55);
@@ -601,7 +783,15 @@ tbody tr:last-child td {
   justify-content: center;
   z-index: 1000;
   padding: 24px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
+.modal-overlay button,
+.modal-overlay input,
+.modal-overlay select,
+.modal-overlay textarea {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
 .modal {
   width: 100%;
   max-width: 620px;
@@ -611,13 +801,13 @@ tbody tr:last-child td {
   border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 /* Thinner, subtle scrollbar for modal while preserving scroll behavior */
 .modal {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0,0,0,0.16) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
 }
 .modal::-webkit-scrollbar {
   width: 8px;
@@ -626,11 +816,11 @@ tbody tr:last-child td {
   background: transparent;
 }
 .modal::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.12);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 8px;
 }
 .modal::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.18);
+  background: rgba(0, 0, 0, 0.18);
 }
 .modal-head {
   display: flex;

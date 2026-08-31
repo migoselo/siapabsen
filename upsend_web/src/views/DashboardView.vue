@@ -1,22 +1,14 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
-
-/*
-  View ini cuma berisi KONTEN halaman (filter, kartu statistik, chart,
-  tabel). Sidebar & topbar sudah ditangani MainLayout.vue lewat
-  router-view, jadi tidak diulang di sini — ikut pola project satunya
-  (lihat layouts/MainLayout.vue di sana).
-*/
 
 const locations = ref([])
 const selectedLocationId = ref('')
 const showLocationMenu = ref(false)
+
 const locationLabel = computed(() => {
-  if (!selectedLocationId.value) {
-    return 'Semua Lokasi'
-  }
+  if (!selectedLocationId.value) return 'Semua Lokasi'
   const location = locations.value.find((loc) => loc.id === Number(selectedLocationId.value))
   return location?.name ?? 'Semua Lokasi'
 })
@@ -47,10 +39,19 @@ const statusMeta = {
 
 const chartDayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 const selectedTrendDate = ref('')
+
 const highlightIndex = computed(() => {
-  const selectedIndex = chartData.value.findIndex((item) => item.date === selectedTrendDate.value)
-  return selectedIndex >= 0 ? selectedIndex : chartData.value.length - 1
+  const todayStr = new Date().toLocaleDateString('sv-SE')
+  const todayIndex = chartData.value.findIndex((item) => item.date === todayStr)
+
+  return todayIndex >= 0 ? todayIndex : chartData.value.length - 1
 })
+
+const selectedIndex = computed(() => {
+  if (!selectedTrendDate.value) return -1
+  return chartData.value.findIndex((item) => item.date === selectedTrendDate.value)
+})
+
 const chartMax = computed(() => {
   const values = chartData.value.map((item) => item.count ?? 0)
   return values.length ? Math.max(...values, 1) : 1
@@ -63,17 +64,37 @@ const periods = [
 ]
 const activePeriod = ref('hari')
 const activityPeriodLabel = computed(() => {
-  if (selectedTrendDate.value) return selectedTrendDate.value
+  if (selectedTrendDate.value) {
+    const todayStr = new Date().toLocaleDateString('sv-SE')
+    if (selectedTrendDate.value === todayStr) {
+      return 'Hari Ini'
+    }
+    return selectedTrendDate.value
+  }
+
   return periods.find((period) => period.key === activePeriod.value)?.label ?? 'Hari Ini'
 })
 
 const searchQuery = ref('')
 
-// Search dilakukan di client karena belum ada endpoint search terpisah di backend
+// Pagination state
+const currentPage = ref(1)
+const lastPage = ref(1)
+const perPage = ref(20)
+const pageInput = ref(1)
+
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return employees.value
-  return employees.value.filter((e) => e.name.toLowerCase().includes(q))
+  let result = employees.value
+
+  if (q) {
+    result = result.filter((e) => e.name.toLowerCase().includes(q))
+  }
+
+  lastPage.value = Math.ceil(result.length / perPage.value) || 1
+
+  const start = (currentPage.value - 1) * perPage.value
+  return result.slice(start, start + perPage.value)
 })
 
 function initials(name) {
@@ -148,7 +169,7 @@ async function fetchDashboard() {
 }
 
 async function selectTrendDay(item) {
-  if (!item?.date || selectedTrendDate.value === item.date) return
+  if (!item?.date) return
 
   selectedTrendDate.value = item.date
   loading.value = true
@@ -182,10 +203,40 @@ function selectLocation(id) {
 
 function selectPeriod(key) {
   activePeriod.value = key
-  // TODO: backend today-attendance/summary baru dukung "hari ini" (tanggal tunggal).
-  // Filter minggu/bulan belum ada di controller, jadi belum berefek ke data.
   fetchDashboard()
 }
+
+function prevPage() {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    pageInput.value = currentPage.value
+  }
+}
+
+function nextPage() {
+  if (currentPage.value < lastPage.value) {
+    currentPage.value++
+    pageInput.value = currentPage.value
+  }
+}
+
+function goToInputPage() {
+  let page = Number(pageInput.value)
+  if (isNaN(page) || page < 1) page = 1
+  if (page > lastPage.value) page = lastPage.value
+  currentPage.value = page
+  pageInput.value = page
+}
+
+function changePerPage() {
+  currentPage.value = 1
+  pageInput.value = 1
+}
+
+watch([selectedTrendDate, selectedLocationId, searchQuery], () => {
+  currentPage.value = 1
+  pageInput.value = 1
+})
 
 onMounted(() => {
   formatCurrentDate()
@@ -314,14 +365,24 @@ onBeforeUnmount(() => {
               @keydown.enter="selectTrendDay(item)"
               @keydown.space.prevent="selectTrendDay(item)"
             >
-              <div v-if="idx === highlightIndex" class="tick-tooltip">
-                <span>Hari</span>
-                <span>Ini</span>
+              <div
+                v-if="idx === selectedIndex || (selectedIndex === -1 && idx === highlightIndex)"
+                class="tick-tooltip"
+              >
+                <template v-if="item.date === new Date().toLocaleDateString('sv-SE')">
+                  <span>Hari</span>
+                  <span>Ini</span>
+                </template>
+                <template v-else>
+                  <span>{{ item.date }}</span>
+                </template>
               </div>
               <div class="tick-value">{{ item.count ?? 0 }}</div>
               <div
                 class="tick"
-                :class="{ active: idx === highlightIndex }"
+                :class="{
+                  active: idx === selectedIndex || (selectedIndex === -1 && idx === highlightIndex),
+                }"
                 :style="{ height: (((item.count ?? 0) / chartMax) * 100 || 10) + '%' }"
               ></div>
               <div class="tick-label">{{ item.label }}</div>
@@ -396,14 +457,53 @@ onBeforeUnmount(() => {
       </table>
 
       <div class="table-footer">
-        <span>Menampilkan {{ filteredEmployees.length }} aktivitas</span>
-        <div class="pager">
-          <button disabled>
-            <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
-          </button>
-          <button>
-            <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
-          </button>
+        <div class="table-footer-content">
+          <div class="pager">
+            <button
+              type="button"
+              class="pager-btn"
+              :disabled="currentPage === 1 || loading"
+              @click="prevPage"
+              title="Halaman Sebelumnya"
+            >
+              <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
+            </button>
+
+            <div class="page-input-wrapper">
+              <span>Halaman</span>
+              <input
+                type="number"
+                v-model.number="pageInput"
+                @keydown.enter="goToInputPage"
+                @blur="goToInputPage"
+                min="1"
+                :max="lastPage"
+                class="page-input"
+              />
+              <span>dari {{ lastPage }}</span>
+            </div>
+
+            <button
+              type="button"
+              class="pager-btn"
+              :disabled="currentPage === lastPage || loading"
+              @click="nextPage"
+              title="Halaman Berikutnya"
+            >
+              <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
+            </button>
+          </div>
+
+          <div class="per-page-select">
+            <select v-model="perPage" @change="changePerPage" :disabled="loading">
+              <option :value="10">10 baris</option>
+              <option :value="20">20 baris</option>
+              <option :value="50">50 baris</option>
+              <option :value="100">100 baris</option>
+            </select>
+          </div>
+
+          <span class="total-records-info">{{ employees.length }} catatan</span>
         </div>
       </div>
     </section>
@@ -684,14 +784,6 @@ onBeforeUnmount(() => {
   color: var(--ink-soft);
   margin: 0;
 }
-.link {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--blue-900);
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-}
 .chart-wrap {
   margin-top: 22px;
   height: 190px;
@@ -765,100 +857,6 @@ onBeforeUnmount(() => {
   height: 14px;
   background: #d8d6cf;
   transform: translateX(-50%);
-}
-.chart-days {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 14px;
-  font-size: 12.5px;
-  color: var(--ink-soft);
-  font-weight: 500;
-}
-
-.insight {
-  background: linear-gradient(165deg, var(--blue-900), #273258);
-  color: #fff;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: hidden;
-}
-.insight::after {
-  content: '';
-  position: absolute;
-  right: -40px;
-  bottom: -40px;
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  pointer-events: none;
-}
-.insight h2 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 12px;
-  color: #fff;
-}
-.insight p.desc {
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: #d9def0;
-  margin: 0 0 18px;
-}
-.insight-item {
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 12px;
-  padding: 12px 14px;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-.insight-item .ic {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.insight-item .ic svg,
-.insight-item .ic .iconify {
-  width: 16px;
-  height: 16px;
-  stroke: #eaa93d;
-  color: #eaa93d;
-}
-.insight-item .lbl {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #b9c1dd;
-  margin-bottom: 2px;
-}
-.insight-item .val {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #fff;
-}
-.insight-cta {
-  margin-top: auto;
-  background: var(--gold);
-  color: #3b2a05;
-  border: none;
-  padding: 13px;
-  border-radius: 11px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.insight-cta:hover {
-  background: var(--gold-dark);
 }
 
 .table-panel {
@@ -1020,38 +1018,119 @@ tbody tr:last-child td {
 
 .table-footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  padding: 16px 24px;
+  padding: 12px 20px;
   font-size: 13px;
   color: var(--ink-soft);
   border-top: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 0 0 15px 15px;
 }
+
+.table-footer-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .pager {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
 }
-.pager button {
+
+.pager-btn {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid var(--line);
-  background: #fff;
-  display: flex;
+  background: var(--card);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-}
-.pager button svg,
-.pager button .iconify {
-  width: 14px;
-  height: 14px;
-  stroke: var(--ink-soft);
+  transition: all 0.15s ease;
   color: var(--ink-soft);
 }
-.pager button:disabled {
+
+.pager-btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: var(--blue-900);
+  color: var(--blue-900);
+}
+
+.pager-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.page-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.page-input {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  width: 44px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.page-input:focus {
+  border-color: var(--blue-900);
+  box-shadow: 0 0 0 2px rgba(47, 59, 105, 0.12);
+}
+
+.per-page-select select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+.per-page-select select:focus {
+  border-color: var(--blue-900);
+}
+
+.per-page-select select option {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--card);
+}
+
+.total-records-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 @media (max-width: 1100px) {

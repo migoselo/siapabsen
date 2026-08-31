@@ -151,7 +151,12 @@ const activeTab = ref('pending')
 const searchQuery = ref('')
 const departmentFilter = ref('')
 const currentPage = ref(1)
-const pageSize = 10
+const perPage = ref(20)
+const pageInput = ref(1)
+
+watch(currentPage, (newPage) => {
+  pageInput.value = newPage
+})
 
 function countByStatus(status) {
   return requests.filter((r) => r.status === status).length
@@ -169,23 +174,30 @@ const filteredRequests = computed(() => {
   })
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRequests.value.length / pageSize)))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRequests.value.length / perPage.value)))
 
 const paginatedRequests = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredRequests.value.slice(start, start + pageSize)
-})
-
-const paginationLabel = computed(() => {
-  if (filteredRequests.value.length === 0) return '0'
-  const start = (currentPage.value - 1) * pageSize + 1
-  const end = Math.min(currentPage.value * pageSize, filteredRequests.value.length)
-  return `${start}-${end}`
+  const start = (currentPage.value - 1) * perPage.value
+  return filteredRequests.value.slice(start, start + perPage.value)
 })
 
 watch([activeTab, departmentFilter, searchQuery], () => {
   currentPage.value = 1
+  pageInput.value = 1
 })
+
+function goToInputPage() {
+  let page = Number(pageInput.value)
+  if (isNaN(page) || page < 1) page = 1
+  if (page > totalPages.value) page = totalPages.value
+  pageInput.value = page
+  currentPage.value = page
+}
+
+function changePerPage() {
+  currentPage.value = 1
+  pageInput.value = 1
+}
 
 /* ------------------------------------------------------------------ */
 /* Aksi approve / reject                                               */
@@ -433,9 +445,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               <Icon icon="material-symbols:tune" width="16" /> Kelola Departemen
             </button>
           </div>
-          <p class="pagination-label">
-            Menampilkan {{ paginationLabel }} dari {{ filteredRequests.length }} permintaan
-          </p>
         </div>
 
         <div class="table-wrap">
@@ -533,24 +542,55 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
           </table>
         </div>
 
-        <div class="pagination">
-          <button class="page-nav" :disabled="currentPage === 1" @click="currentPage--">
-            <Icon icon="material-symbols:chevron-left" width="18" /> Sebelumnya
-          </button>
-          <div class="page-numbers">
-            <button
-              v-for="p in totalPages"
-              :key="p"
-              class="page-num"
-              :class="{ 'page-num-active': p === currentPage }"
-              @click="currentPage = p"
-            >
-              {{ p }}
-            </button>
+                <div class="table-footer">
+          <div class="table-footer-content">
+            <div class="pager">
+              <button
+                type="button"
+                class="pager-btn"
+                :disabled="currentPage === 1"
+                @click="currentPage--"
+                title="Halaman Sebelumnya"
+              >
+                <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
+              </button>
+
+              <div class="page-input-wrapper">
+                <span>Halaman</span>
+                <input
+                  type="number"
+                  v-model.number="pageInput"
+                  @keydown.enter="goToInputPage"
+                  @blur="goToInputPage"
+                  min="1"
+                  :max="totalPages"
+                  class="page-input"
+                />
+                <span>dari {{ totalPages }}</span>
+              </div>
+
+              <button
+                type="button"
+                class="pager-btn"
+                :disabled="currentPage === totalPages"
+                @click="currentPage++"
+                title="Halaman Berikutnya"
+              >
+                <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
+              </button>
+            </div>
+
+            <div class="per-page-select">
+              <select v-model="perPage" @change="changePerPage">
+                <option :value="10">10 baris</option>
+                <option :value="20">20 baris</option>
+                <option :value="50">50 baris</option>
+                <option :value="100">100 baris</option>
+              </select>
+            </div>
+
+            <span class="total-records-info">{{ filteredRequests.length }} permintaan</span>
           </div>
-          <button class="page-nav" :disabled="currentPage === totalPages" @click="currentPage++">
-            Berikutnya <Icon icon="material-symbols:chevron-right" width="18" />
-          </button>
         </div>
       </div>
 
@@ -1039,45 +1079,106 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   color: var(--ink-soft);
 }
 
-.pagination {
+.table-footer {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  justify-content: space-between;
   padding: 16px 24px;
-}
-.page-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
+  font-size: 13px;
   color: var(--ink-soft);
-  font-size: 15px;
-  cursor: pointer;
+  border-top: 1px solid var(--line);
 }
-.page-nav:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.page-numbers {
+
+.table-footer-content {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 16px;
 }
-.page-num {
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pager-btn {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  border: none;
-  background: none;
-  font-size: 15px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--ink-soft);
+}
+.pager-btn:hover:not(:disabled) {
+  background: #fafbfc;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
   color: var(--ink-soft);
-  cursor: pointer;
+  font-size: 13px;
 }
-.page-num-active {
-  background: var(--accent);
-  color: #fff;
+
+.page-input {
+  font-family: inherit;
+  width: 44px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink-dark);
+  font-weight: 700;
+  font-size: 13px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.page-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 47, 88, 0.12);
+}
+
+.per-page-select select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink-dark);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+.per-page-select select:focus {
+  border-color: var(--accent);
+}
+
+.total-records-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 .modal-overlay {
