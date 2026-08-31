@@ -7,6 +7,7 @@
  */
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import api from '../api'
 import DetailIzinCuti from './DetailIzinCuti.vue'
 
 /* ------------------------------------------------------------------ */
@@ -156,153 +157,86 @@ function departmentName(id) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Data pengajuan cuti (ganti dengan fetch API di proyekmu)            */
+/* Data pengajuan cuti dari backend                                     */
 /* ------------------------------------------------------------------ */
-const requests = reactive([
-  mkReq(
-    'Bambang Kusuma',
-    'Senior Developer',
-    'd1',
-    'lt1',
-    '2023-10-12',
-    '2023-10-15',
-    4,
-    'Acara keluarga tahunan di luar kota bersama seluruh anggota keluarga besar.',
-  ),
-  mkReq(
-    'Dewi Sartika',
-    'Marketing Specialist',
-    'd2',
-    'lt2',
-    '2023-10-14',
-    '2023-10-14',
-    1,
-    'Demam dan butuh istirahat total (surat dokter terlampir).',
-  ),
-  mkReq(
-    'Andi Saputra',
-    'Accountant',
-    'd3',
-    'lt3',
-    '2023-10-18',
-    '2023-10-19',
-    2,
-    'Urusan administrasi perbankan mendesak.',
-  ),
-  mkReq(
-    'Siti Aminah',
-    'Lead Designer',
-    'd4',
-    'lt1',
-    '2023-10-25',
-    '2023-10-30',
-    4,
-    'Cuti akhir bulan untuk refreshment.',
-  ),
-  mkReq(
-    'Rian Hidayat',
-    'Backend Engineer',
-    'd1',
-    'lt2',
-    '2023-10-16',
-    '2023-10-17',
-    2,
-    'Sakit tifus, perlu rawat jalan.',
-  ),
-  mkReq(
-    'Putri Wulandari',
-    'HR Officer',
-    'd5',
-    'lt1',
-    '2023-10-20',
-    '2023-10-22',
-    3,
-    'Menghadiri pernikahan saudara di Yogyakarta.',
-  ),
-  mkReq(
-    'Fajar Nugraha',
-    'Operations Staff',
-    'd6',
-    'lt3',
-    '2023-10-11',
-    '2023-10-11',
-    1,
-    'Mengurus dokumen kependudukan.',
-  ),
-  mkReq(
-    'Maya Anggraini',
-    'Content Writer',
-    'd2',
-    'lt4',
-    '2023-11-01',
-    '2023-12-10',
-    30,
-    'Cuti melahirkan anak pertama.',
-  ),
-  mkReq(
-    'Budi Santoso',
-    'Finance Staff',
-    'd3',
-    'lt1',
-    '2023-10-23',
-    '2023-10-24',
-    2,
-    'Liburan keluarga ke Bali.',
-  ),
-  mkReq(
-    'Nadia Ramadhani',
-    'UI Designer',
-    'd4',
-    'lt2',
-    '2023-10-13',
-    '2023-10-13',
-    1,
-    'Migrain berat, disarankan istirahat oleh dokter.',
-  ),
-  mkReq(
-    'Yusuf Firmansyah',
-    'DevOps Engineer',
-    'd1',
-    'lt3',
-    '2023-10-19',
-    '2023-10-19',
-    1,
-    'Mengurus perpanjangan SIM.',
-  ),
-  mkReq(
-    'Lina Marlina',
-    'Marketing Lead',
-    'd2',
-    'lt1',
-    '2023-10-27',
-    '2023-10-28',
-    2,
-    'Cuti tahunan bersama keluarga.',
-    'approved',
-  ),
-  mkReq(
-    'Agus Prasetyo',
-    'Accountant',
-    'd3',
-    'lt5',
-    '2023-10-09',
-    '2023-10-09',
-    1,
-    'Tidak hadir tanpa keterangan sebelumnya.',
-    'rejected',
-  ),
-  mkReq(
-    'Sri Wahyuni',
-    'Creative Director',
-    'd4',
-    'lt1',
-    '2023-10-30',
-    '2023-11-02',
-    3,
-    'Menghadiri workshop desain di luar kota.',
-    'approved',
-  ),
-])
+const requests = reactive([])
+const apiLoading = ref(false)
+const apiError = ref('')
+
+function parseWorkDays(value, fallback = 1) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const match = value.match(/(\d+)/)
+    if (match) return Number(match[1])
+  }
+  return fallback
+}
+
+function ensureLeaveTypeForApiResult(rawLeaveTypeId, rawLeaveTypeName) {
+  if (!rawLeaveTypeName) return
+
+  const normalizedName = String(rawLeaveTypeName).trim()
+  const existing = leaveTypes.find(
+    (lt) =>
+      String(lt.id) === String(rawLeaveTypeId) ||
+      lt.name?.trim().toLowerCase() === normalizedName.toLowerCase(),
+  )
+
+  if (existing) return existing
+
+  const newType = {
+    id: String(rawLeaveTypeId ?? `lt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`),
+    name: normalizedName,
+    colorKey: 'gray',
+    ...colorByKey('gray'),
+  }
+
+  leaveTypes.push(newType)
+  return newType
+}
+
+function normalizeApiRequest(item) {
+  const payload = item || {}
+  const leaveTypeName = payload.leaveTypeName || payload.type || 'Cuti'
+  const leaveTypeId =
+    payload.leaveTypeId ??
+    payload.leave_type_id ??
+    payload.leaveType?.id ??
+    payload.leave_type?.id ??
+    null
+  const resolvedLeaveType = ensureLeaveTypeForApiResult(leaveTypeId, leaveTypeName)
+  const normalizedLeaveTypeId = resolvedLeaveType?.id ?? String(leaveTypeId ?? 'lt-unknown')
+
+  const workDays = parseWorkDays(
+    payload.workDaysLabel,
+    Number(payload.total_days ?? payload.totalDays ?? 1),
+  )
+
+  const normalizedStatus = String(payload.status || 'pending').toLowerCase()
+  const createdAt =
+    payload.createdAt ||
+    payload.created_at ||
+    payload.startDate ||
+    payload.start_date ||
+    new Date().toISOString()
+
+  return mkReq(
+    payload.requester?.name || payload.employee?.name || payload.user?.name || 'Unknown',
+    payload.requester?.position || payload.employee?.position || payload.user?.role || '-',
+    payload.requester?.departmentId ||
+      payload.employee?.departmentId ||
+      payload.departmentId ||
+      payload.department_id ||
+      '',
+    normalizedLeaveTypeId,
+    payload.startDate || payload.start_date || '',
+    payload.endDate || payload.end_date || '',
+    workDays,
+    payload.reason || '',
+    normalizedStatus,
+    createdAt,
+  )
+}
 
 function mkReq(
   name,
@@ -314,6 +248,7 @@ function mkReq(
   workDays,
   reason,
   status = 'pending',
+  createdAt = new Date().toISOString(),
 ) {
   return reactive({
     id: crypto.randomUUID ? crypto.randomUUID() : nextId('req'),
@@ -324,14 +259,84 @@ function mkReq(
     workDaysLabel: workDays === 1 ? '1 Hari' : `${workDays} Hari Kerja`,
     reason,
     status, // 'pending' | 'approved' | 'rejected'
+    createdAt,
   })
+}
+
+async function fetchLeaveRequests() {
+  try {
+    apiLoading.value = true
+    apiError.value = ''
+
+    const adminPageSize = 50
+
+    let currentUser = null
+    try {
+      const rawUser = localStorage.getItem('auth_user')
+      currentUser = rawUser ? JSON.parse(rawUser) : null
+    } catch {
+      currentUser = null
+    }
+
+    const userRole = currentUser?.role || currentUser?.roles?.[0]?.slug || ''
+    const normalizedRole = String(userRole).toLowerCase()
+
+    if (!['admin', 'super_admin'].includes(normalizedRole)) {
+      requests.splice(0, requests.length)
+      apiError.value = 'Akun ini tidak memiliki akses admin. Login menggunakan akun admin/super_admin untuk melihat data semua karyawan.'
+      return
+    }
+
+    let rows = []
+
+    try {
+      const firstPage = await api.get('/admin/leave-requests', {
+        params: { page: 1, per_page: adminPageSize },
+      })
+
+      const payload = firstPage?.data || {}
+      const firstBatch = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
+      rows = [...firstBatch]
+
+      const lastPage = Number(payload?.last_page || 1)
+      if (lastPage > 1) {
+        for (let page = 2; page <= lastPage; page += 1) {
+          const { data } = await api.get('/admin/leave-requests', {
+            params: { page, per_page: adminPageSize },
+          })
+          const batch = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+          rows.push(...batch)
+        }
+      }
+    } catch (adminError) {
+      const { data } = await api.get('/leave-requests')
+      rows = Array.isArray(data) ? data : []
+    }
+
+    requests.splice(0, requests.length, ...rows.map(normalizeApiRequest))
+  } catch (error) {
+    console.error('Gagal memuat data izin dan cuti dari API:', error)
+    apiError.value = 'Gagal memuat data dari server. Silakan refresh halaman atau cek koneksi API.'
+  } finally {
+    apiLoading.value = false
+  }
 }
 
 /* ------------------------------------------------------------------ */
 /* Statistik ringkas                                                   */
 /* ------------------------------------------------------------------ */
 const pendingCount = computed(() => requests.filter((r) => r.status === 'pending').length)
-const newSinceYesterday = ref(8) // ganti dengan angka dari API kalau tersedia
+const newSinceYesterday = computed(() => {
+  const oneDayMs = 24 * 60 * 60 * 1000
+  const now = Date.now()
+
+  return requests.filter((r) => {
+    if (!r.createdAt) return false
+    const created = new Date(r.createdAt)
+    if (Number.isNaN(created.getTime())) return false
+    return now - created.getTime() <= oneDayMs
+  }).length
+})
 const avgApprovalTime = ref('1.2 Jam')
 
 /* ------------------------------------------------------------------ */
@@ -570,7 +575,10 @@ const manageTab = ref('leaveTypes')
 function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
 }
-onMounted(() => document.addEventListener('click', handleOutsideClick))
+onMounted(() => {
+  fetchLeaveRequests()
+  document.addEventListener('click', handleOutsideClick)
+})
 onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 </script>
 
