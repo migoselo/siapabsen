@@ -216,7 +216,6 @@ async function fetchLocations() {
 
 async function fetchAttendance(page = 1) {
   loading.value = true
-  // Jangan kosongkan records.value di sini agar tinggi tabel tidak anjlok
   try {
     const params = {
       page,
