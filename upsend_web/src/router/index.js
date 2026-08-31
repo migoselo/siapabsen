@@ -47,6 +47,11 @@ const routes = [
         name: 'izin-cuti', 
         component: () => import('@/views/DataIzinCuti.vue')
       },
+      {
+        path: 'lembur', 
+        name: 'lembur', 
+        component: () => import('@/views/DataLembur.vue')
+      },
     ],
   },
 ]
