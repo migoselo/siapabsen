@@ -480,12 +480,12 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                 <td class="col-reason">
                   <p class="reason-text" :title="req.reason">{{ req.reason }}</p>
                 </td>
-                <td>
+                <td class="col-actions">
                   <div class="actions">
                     <!-- URUTAN AKSI: Reject (Tolak) -> Accept (Terima) -> View (Lihat Detail) -->
                     <template v-if="req.status === 'pending'">
                       <button
-                        class="icon-btn icon-btn-reject"
+                        class="icon-btn icon-btn-reject separator-right"
                         title="Tolak"
                         @click="rejectRequest(req.id)"
                       >
@@ -493,7 +493,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                       </button>
 
                       <button
-                        class="icon-btn icon-btn-approve"
+                        class="icon-btn icon-btn-approve separator-right"
                         title="Terima"
                         @click="approveRequest(req.id)"
                       >
@@ -636,9 +636,10 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 }
 .stat-card {
   background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
   padding: 20px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
 }
 .stat-top {
   display: flex;
@@ -729,8 +730,10 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
 .card {
   background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 24, 20, 0.05);
 }
 .card-toolbar {
   display: flex;
@@ -805,8 +808,8 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #f2bd48;
-  color: var(--ink-dark);
+  background: #2F3B69;
+  color: #ffffff;
   font-size: 15px;
   font-weight: 700;
   border: none;
@@ -891,6 +894,8 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
 .table-wrap {
   overflow-x: auto;
+  border-top: 1px solid #eaecf0;
+  border-bottom: 1px solid #eaecf0;
 }
 .table {
   width: 100%;
@@ -899,12 +904,11 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 }
 .table thead tr {
   background-color: #2f3b69;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border: none;
 }
 .table th {
   text-align: left;
-  padding: 12px 24px;
+  padding: 14px 24px;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.8px;
@@ -912,7 +916,9 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   color: #ffffff;
 }
 .col-actions {
-  text-align: right;
+  text-align: left;
+  width: 1%;
+  white-space: nowrap;
 }
 .table tbody tr {
   border-bottom: 1px solid #f1f2f5;
@@ -926,6 +932,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .table td {
   padding: 14px 24px;
   vertical-align: middle;
+  border-bottom: 1px solid #f1f2f5;
 }
 .requester {
   display: flex;
@@ -996,7 +1003,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
 }
 .icon-btn {
@@ -1024,7 +1031,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   background: #fbdada;
 }
 .separator-right {
-  margin-right: 4px; 
+  margin-right: 12px;
 }
 .icon-btn-approve {
   background: #38a169;
