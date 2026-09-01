@@ -593,12 +593,14 @@ tbody tr:last-child td {
   width: 100%;
   max-width: 620px;
   max-height: 90vh;
-  overflow-y: auto;
+ display: flex;
+  flex-direction: column;
+  overflow: hidden; 
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .modal {
   scrollbar-width: thin;
@@ -668,6 +670,12 @@ tbody tr:last-child td {
   outline: none;
   background: #fff;
 }
+
+.field input[type='password']::-ms-reveal,
+.field input[type='password']::-ms-clear {
+  display: none;
+}
+
 .field input:focus,
 .field select:focus {
   border-color: var(--blue-900);
@@ -694,6 +702,7 @@ tbody tr:last-child td {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  font-family: inherit;
 }
 .btn-cancel:hover {
   background: #eef0f7;
@@ -705,10 +714,11 @@ tbody tr:last-child td {
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: var(--blue-900);
+  background: #2C3964;
   color: #fff;
   font-size: 14px;
   font-weight: 700;
+  font-family:inherit;
   cursor: pointer;
   transition: background 0.15s ease;
 }
