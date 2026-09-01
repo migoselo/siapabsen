@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
@@ -17,6 +17,10 @@ const lastPage = ref(1)
 const totalEmployees = ref(0)
 const perPage = ref(20)
 const pageInput = ref(1)
+const deletingId = ref(null)
+const editingEmployeeId = ref(null)
+const toast = ref({ show: false, type: 'success', message: '' })
+let toastTimer = null
 
 watch(currentPage, (newPage) => {
   pageInput.value = newPage
@@ -53,10 +57,11 @@ async function fetchEmployees(page = 1) {
   loading.value = true
   try {
     const res = await api.get('/users', { params: { page, per_page: perPage.value } })
-    employees.value = res.data.data || []
-    totalEmployees.value = res.data.total || 0
-    currentPage.value = res.data.current_page || page
-    lastPage.value = res.data.last_page || 1
+    const employeeList = Array.isArray(res.data?.data) ? res.data.data : []
+    employees.value = employeeList
+    totalEmployees.value = res.data?.total ?? employeeList.length
+    currentPage.value = res.data?.current_page || page
+    lastPage.value = res.data?.last_page || 1
   } catch (err) {
     console.error('Gagal mengambil data karyawan:', err)
   } finally {
@@ -94,7 +99,27 @@ function changePerPage() {
   fetchEmployees(1)
 }
 
+function showToast(message, type = 'success') {
+  toast.value = { show: true, type, message }
+
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+  }
+
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+  }, 2600)
+}
+
+function handleMissingBackendFeature(action) {
+  const message =
+    `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia atau belum dihubungkan. ` +
+    'Silakan sambungkan API dari backend teman Anda.'
+  window.alert(message)
+}
+
 function openAddModal() {
+  editingEmployeeId.value = null
   form.value = {
     name: '',
     email: '',
@@ -108,29 +133,94 @@ function openAddModal() {
   fetchLocations()
 }
 
-function closeModal() {
-  if (saving.value) return
+function openEditModal(employee) {
+  editingEmployeeId.value = employee?.id ?? null
+  form.value = {
+    name: employee?.name || '',
+    email: employee?.email || '',
+    password: '',
+    no_hp: employee?.no_hp || '',
+    role: employee?.role || 'karyawan',
+    home_location_id: employee?.home_location_id ?? employee?.homeLocation?.id ?? employee?.home_location?.id ?? '',
+  }
+  showPassword.value = false
+  showModal.value = true
+  fetchLocations()
+}
+
+function closeModal(force = false) {
+  if (saving.value && !force) return
   showModal.value = false
+  editingEmployeeId.value = null
 }
 
 async function submitNewEmployee() {
   saving.value = true
   try {
-    await api.post('/users', {
+    const payload = {
       name: form.value.name,
       email: form.value.email,
       password: form.value.password,
       no_hp: form.value.no_hp,
       role: form.value.role,
       home_location_id: form.value.home_location_id,
-    })
-    showModal.value = false
+    }
+
+    const isEditing = !!editingEmployeeId.value
+    if (isEditing) {
+      try {
+        await api.put(`/users/${editingEmployeeId.value}`, payload)
+      } catch (err) {
+        const status = err.response?.status
+        if (status === 404 || status === 405) {
+          await api.patch(`/users/${editingEmployeeId.value}`, payload)
+        } else {
+          throw err
+        }
+      }
+    } else {
+      await api.post('/users', payload)
+    }
+
+    closeModal(true)
     await fetchEmployees(currentPage.value)
+    showToast(isEditing ? 'Data karyawan berhasil diperbarui.' : 'Karyawan berhasil ditambahkan.')
   } catch (err) {
-    console.error('Gagal menambahkan karyawan:', err)
-    window.alert('Gagal menambahkan karyawan. Silakan cek kembali data yang dimasukkan.')
+    console.error('Gagal menyimpan karyawan:', err)
+    const status = err.response?.status
+    const actionText = editingEmployeeId.value ? 'mengubah' : 'menyimpan'
+
+    if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
+      handleMissingBackendFeature(actionText)
+    } else {
+      window.alert(`Gagal ${actionText} data karyawan. Silakan cek kembali data yang dimasukkan.`)
+    }
   } finally {
     saving.value = false
+  }
+}
+
+async function deleteEmployee(employee) {
+  if (!employee?.id) return
+
+  const confirmed = window.confirm(`Hapus karyawan "${employee.name}"?`)
+  if (!confirmed) return
+
+  deletingId.value = employee.id
+  try {
+    await api.delete(`/users/${employee.id}`)
+    await fetchEmployees(currentPage.value)
+    showToast('Karyawan berhasil dihapus.')
+  } catch (err) {
+    console.error('Gagal menghapus karyawan:', err)
+    const status = err.response?.status
+    if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
+      handleMissingBackendFeature('menghapus')
+    } else {
+      window.alert('Gagal menghapus karyawan. Silakan coba lagi.')
+    }
+  } finally {
+    deletingId.value = null
   }
 }
 
@@ -146,10 +236,23 @@ async function fetchLocations() {
 onMounted(() => {
   fetchEmployees()
 })
+
+onBeforeUnmount(() => {
+  if (toastTimer) clearTimeout(toastTimer)
+})
 </script>
 
 <template>
   <div class="karyawan">
+    <div v-if="toast.show" class="toast" :class="toast.type">
+      <Icon
+        :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
+        width="18"
+        height="18"
+      />
+      <span>{{ toast.message }}</span>
+    </div>
+
     <section class="panel table-panel">
       <div class="table-head">
         <div class="search">
@@ -174,14 +277,15 @@ onMounted(() => {
             <th>Email</th>
             <th>Nomor HP</th>
             <th>Lokasi Cabang</th>
+            <th class="action-column">Aksi</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading">
-            <td colspan="5" class="empty-cell">Memuat data...</td>
+          <tr v-if="loading && employees.length === 0">
+            <td colspan="6" class="empty-cell">Memuat data...</td>
           </tr>
           <tr v-else-if="filteredEmployees.length === 0">
-            <td colspan="5" class="empty-cell">Tidak ada karyawan ditemukan.</td>
+            <td colspan="6" class="empty-cell">Tidak ada karyawan ditemukan.</td>
           </tr>
           <tr v-for="emp in filteredEmployees" :key="emp.id">
             <td class="emp-id-cell">{{ emp.id }}</td>
@@ -194,6 +298,23 @@ onMounted(() => {
             <td>{{ emp.email }}</td>
             <td>{{ emp.no_hp || '-' }}</td>
             <td>{{ emp.homeLocation?.name || emp.home_location?.name || emp.location?.name || emp.home_location || '-' }}</td>
+            <td class="action-cell">
+              <div class="action-actions">
+                <button type="button" class="action-btn edit-btn" @click="openEditModal(emp)">
+                  <Icon icon="material-symbols:edit-outline-rounded" width="16" height="16" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  class="action-btn delete-btn"
+                  @click="deleteEmployee(emp)"
+                  :disabled="deletingId === emp.id"
+                >
+                  <Icon icon="material-symbols:delete-outline-rounded" width="16" height="16" />
+                  {{ deletingId === emp.id ? 'Menghapus...' : 'Delete' }}
+                </button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -255,8 +376,8 @@ onMounted(() => {
         <div class="modal">
           <div class="modal-head">
             <div class="modal-title">
-              <Icon icon="material-symbols:person-add" width="22" height="22" />
-              <h3>Tambah Karyawan Baru</h3>
+              <Icon :icon="editingEmployeeId ? 'material-symbols:edit-rounded' : 'material-symbols:person-add'" width="22" height="22" />
+              <h3>{{ editingEmployeeId ? 'Edit Karyawan' : 'Tambah Karyawan Baru' }}</h3>
             </div>
           </div>
 
@@ -319,7 +440,7 @@ onMounted(() => {
             <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
             <button class="btn-save" type="button" @click="submitNewEmployee" :disabled="saving">
               <Icon icon="material-symbols:save-outline" width="18" height="18" />
-              {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
+              {{ saving ? (editingEmployeeId ? 'Menyimpan perubahan...' : 'Menyimpan...') : (editingEmployeeId ? 'Simpan Perubahan' : 'Simpan Karyawan') }}
             </button>
           </div>
         </div>
@@ -336,9 +457,11 @@ onMounted(() => {
   --line: #d9dde5;
   --bg: #f7f8fa;
   --card: #ffffff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .karyawan * {
   box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .panel {
@@ -356,6 +479,53 @@ onMounted(() => {
   gap: 10px;
   padding: 0 24px 22px;
   flex-wrap: wrap;
+}
+.action-column {
+  width: 170px;
+  text-align: center;
+}
+.action-cell {
+  text-align: center;
+}
+.action-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+  white-space: nowrap;
+}
+.edit-btn {
+  background: #edf4ff;
+  color: #1d4ed8;
+}
+.edit-btn:hover {
+  background: #dfeeff;
+}
+.delete-btn {
+  background: #ffe9eb;
+  color: #c92d40;
+}
+.delete-btn:hover:not(:disabled) {
+  background: #ffd9de;
+}
+.delete-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 .search {
   display: flex;
@@ -531,7 +701,7 @@ tbody tr:last-child td {
   font-weight: 700;
   font-size: 13px;
   outline: none;
-  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .page-input::-webkit-outer-spin-button,
@@ -598,7 +768,7 @@ tbody tr:last-child td {
   overflow: hidden; 
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
@@ -623,10 +793,10 @@ tbody tr:last-child td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 24px;
+  padding: 18px 24px;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
-  border-radius: 18px 18px 0 0;
+  border-radius: 20px 20px 0 0;
 }
 .modal-title {
   display: flex;
@@ -643,10 +813,11 @@ tbody tr:last-child td {
   color: var(--blue-900);
 }
 .modal-body {
-  padding: 24px;
+  padding: 18px 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
+  overflow: hidden;
 }
 .field {
   display: flex;
@@ -688,10 +859,10 @@ tbody tr:last-child td {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 18px 24px;
+  padding: 16px 24px 18px;
   border-top: 1px solid var(--line);
   background: var(--bg);
-  border-radius: 0 0 18px 18px;
+  border-radius: 0 0 20px 20px;
 }
 .btn-cancel {
   padding: 12px 20px;
@@ -757,6 +928,39 @@ tbody tr:last-child td {
 }
 .eye-toggle:hover {
   color: var(--blue-900);
+}
+
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.15);
+  animation: toastIn 0.2s ease;
+}
+.toast.success {
+  background: #1f9d67;
+}
+.toast.error {
+  background: #d92d20;
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 700px) {

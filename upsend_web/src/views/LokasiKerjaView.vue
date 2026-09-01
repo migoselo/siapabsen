@@ -8,7 +8,11 @@ import api from '../api'
 // Data & State Utama
 const locations = ref([])
 const loading = ref(false)
+const deletingId = ref(null)
 const searchQuery = ref('')
+const editingLocationId = ref(null)
+const toast = ref({ show: false, type: 'success', message: '' })
+let toastTimer = null
 
 // Pagination State (Sama persis dengan dataabsensi)
 const currentPage = ref(1)
@@ -88,8 +92,8 @@ async function fetchLocations() {
   loading.value = true
   try {
     const res = await api.get('/locations')
-    locations.value = res.data || []
-    totalRecords.value = Array.isArray(res.data) ? res.data.length : 0
+    locations.value = Array.isArray(res.data) ? res.data : []
+    totalRecords.value = locations.value.length
   } catch (err) {
     console.error('Gagal mengambil data lokasi:', err)
   } finally {
@@ -115,7 +119,7 @@ const form = ref({
   name: '',
   latitude: '',
   longitude: '',
-  radius: 100,
+  radius: 25,
 })
 
 function createMarkerIcon() {
@@ -175,15 +179,53 @@ function destroyMap() {
 }
 
 function openAddModal() {
-  form.value = { name: '', latitude: '', longitude: '', radius: 100 }
+  editingLocationId.value = null
+  form.value = { name: '', latitude: '', longitude: '', radius: 25 }
   showModal.value = true
   nextTick(() => initMap())
 }
 
-function closeModal() {
-  if (saving.value) return
+function openEditModal(location) {
+  editingLocationId.value = location?.id ?? null
+  form.value = {
+    name: location?.name || '',
+    latitude: location?.latitude ?? '',
+    longitude: location?.longitude ?? '',
+    radius: Number(location?.radius_meter ?? location?.radius ?? 100),
+  }
+  showModal.value = true
+  nextTick(() => {
+    initMap()
+    if (form.value.latitude && form.value.longitude) {
+      setCoordinates(form.value.latitude, form.value.longitude)
+    }
+  })
+}
+
+function closeModal(force = false) {
+  if (saving.value && !force) return
   showModal.value = false
+  editingLocationId.value = null
   destroyMap()
+}
+
+function handleMissingBackendFeature(action) {
+  const message =
+    `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia atau belum dihubungkan. ` +
+    'Silakan sambungkan API dari backend teman Anda.'
+  window.alert(message)
+}
+
+function showToast(message, type = 'success') {
+  toast.value = { show: true, type, message }
+
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+  }
+
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+  }, 2600)
 }
 
 function useCurrentLocation() {
@@ -247,27 +289,89 @@ watch(
 async function submitLocation() {
   saving.value = true
   try {
-    await api.post('/locations', {
+    const payload = {
       name: form.value.name,
       latitude: form.value.latitude,
       longitude: form.value.longitude,
       radius_meter: form.value.radius,
-    })
-    showModal.value = false
-    fetchLocations()
+    }
+
+    const isEditing = !!editingLocationId.value
+    if (isEditing) {
+      try {
+        await api.put(`/locations/${editingLocationId.value}`, payload)
+      } catch (err) {
+        const status = err.response?.status
+        if (status === 404 || status === 405) {
+          await api.patch(`/locations/${editingLocationId.value}`, payload)
+        } else {
+          throw err
+        }
+      }
+    } else {
+      await api.post('/locations', payload)
+    }
+
+    saving.value = false
+    closeModal(true)
+    await fetchLocations()
+    showToast(isEditing ? 'Lokasi berhasil diperbarui.' : 'Lokasi berhasil ditambahkan.')
   } catch (err) {
     console.error('Gagal menyimpan lokasi:', err)
+    const status = err.response?.status
+    const actionText = editingLocationId.value ? 'mengubah' : 'menyimpan'
+
+    if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
+      handleMissingBackendFeature(actionText)
+    } else {
+      window.alert(`Gagal ${actionText} lokasi. Silakan cek data yang dimasukkan.`)
+    }
   } finally {
     saving.value = false
   }
 }
 
+async function deleteLocation(location) {
+  if (!location?.id) return
+
+  const confirmed = window.confirm(`Hapus lokasi "${location.name}"?`)
+  if (!confirmed) return
+
+  deletingId.value = location.id
+  try {
+    await api.delete(`/locations/${location.id}`)
+    await fetchLocations()
+    showToast('Lokasi berhasil dihapus.')
+  } catch (err) {
+    console.error('Gagal menghapus lokasi:', err)
+    const status = err.response?.status
+    if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
+      handleMissingBackendFeature('menghapus')
+    } else {
+      window.alert('Gagal menghapus lokasi. Silakan coba lagi.')
+    }
+  } finally {
+    deletingId.value = null
+  }
+}
+
 onMounted(() => fetchLocations())
-onBeforeUnmount(() => destroyMap())
+onBeforeUnmount(() => {
+  if (toastTimer) clearTimeout(toastTimer)
+  destroyMap()
+})
 </script>
 
 <template>
   <div class="lokasi">
+    <div v-if="toast.show" class="toast" :class="toast.type">
+      <Icon
+        :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
+        width="18"
+        height="18"
+      />
+      <span>{{ toast.message }}</span>
+    </div>
     <section class="panel table-panel">
       <div class="table-head">
         <div class="search">
@@ -292,16 +396,16 @@ onBeforeUnmount(() => destroyMap())
             <th>Longitude</th>
             <th>Radius (m)</th>
             <th>Dibuat</th>
+            <th class="action-column">Aksi</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading">
-            <td colspan="5" class="empty-cell">Memuat data...</td>
+          <tr v-if="loading && locations.length === 0">
+            <td colspan="6" class="empty-cell">Memuat data...</td>
           </tr>
           <tr v-else-if="filteredLocations.length === 0">
-            <td colspan="5" class="empty-cell">Tidak ada lokasi ditemukan.</td>
+            <td colspan="6" class="empty-cell">Tidak ada lokasi ditemukan.</td>
           </tr>
-          <!-- UBAH DI SINI: panggil filteredLocations langsung -->
           <tr v-for="loc in filteredLocations" :key="loc.id">
             <td>
               <div class="loc-name">{{ loc.name }}</div>
@@ -312,6 +416,23 @@ onBeforeUnmount(() => destroyMap())
             <td>{{ loc.radius_meter ?? '-' }}</td>
             <td>
               {{ loc.created_at ? new Date(loc.created_at).toLocaleDateString('id-ID') : '-' }}
+            </td>
+            <td class="action-cell">
+              <div class="action-actions">
+                <button type="button" class="action-btn edit-btn" @click="openEditModal(loc)">
+                  <Icon icon="material-symbols:edit-outline-rounded" width="16" height="16" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  class="action-btn delete-btn"
+                  @click="deleteLocation(loc)"
+                  :disabled="deletingId === loc.id"
+                >
+                  <Icon icon="material-symbols:delete-outline-rounded" width="16" height="16" />
+                  {{ deletingId === loc.id ? 'Menghapus...' : 'Delete' }}
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -378,8 +499,12 @@ onBeforeUnmount(() => destroyMap())
         <div class="modal" ref="modalRef">
           <div class="modal-head">
             <div class="modal-title">
-              <Icon icon="material-symbols:add-location-alt-outline" width="22" height="22" />
-              <h3>Tambah Lokasi Baru</h3>
+              <Icon
+                :icon="editingLocationId ? 'material-symbols:edit-location-alt-rounded' : 'material-symbols:add-location-alt-outline'"
+                width="22"
+                height="22"
+              />
+              <h3>{{ editingLocationId ? 'Edit Lokasi' : 'Tambah Lokasi Baru' }}</h3>
             </div>
           </div>
 
@@ -403,8 +528,7 @@ onBeforeUnmount(() => destroyMap())
             <div class="field">
               <label>Radius Absensi (Meter)</label>
               <div class="input-suffix">
-                <input type="number" v-model="form.radius" placeholder="100" />
-                <span>m</span>
+                <input type="number" v-model="form.radius" min="0" placeholder="25" />
               </div>
             </div>
 
@@ -452,8 +576,8 @@ onBeforeUnmount(() => destroyMap())
           <div class="modal-footer">
             <button class="btn-cancel" @click="closeModal" :disabled="saving">Batal</button>
             <button class="btn-save" @click="submitLocation" :disabled="saving">
-              <Icon icon="material-symbols:save-outline" width="18" height="18" />
-              {{ saving ? 'Menyimpan...' : 'Simpan Lokasi' }}
+              <Icon :icon="editingLocationId ? 'material-symbols:save-outline' : 'material-symbols:save-outline'" width="18" height="18" />
+              {{ saving ? (editingLocationId ? 'Menyimpan perubahan...' : 'Menyimpan...') : (editingLocationId ? 'Simpan Perubahan' : 'Simpan Lokasi') }}
             </button>
           </div>
         </div>
@@ -496,6 +620,53 @@ onBeforeUnmount(() => destroyMap())
 }
 .table-panel {
   padding: 22px 0 0;
+}
+.action-column {
+  width: 170px;
+  text-align: center;
+}
+.action-cell {
+  text-align: center;
+}
+.action-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+  white-space: nowrap;
+}
+.edit-btn {
+  background: #edf4ff;
+  color: #1d4ed8;
+}
+.edit-btn:hover {
+  background: #dfeeff;
+}
+.delete-btn {
+  background: #ffe9eb;
+  color: #c92d40;
+}
+.delete-btn:hover:not(:disabled) {
+  background: #ffd9de;
+}
+.delete-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 .table-head {
   display: flex;
@@ -795,11 +966,11 @@ tbody tr:last-child td {
 .modal {
   width: 100%;
   max-width: 620px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
@@ -826,10 +997,10 @@ tbody tr:last-child td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22px 24px;
+  padding: 18px 24px;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
-  border-radius: 18px 18px 0 0;
+  border-radius: 20px 20px 0 0;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -865,10 +1036,11 @@ tbody tr:last-child td {
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 18px 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
+  overflow: hidden;
 }
 .field {
   display: flex;
@@ -912,11 +1084,12 @@ tbody tr:last-child td {
   font-size: 14px;
   font-family: inherit;
   color: var(--ink);
+  width: 100%;
 }
-.input-suffix span {
-  font-size: 14px;
+.field-counter {
+  font-size: 12px;
   color: var(--ink-soft);
-  font-weight: 600;
+  margin-top: -4px;
 }
 
 .map-actions {
@@ -930,12 +1103,13 @@ tbody tr:last-child td {
 .map-search {
   display: flex;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  border: 1px solid #d9dde5;
+  border-radius: 12px;
   background: #fff;
   padding: 0 8px 0 12px;
   flex: 1;
   min-width: 220px;
+  height: 46px;
 }
 .map-search input {
   border: none;
@@ -952,11 +1126,12 @@ tbody tr:last-child td {
   color: #fff;
   width: 34px;
   height: 34px;
-  border-radius: 999px;
+  border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .map-search-btn:disabled {
   opacity: 0.6;
@@ -967,17 +1142,50 @@ tbody tr:last-child td {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 12px;
   background: var(--bg);
-  color: var(--blue-900);
+  color: var(--ink);
   padding: 8px 12px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  height: 46px;
 }
 .map-action-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.15);
+  animation: toastIn 0.2s ease;
+}
+.toast.success {
+  background: #1f9d67;
+}
+.toast.error {
+  background: #d92d20;
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .map-help-box {
   display: flex;
@@ -989,8 +1197,8 @@ tbody tr:last-child td {
 }
 .map-preview {
   position: relative;
-  height: 240px;
-  border-radius: 12px;
+  height: 190px;
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--line);
   background: #eef0f7;
@@ -1029,10 +1237,10 @@ tbody tr:last-child td {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 18px 24px;
+  padding: 16px 24px 18px;
   border-top: 1px solid var(--line);
   background: var(--bg);
-  border-radius: 0 0 18px 18px;
+  border-radius: 0 0 20px 20px;
 }
 .btn-cancel {
   padding: 12px 20px;

@@ -1086,6 +1086,7 @@ tbody tr:last-child td {
   font-weight: 700;
   font-size: 13px;
   outline: none;
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 
