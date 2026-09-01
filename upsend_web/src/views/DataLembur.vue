@@ -6,6 +6,7 @@
  */
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import api from '../api'
 import DetailLembur from './DetailLembur.vue'
 
 /* ------------------------------------------------------------------ */
@@ -90,13 +91,18 @@ function departmentName(id) {
 /* ------------------------------------------------------------------ */
 /* Data pengajuan lembur                                              */
 /* ------------------------------------------------------------------ */
-const requests = reactive([
+const apiLoading = ref(false)
+const apiError = ref('')
+
+const fallbackOvertimeRequests = [
   mkReq('Bambang Kusuma', 'Senior Developer', 'd1', '2023-10-12', '18:00', '22:00', 4, 'Critical deployment for the Q4 release candidate.'),
   mkReq('Dewi Sartika', 'Marketing Specialist', 'd2', '2023-10-14', '17:00', '20:00', 3, 'Menyelesaikan laporan kampanye marketing bulanan.'),
   mkReq('Budi Santoso', 'Finance Staff', 'd3', '2023-10-15', '16:00', '22:00', 6, 'Audit penutupan buku keuangan bulanan.'),
   mkReq('Andi Saputra', 'Accountant', 'd3', '2023-10-18', '18:30', '21:30', 3, 'Rekonsiliasi data keuangan kuartal ketiga.'),
   mkReq('Siti Aminah', 'Lead Designer', 'd4', '2023-10-25', '17:00', '21:00', 4, 'Revisi aset UI/UX untuk klien prioritas.'),
-])
+]
+
+const requests = reactive([])
 
 function mkReq(name, position, departmentId, date, startTime, endTime, durationHours, reason, status = 'pending') {
   return reactive({
@@ -112,11 +118,118 @@ function mkReq(name, position, departmentId, date, startTime, endTime, durationH
   })
 }
 
+function isOvertimeRow(row = {}) {
+  const rawType = String(
+    row?.type ?? row?.leaveTypeName ?? row?.leave_type?.name ?? row?.leaveType?.name ?? '',
+  ).trim().toLowerCase()
+
+  if (rawType.includes('lembur') || rawType.includes('overtime')) return true
+  if (row?.start_time || row?.end_time || row?.startTime || row?.endTime) return true
+
+  return false
+}
+
+function parseDurationHours(value, startTime, endTime) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const match = value.match(/(\d+(?:[.,]\d+)?)/)
+    if (match) return Number(match[1].replace(',', '.'))
+  }
+
+  if (startTime && endTime) {
+    const start = new Date(`2000-01-01T${startTime}:00`)
+    const end = new Date(`2000-01-01T${endTime}:00`)
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      const diffHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+      if (diffHours > 0) return diffHours
+    }
+  }
+
+  return 1
+}
+
+function normalizeOvertimeApiRequest(item) {
+  const payload = item || {}
+  const name = payload.requester?.name || payload.employee?.name || payload.user?.name || 'Unknown'
+  const position = payload.requester?.position || payload.employee?.position || payload.user?.role || '-'
+  const departmentId =
+    payload.requester?.departmentId ||
+    payload.employee?.departmentId ||
+    payload.departmentId ||
+    payload.department_id ||
+    'd1'
+
+  const startTime = payload.startTime || payload.start_time || '18:00'
+  const endTime = payload.endTime || payload.end_time || '21:00'
+  const date = payload.startDate || payload.start_date || payload.createdAt || payload.created_at || new Date().toISOString().slice(0, 10)
+  const durationHours = parseDurationHours(payload.durationHours ?? payload.totalHours ?? payload.duration_hours, startTime, endTime)
+
+  return mkReq(
+    name,
+    position,
+    departmentId,
+    date,
+    startTime,
+    endTime,
+    durationHours,
+    payload.reason || 'Tidak ada keterangan',
+    String(payload.status || 'pending').toLowerCase(),
+  )
+}
+
+async function fetchOvertimeRequests() {
+  try {
+    apiLoading.value = true
+    apiError.value = ''
+
+    let rows = []
+
+    try {
+      const firstPage = await api.get('/admin/leave-requests', {
+        params: { page: 1, per_page: 50 },
+      })
+      const payload = firstPage?.data || {}
+      const firstBatch = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
+      rows = [...firstBatch]
+
+      const lastPage = Number(payload?.last_page || 1)
+      if (lastPage > 1) {
+        for (let page = 2; page <= lastPage; page += 1) {
+          const { data } = await api.get('/admin/leave-requests', {
+            params: { page, per_page: 50 },
+          })
+          const batch = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+          rows.push(...batch)
+        }
+      }
+    } catch {
+      const { data } = await api.get('/leave-requests')
+      rows = Array.isArray(data) ? data : []
+    }
+
+    const overtimeRows = rows.filter((row) => isOvertimeRow(row))
+    requests.splice(0, requests.length, ...overtimeRows.map(normalizeOvertimeApiRequest))
+
+    if (requests.length === 0 && overtimeRows.length === 0) {
+      requests.splice(0, requests.length, ...fallbackOvertimeRequests.map((item) => ({ ...item })))
+    }
+  } catch (error) {
+    console.error('Gagal memuat data lembur dari API:', error)
+    apiError.value = 'Gagal memuat data lembur dari server. Menampilkan data cadangan.'
+    requests.splice(0, requests.length, ...fallbackOvertimeRequests.map((item) => ({ ...item })))
+  } finally {
+    apiLoading.value = false
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Statistik ringkas lembur & Karyawan Tertinggi                       */
 /* ------------------------------------------------------------------ */
 const pendingCount = computed(() => requests.filter((r) => r.status === 'pending').length)
-const totalOvertimeHours = computed(() => '1,245 Jam')
+const totalOvertimeHours = computed(() => {
+  const total = requests.reduce((sum, req) => sum + Number(req.durationHours || 0), 0)
+  return `${Number(total).toLocaleString('id-ID')} Jam`
+})
 
 const topOvertimeEmployee = computed(() => {
   if (requests.length === 0) return null
@@ -322,7 +435,10 @@ const showManageModal = ref(false)
 function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
 }
-onMounted(() => document.addEventListener('click', handleOutsideClick))
+onMounted(() => {
+  fetchOvertimeRequests()
+  document.addEventListener('click', handleOutsideClick)
+})
 onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 </script>
 

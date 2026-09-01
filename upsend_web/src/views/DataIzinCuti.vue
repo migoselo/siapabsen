@@ -195,6 +195,17 @@ function ensureLeaveTypeForApiResult(rawLeaveTypeId, rawLeaveTypeName) {
   return newType
 }
 
+function isOvertimeRow(row = {}) {
+  const rawType = String(
+    row?.type ?? row?.leaveTypeName ?? row?.leave_type?.name ?? row?.leaveType?.name ?? '',
+  ).trim().toLowerCase()
+
+  if (rawType.includes('lembur') || rawType.includes('overtime')) return true
+  if (row?.start_time || row?.end_time || row?.startTime || row?.endTime) return true
+
+  return false
+}
+
 function normalizeApiRequest(item) {
   const payload = item || {}
   const leaveTypeName = payload.leaveTypeName || payload.type || 'Cuti'
@@ -313,7 +324,8 @@ async function fetchLeaveRequests() {
       rows = Array.isArray(data) ? data : []
     }
 
-    requests.splice(0, requests.length, ...rows.map(normalizeApiRequest))
+    const visibleRows = rows.filter((row) => !isOvertimeRow(row))
+    requests.splice(0, requests.length, ...visibleRows.map(normalizeApiRequest))
   } catch (error) {
     console.error('Gagal memuat data izin dan cuti dari API:', error)
     apiError.value = 'Gagal memuat data dari server. Silakan refresh halaman atau cek koneksi API.'
