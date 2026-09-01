@@ -762,8 +762,10 @@ tbody tr:last-child td {
 .modal {
   width: 100%;
   max-width: 620px;
-  max-height: calc(100vh - 32px);
-  overflow: hidden;
+  max-height: 90vh;
+ display: flex;
+  flex-direction: column;
+  overflow: hidden; 
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -839,6 +841,12 @@ tbody tr:last-child td {
   outline: none;
   background: #fff;
 }
+
+.field input[type='password']::-ms-reveal,
+.field input[type='password']::-ms-clear {
+  display: none;
+}
+
 .field input:focus,
 .field select:focus {
   border-color: var(--blue-900);
@@ -865,6 +873,7 @@ tbody tr:last-child td {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  font-family: inherit;
 }
 .btn-cancel:hover {
   background: #eef0f7;
@@ -876,10 +885,11 @@ tbody tr:last-child td {
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: var(--blue-900);
+  background: #2C3964;
   color: #fff;
   font-size: 14px;
   font-weight: 700;
+  font-family:inherit;
   cursor: pointer;
   transition: background 0.15s ease;
 }
