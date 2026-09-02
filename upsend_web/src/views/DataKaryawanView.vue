@@ -763,31 +763,14 @@ tbody tr:last-child td {
   width: 100%;
   max-width: 620px;
   max-height: 90vh;
- display: flex;
+  display: flex;
   flex-direction: column;
-  overflow: hidden; 
+  overflow: hidden;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 20px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   font-family: 'Plus Jakarta Sans', sans-serif;
-}
-.modal {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0,0,0,0.16) transparent;
-}
-.modal::-webkit-scrollbar {
-  width: 8px;
-}
-.modal::-webkit-scrollbar-track {
-  background: transparent;
-}
-.modal::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.12);
-  border-radius: 8px;
-}
-.modal::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.18);
 }
 .modal-head {
   display: flex;
@@ -795,8 +778,9 @@ tbody tr:last-child td {
   justify-content: space-between;
   padding: 18px 24px;
   background: var(--bg);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1.5px solid #cbd5e1;
   border-radius: 20px 20px 0 0;
+  flex-shrink: 0;
 }
 .modal-title {
   display: flex;
@@ -817,7 +801,23 @@ tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  overflow: hidden;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.18);
 }
 .field {
   display: flex;
@@ -832,7 +832,7 @@ tbody tr:last-child td {
 }
 .field input,
 .field select {
-  border: 1px solid var(--line);
+  border: 1.5px solid #cbd5e1;
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
@@ -860,14 +860,15 @@ tbody tr:last-child td {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px 18px;
-  border-top: 1px solid var(--line);
+  border-top: 1.5px solid #cbd5e1;
   background: var(--bg);
   border-radius: 0 0 20px 20px;
+  flex-shrink: 0;
 }
 .btn-cancel {
   padding: 12px 20px;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 1.5px solid #cbd5e1;
   background: #fff;
   color: var(--ink);
   font-size: 14px;
