@@ -3,11 +3,12 @@ import { useAuthStore } from '../stores/auth'
 import router from '../router'
 
 const api = axios.create({
-  baseURL: 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
+  baseURL:
+    (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8010/api').replace(/\/+$/, ''),
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
+    ...(import.meta.env.VITE_API_BASE_URL?.includes('ngrok') ? { 'ngrok-skip-browser-warning': 'true' } : {}),
   },
 })
 

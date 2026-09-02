@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -13,14 +14,15 @@ class UserController extends Controller
     protected function currentTenantId()
     {
         // app('currentTenant') bisa berupa model Tenant atau raw id (sesuai SetTenant middleware)
-        $tenant = app('currentTenant') ?? null;
+        $tenant = app()->bound('currentTenant') ? app('currentTenant') : null;
         if (is_object($tenant) && isset($tenant->id)) {
             return $tenant->id;
         }
         if (is_numeric($tenant)) {
             return (int)$tenant;
         }
-        return null;
+
+        return Auth::user()?->tenant_id ?? 1;
     }
 
     protected function ensureSameTenant(User $user)
@@ -65,7 +67,7 @@ class UserController extends Controller
             'password' => 'required|string|min:6',
             'no_hp' => 'nullable|string|max:255',
             'role' => 'required|in:admin,karyawan',
-            'home_location_id' => 'required|exists:locations,id',
+            'home_location_id' => 'nullable|exists:locations,id',
         ]);
 
         // pastikan client tidak bisa menulis tenant_id langsung (kami set via middleware/trait)
@@ -74,10 +76,21 @@ class UserController extends Controller
         }
 
         $data['password'] = Hash::make($data['password']);
+        $data['tenant_id'] = (int) $tenantId;
+        $data['employee_id'] = $this->generateEmployeeId((int) $tenantId);
 
         $user = User::create($data);
 
         return response()->json($user->load('homeLocation'), 201);
+    }
+
+    protected function generateEmployeeId(int $tenantId): string
+    {
+        do {
+            $employeeId = 'EMP-' . $tenantId . '-' . now()->format('YmdHis') . '-' . random_int(1000, 9999);
+        } while (User::where('tenant_id', $tenantId)->where('employee_id', $employeeId)->exists());
+
+        return $employeeId;
     }
 
     public function show(User $user)

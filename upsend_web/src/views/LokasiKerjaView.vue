@@ -291,13 +291,38 @@ watch(showModal, (isOpen) => {
 })
 
 async function submitLocation() {
+  const trimmedName = String(form.value.name || '').trim()
+  const latitude = Number(form.value.latitude)
+  const longitude = Number(form.value.longitude)
+  const radius = Number(form.value.radius)
+
+  if (!trimmedName) {
+    window.alert('Nama lokasi wajib diisi.')
+    return
+  }
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    window.alert('Pilih titik lokasi di peta atau gunakan GPS terlebih dahulu.')
+    return
+  }
+
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    window.alert('Koordinat lokasi tidak valid.')
+    return
+  }
+
+  if (!Number.isFinite(radius) || radius <= 0) {
+    window.alert('Radius lokasi harus lebih dari 0 meter.')
+    return
+  }
+
   saving.value = true
   try {
     const payload = {
-      name: form.value.name,
-      latitude: form.value.latitude,
-      longitude: form.value.longitude,
-      radius_meter: form.value.radius,
+      name: trimmedName,
+      latitude,
+      longitude,
+      radius_meter: Math.round(radius),
     }
 
     const isEditing = !!editingLocationId.value
@@ -328,7 +353,9 @@ async function submitLocation() {
     if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
       handleMissingBackendFeature(actionText)
     } else {
-      window.alert(`Gagal ${actionText} lokasi. Silakan cek data yang dimasukkan.`)
+      const backendMessage = err.response?.data?.message || err.response?.data?.error || ''
+      const details = backendMessage ? `\nDetail: ${backendMessage}` : ''
+      window.alert(`Gagal ${actionText} lokasi. Silakan cek data yang dimasukkan.${details}`)
     }
   } finally {
     saving.value = false

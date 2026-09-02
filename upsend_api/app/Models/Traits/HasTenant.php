@@ -2,6 +2,8 @@
 
 namespace App\Models\Traits;
 
+use Illuminate\Support\Facades\Auth;
+
 /**
  * @mixin \Illuminate\Database\Eloquent\Model
  * @method static void creating(callable $callback)
@@ -31,14 +33,30 @@ trait HasTenant
     protected static function bootHasTenant(): void
     {
         static::creating(function ($model) {
-            if (empty($model->tenant_id)) {
-                $tenant = app()->bound('currentTenant') ? app('currentTenant') : null;
-                $tenantId = optional($tenant)->id ?? $tenant ?? null;
-
-                if ($tenantId) {
-                    $model->tenant_id = $tenantId;
-                }
+            if (! empty($model->tenant_id)) {
+                return;
             }
+
+            $tenantId = null;
+
+            if (app()->bound('currentTenant')) {
+                $tenant = app('currentTenant');
+                $tenantId = $tenant instanceof \App\Models\Tenant ? $tenant->id : $tenant;
+            }
+
+            if (empty($tenantId) && Auth::check()) {
+                $tenantId = Auth::user()->tenant_id ?? null;
+            }
+
+            if (empty($tenantId) && \App\Models\Tenant::query()->exists()) {
+                $tenantId = \App\Models\Tenant::query()->value('id');
+            }
+
+            if (empty($tenantId)) {
+                $tenantId = 1;
+            }
+
+            $model->tenant_id = (int) $tenantId;
         });
     }
 }
