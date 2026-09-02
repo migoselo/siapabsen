@@ -155,15 +155,26 @@ function closeModal(force = false) {
 }
 
 async function submitNewEmployee() {
+  const name = String(form.value.name || '').trim()
+  const email = String(form.value.email || '').trim()
+  const password = String(form.value.password || '')
+
+  if (!name || !email || (!editingEmployeeId.value && password.length < 6)) {
+    window.alert(editingEmployeeId.value
+      ? 'Nama dan email wajib diisi.'
+      : 'Nama, email, dan password minimal 6 karakter wajib diisi.')
+    return
+  }
+
   saving.value = true
   try {
     const payload = {
-      name: form.value.name,
-      email: form.value.email,
-      password: form.value.password,
-      no_hp: form.value.no_hp,
+      name,
+      email,
+      ...(editingEmployeeId.value || password ? { password } : {}),
+      no_hp: form.value.no_hp ? String(form.value.no_hp).trim() : null,
       role: form.value.role,
-      home_location_id: form.value.home_location_id,
+      ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
     }
 
     const isEditing = !!editingEmployeeId.value
@@ -193,7 +204,9 @@ async function submitNewEmployee() {
     if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
       handleMissingBackendFeature(actionText)
     } else {
-      window.alert(`Gagal ${actionText} data karyawan. Silakan cek kembali data yang dimasukkan.`)
+      const errors = err.response?.data?.errors || {}
+      const detail = Object.values(errors).flat().join(' ')
+      window.alert(detail || err.response?.data?.message || `Gagal ${actionText} data karyawan.`)
     }
   } finally {
     saving.value = false

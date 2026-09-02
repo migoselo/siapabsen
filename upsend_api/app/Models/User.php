@@ -16,6 +16,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password', 'no_hp', 'role', 'home_location_id', 'is_active',
+        'employee_id',
         // tenant_id ditambahkan supaya bisa di-set oleh migration/bootHasTenant
         'tenant_id',
     ];

@@ -24,6 +24,8 @@ class LocationController extends Controller
             'work_end_time' => 'nullable|date_format:H:i|after:work_start_time',
         ]);
 
+        $data['tenant_id'] = $data['tenant_id'] ?? $request->user()->tenant_id ?? 1;
+
         $location = Location::create($data);
 
         return response()->json($location, 201);
@@ -44,6 +46,10 @@ class LocationController extends Controller
             'work_start_time' => 'sometimes|date_format:H:i',
             'work_end_time' => 'sometimes|date_format:H:i|after:work_start_time',
         ]);
+
+        if (empty($location->tenant_id)) {
+            $location->tenant_id = $request->user()->tenant_id ?? 1;
+        }
 
         $location->update($data);
 
