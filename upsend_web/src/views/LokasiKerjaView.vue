@@ -286,6 +286,10 @@ watch(
   { flush: 'post' },
 )
 
+watch(showModal, (isOpen) => {
+  document.body.classList.toggle('modal-open', isOpen)
+})
+
 async function submitLocation() {
   saving.value = true
   try {
@@ -358,6 +362,7 @@ async function deleteLocation(location) {
 onMounted(() => fetchLocations())
 onBeforeUnmount(() => {
   if (toastTimer) clearTimeout(toastTimer)
+  document.body.classList.remove('modal-open')
   destroyMap()
 })
 </script>
@@ -954,6 +959,8 @@ tbody tr:last-child td {
   justify-content: center;
   z-index: 1000;
   padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .modal-overlay button,
@@ -966,11 +973,15 @@ tbody tr:last-child td {
 .modal {
   width: 100%;
   max-width: 620px;
-  max-height: calc(100vh - 32px);
-  overflow: hidden;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 20px;
+  clip-path: inset(0 round 20px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
@@ -985,10 +996,13 @@ tbody tr:last-child td {
 }
 .modal::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 20px;
 }
 .modal::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.12);
-  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 20px;
 }
 .modal::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.18);
@@ -1001,9 +1015,6 @@ tbody tr:last-child td {
   background: var(--bg);
   border-bottom: 1px solid var(--line);
   border-radius: 20px 20px 0 0;
-  position: sticky;
-  top: 0;
-  z-index: 1;
 }
 .modal-title {
   display: flex;
@@ -1040,7 +1051,6 @@ tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  overflow: hidden;
 }
 .field {
   display: flex;
@@ -1276,5 +1286,53 @@ tbody tr:last-child td {
 .btn-cancel:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+:global(body.modal-open .page-content) {
+  overflow: hidden;
+}
+
+@media (max-width: 700px) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .modal {
+    max-height: calc(100dvh - 24px);
+    border-radius: 16px;
+  }
+
+  .modal-head,
+  .modal-body,
+  .modal-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .field-row {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .map-search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .map-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modal-footer {
+    flex-wrap: wrap;
+  }
+
+  .btn-cancel,
+  .btn-save {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
 }
 </style>
