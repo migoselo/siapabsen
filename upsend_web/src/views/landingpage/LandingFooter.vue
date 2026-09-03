@@ -35,6 +35,7 @@ function closeLegalModal() {
 
 <template>
    <footer class="footer">
+  <div class="footer-inner">
       <div class="footer-container">
         <div class="footer-col brand-col">
           <div class="footer-brand">
@@ -88,6 +89,7 @@ function closeLegalModal() {
         <p>&copy; 2026 Siap Integrasi Absensi. Hak Cipta Dilindungi</p>
         <a href="#beranda" class="back-to-top">Kembali ke Atas</a>
       </div>
+      </div>
 
       <div
         v-if="activeLegalModal"
@@ -128,14 +130,21 @@ function closeLegalModal() {
 .footer {
   background: #2F3B69;
   color: #DCE1FF;
-  padding: clamp(40px, 5vw, 60px) clamp(16px, 5vw, 70px) 24px;
-  font-size: 13px;
+  padding: clamp(40px, 5vw, 60px) 8% 24px;
+  font-size: 12px;
   letter-spacing: 0.4px;
+}
+.footer-inner {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
 }
 .footer-container {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(0, 1.8fr);
-  gap: clamp(24px, 4vw, 52px);
+  grid-template-columns: max-content max-content max-content max-content;
+  column-gap: 70px;
+  row-gap: 28px;
+  justify-content: center;
   margin-bottom: 46px;
 }
 .footer-brand {
@@ -145,7 +154,7 @@ function closeLegalModal() {
   margin-bottom: 18px;
 }
 .footer-brand strong {
-  font-size: 24px;
+  font-size: 18px;
   letter-spacing: 0;
   color: #FFFFFF;
 }
@@ -154,6 +163,7 @@ function closeLegalModal() {
   filter: brightness(0) invert(1);
 }
 .footer-col p {
+  font-size: 12px;
   line-height: 1.75;
   margin: 0;
   text-align: justify;
@@ -168,7 +178,7 @@ function closeLegalModal() {
 }
 .footer-col h4 {
   color: #FFFFFF;
-  font-size: 16px;
+  font-size: 12px;
   letter-spacing: 1px;
   margin: 4px 0 14px;
 }
@@ -182,6 +192,7 @@ function closeLegalModal() {
 }
 .footer-col a {
   color: #DCE1FF;
+  font-size: 12px;
   text-decoration: none;
   transition: color 0.2s ease, opacity 0.2s ease;
 }
@@ -194,13 +205,14 @@ function closeLegalModal() {
   opacity: 0.7;
 }
 .footer-bottom {
+  width: 100%;
   border-top: 1px solid rgba(255, 255, 255, 0.45);
   padding-top: 13px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: #aeb7d0;
-  font-size: 13px;
+  font-size: 12px;
 }
 .footer-bottom p {
   margin: 0;
@@ -312,6 +324,7 @@ function closeLegalModal() {
   color: #585f72;
   font-size: 11px;
   line-height: 1.65;
+  text-align: justify;
 }
 .legal-modal-footer {
   display: flex;
@@ -334,8 +347,18 @@ function closeLegalModal() {
 .modal-confirm:active { transform: translateY(1px); }
 
 @media (max-width: 900px) {
+  .footer-inner {
+    width: 100%;
+  }
+
   .footer-container {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 28px;
+  }
+
+  .footer {
+    padding-right: 8%;
+    padding-left: 8%;
   }
 
   .footer-bottom {
