@@ -240,7 +240,7 @@ function handleReject() {
   --ink-soft: var(--ink-soft, #667085);
   --line: var(--line, #e4e7ec);
   --surface-soft: #f6f7fa;
-  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 14px;
   color: var(--ink-dark);
 }

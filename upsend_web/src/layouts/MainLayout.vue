@@ -530,6 +530,7 @@ onUnmounted(() => {
   flex: 1;
   padding: 24px 36px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 48px;
 }
 
@@ -572,6 +573,25 @@ onUnmounted(() => {
 
   .page-content {
     padding: 16px 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    padding: 14px 12px;
+  }
+
+  .topbar h1 {
+    font-size: 18px;
+  }
+
+  .profile .avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .page-content {
+    padding: 12px 10px 28px;
   }
 }
 </style>
