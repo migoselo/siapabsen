@@ -2,12 +2,17 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
+    path: '/',
+    name: 'LandingPage',
+   component: () => import('../views/LandingPage.vue')
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('../views/LoginView.vue'),
   },
   {
-    path: '/',
+    path: '/dashboard',
     component: () => import('../layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -43,14 +48,14 @@ const routes = [
         component: () => import('../views/ProfileView.vue'),
       },
       {
-        path: 'izin-cuti', 
-        name: 'izin-cuti', 
-        component: () => import('@/views/DataIzinCuti.vue')
+        path: 'izin-cuti',
+        name: 'izin-cuti',
+        component: () => import('@/views/DataIzinCuti.vue'),
       },
       {
-        path: 'lembur', 
-        name: 'lembur', 
-        component: () => import('@/views/DataLembur.vue')
+        path: 'lembur',
+        name: 'lembur',
+        component: () => import('@/views/DataLembur.vue'),
       },
     ],
   },
@@ -67,9 +72,6 @@ router.beforeEach((to, from) => {
 
   if (requiresAuth && !token) {
     return { name: 'Login' }
-  } else if (to.name === 'Login' && token) {
-    // Udah login, gak perlu balik ke halaman login lagi
-    return { name: 'Dashboard' }
   }
 })
 
