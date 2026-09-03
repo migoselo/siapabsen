@@ -4,7 +4,7 @@ const routes = [
   {
     path: '/',
     name: 'LandingPage',
-   component: () => import('../views/LandingPage.vue')
+    component: () => import('../views/landingpage/LandingPage.vue'),
   },
   {
     path: '/login',

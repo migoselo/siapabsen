@@ -9,14 +9,14 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
 //import mockupFeaturesImg from '../assets/mockup-features.png' // Gambar HP & ilustrasi fitur
 
 const isNavbarVisible = ref(true)
-let previousScrollY = 0
+let previousScrollY = window.scrollY
 
 const handleScroll = () => {
-  const currentScrollY = window.scrollY
+  const currentScrollY = document.scrollingElement?.scrollTop ?? window.scrollY
 
-  if (currentScrollY <= 0 || currentScrollY < previousScrollY) {
+  if (currentScrollY === 0 || currentScrollY < previousScrollY) {
     isNavbarVisible.value = true
-  } else if (currentScrollY > previousScrollY && currentScrollY > 80) {
+  } else if (currentScrollY > previousScrollY) {
     isNavbarVisible.value = false
   }
 
@@ -24,11 +24,12 @@ const handleScroll = () => {
 }
 
 onMounted(() => {
-  window.addEventListener('scroll', handleScroll, { passive: true })
+  previousScrollY = document.scrollingElement?.scrollTop ?? window.scrollY
+  document.addEventListener('scroll', handleScroll, { passive: true, capture: true })
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('scroll', handleScroll)
+  document.removeEventListener('scroll', handleScroll, { capture: true })
 })
 const activeLegalModal = ref(null)
 
@@ -497,6 +498,7 @@ function closeLegalModal() {
 .pricing-header p {
   color: #ffffff;
   margin-bottom: 74px;
+}
 .features-mockup-container {
   display: flex;
   justify-content: center;
