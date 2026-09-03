@@ -865,7 +865,7 @@ tbody tr:last-child td {
   border-radius: 0 0 20px 20px;
   flex-shrink: 0;
 }
-.btn-cancel {
+.btn-cancel {                                                                                                                                                        
   padding: 12px 20px;
   border-radius: 10px;
   border: 1.5px solid #cbd5e1;
