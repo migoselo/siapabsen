@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
@@ -12,6 +12,20 @@ const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const errorMessage = ref('')
+
+const restorePageScroll = () => {
+  document.documentElement.style.overflow = ''
+  document.body.style.overflow = ''
+  document.getElementById('app')?.style.removeProperty('overflow')
+}
+
+onMounted(() => {
+  document.documentElement.style.overflow = 'hidden'
+  document.body.style.overflow = 'hidden'
+  document.getElementById('app')?.style.setProperty('overflow', 'hidden')
+})
+
+onBeforeUnmount(restorePageScroll)
 
 async function handleLogin() {
   errorMessage.value = ''
@@ -113,7 +127,6 @@ async function handleLogin() {
   width: 100%;
   height: 100%;
   margin: 0;
-  overflow: hidden;
 }
 
 .login-page {

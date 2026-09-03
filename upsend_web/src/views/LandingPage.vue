@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 
 // Ganti sesuai lokasi file gambar kamu di folder assets
@@ -8,6 +8,28 @@ import heroWomanImg from '../assets/hero-woman.svg' // Gambar wanita memegang HP
 import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
 //import mockupFeaturesImg from '../assets/mockup-features.png' // Gambar HP & ilustrasi fitur
 
+const isNavbarVisible = ref(true)
+let previousScrollY = 0
+
+const handleScroll = () => {
+  const currentScrollY = window.scrollY
+
+  if (currentScrollY <= 0 || currentScrollY < previousScrollY) {
+    isNavbarVisible.value = true
+  } else if (currentScrollY > previousScrollY && currentScrollY > 80) {
+    isNavbarVisible.value = false
+  }
+
+  previousScrollY = currentScrollY
+}
+
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
 const activeLegalModal = ref(null)
 
 const legalContent = {
@@ -47,7 +69,7 @@ function closeLegalModal() {
 <template>
   <div class="landing-page">
     <!-- 1. NAVBAR -->
-    <nav class="navbar">
+    <nav class="navbar" :class="{ 'navbar-hidden': !isNavbarVisible }">
       <div class="nav-brand">
         <img :src="logoUrl" alt="SiapHadir" class="brand-logo" />
         <strong class="brand-title">SiapHadir</strong>
@@ -266,6 +288,7 @@ function closeLegalModal() {
   color: #2c3345;
   background-color: #ffffff;
   overflow-x: hidden;
+  padding-top: 64px;
 }
 
 /* --- NAVBAR --- */
@@ -275,9 +298,17 @@ function closeLegalModal() {
   justify-content: space-between;
   padding: 16px 8%;
   background: #ffffff;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
   z-index: 100;
+  transition: transform 0.25s ease;
+  will-change: transform;
+}
+.navbar-hidden {
+  transform: translateY(-100%);
 }
 .nav-brand {
   display: flex;

@@ -72,9 +72,6 @@ router.beforeEach((to, from) => {
 
   if (requiresAuth && !token) {
     return { name: 'Login' }
-  } else if (to.name === 'Login' && token) {
-    // Udah login, gak perlu balik ke halaman login lagi
-    return { name: 'Dashboard' }
   }
 })
 
