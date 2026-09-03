@@ -103,14 +103,21 @@ function closeLegalModal() {
     <!-- 4. FEATURES SECTION -->
     <section id="fitur" class="features-section">
       <div class="section-title">
-        <h2>
-          <span class="badge-yellow">Solusi Terbaik</span> untuk Mengelola Kehadiran
-        </h2>
+        <h2><span class="badge-yellow">Solusi Terbaik</span> untuk Mengelola Kehadiran</h2>
       </div>
+      <!-- Wrapper untuk dua aset mockup HP floating -->
+      <div class="features-mockup-container">
+        <div class="mockup-stage">
+          <!-- HP Kiri (Presensi): Lebih besar dan berada di depan -->
+          <div class="phone-card phone-presensi">
+            <img src="../assets/phone-presensi.svg" alt="Fitur Presensi" />
+          </div>
 
-      <div class="features-container">
-        <!-- Jika kamu punya 1 gambar utuh fitur (mockupFeaturesImg) -->
-        <img :src="mockupFeaturesImg" alt="Fitur SiapHadir" class="features-full-img" />
+          <!-- HP Kanan (Cuti): Lebih kecil dan bertengger sedikit di belakang -->
+          <div class="phone-card phone-cuti">
+            <img src="../assets/phone-cuti.svg" alt="Fitur Cuti" />
+          </div>
+        </div>
       </div>
     </section>
 
@@ -459,6 +466,106 @@ function closeLegalModal() {
 .pricing-header p {
   color: #ffffff;
   margin-bottom: 74px;
+.features-mockup-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0;
+  overflow: visible;
+}
+
+/* Arena tempat kedua HP disusun secara overlap */
+.mockup-stage {
+  position: relative;
+  width: 100%;
+  max-width: 700px;
+  height: 600px;
+  display: flex;
+  justify-content: center;
+}
+
+.phone-card {
+  position: absolute;
+  will-change: transform; /* Optimalisasi performa animasi GPU browser */
+}
+
+.phone-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+  /* Shadow halus sesuai arah cahaya */
+  filter: drop-shadow(-10px 20px 30px rgba(15, 23, 42, 0.18));
+}
+
+/* --- HP KIRI (PRESENSI) --- */
+.phone-presensi {
+  width: 240px;
+  right : 330px;
+  top: -20px;
+  z-index: 2; /* Menjamin HP Presensi selalu berada di depan HP Cuti */
+  animation: floatPresensi 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+/* --- HP KANAN (CUTI) --- */
+.phone-cuti {
+  width: 220px; /* Ukuran dibuat sedikit lebih kecil sesuai referensi */
+  right: 120px;
+  top: 40px; /* Digeser agak ke bawah */
+  z-index: 1;
+  animation: floatCuti 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  animation-delay: -2.5s; /* Jeda animasi agar pergerakannya berlawanan arah secara halus */
+}
+
+/* --- KEYFRAMES ANIMASI SMOOTH FLOATING --- */
+@keyframes floatPresensi {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(-1deg); /* Efek miring sangat halus saat terangkat */
+  }
+}
+
+@keyframes floatCuti {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(1deg);
+  }
+}
+
+/* --- RESPONSIONAL UNTUK LAYAR HP --- */
+@media (max-width: 640px) {
+  .mockup-stage {
+    max-width: 340px;
+    height: 400px;
+  }
+  .phone-presensi {
+    width: 190px;
+    left: 10px;
+  }
+  .phone-cuti {
+    width: 170px;
+    right: 10px;
+    top: 70px;
+  }
+}
+/* --- PRICING SECTION --- */
+.pricing-section {
+  background: #2f3b69;
+  color: #ffffff;
+  padding: 80px 8%;
+  text-align: center;
+}
+.pricing-header h2 {
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.pricing-header p {
+  color: #b7c0df;
+  margin-bottom: 48px;
 }
 .pricing-cards {
   display: flex;
@@ -478,8 +585,8 @@ function closeLegalModal() {
 }
 .price-card h3 {
   font-size: 16px;
-  font-weight: 800;
-  margin-bottom: 8px;
+  gap: 30px;
+  flex-wrap: wrap;
 }
 .price-sub {
   font-size: 13px;
