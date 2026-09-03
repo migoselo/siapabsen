@@ -6,7 +6,8 @@ import { Icon } from '@iconify/vue'
 import logoUrl from '../assets/Logo-web.svg'
 import heroWomanImg from '../assets/hero-woman.svg' // Gambar wanita memegang HP
 import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
-//import mockupFeaturesImg from '../assets/mockup-features.png' // Gambar HP & ilustrasi fitur
+import phonePresensi from '../assets/phone-presensi.svg'
+import phoneCuti from '../assets/phone-cuti.svg'
 </script>
 
 <template>
@@ -33,7 +34,9 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
             <span class="text-highlight-yellow">Siap</span> Kelola Kehadiran Lebih Mudah dan Akurat
           </h1>
           <p>
-            Kelola kehadiran karyawan lebih efisien dan terstruktur. Dengan verifikasi lokasi presisi dan pencatatan absensi yang terintegrasi, menjadikan pencatatan kehadiran jauh lebih praktis dan akurat.
+            Kelola kehadiran karyawan lebih efisien dan terstruktur. Dengan verifikasi lokasi
+            presisi dan pencatatan absensi yang terintegrasi, menjadikan pencatatan kehadiran jauh
+            lebih praktis dan akurat.
           </p>
           <div class="hero-actions">
             <router-link to="/login" class="btn-yellow">Coba Sekarang</router-link>
@@ -55,9 +58,14 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
             <span>SiapAbsen</span>
           </div>
           <p class="about-desc">
-            Banyak perusahaan masih mengandalkan proses absensi manual yang memakan waktu, rentan kesalahan, dan tidak efisien. Kami hadir dengan SiapAbsen sebagai jawaban atas tantangan tersebut. SiapAbsen merupakan sebuah sistem yang membantu perusahaan mencatat, memantau, dan mengelola kehadiran karyawan secara realtime.
+            Banyak perusahaan masih mengandalkan proses absensi manual yang memakan waktu, rentan
+            kesalahan, dan tidak efisien. Kami hadir dengan SiapAbsen sebagai jawaban atas tantangan
+            tersebut. SiapAbsen merupakan sebuah sistem yang membantu perusahaan mencatat, memantau,
+            dan mengelola kehadiran karyawan secara realtime.
           </p>
-          <h4 class="quote-text">"Memberikan <span class="text-highlight-yellow">Kehadiran</span> Terpercaya"</h4>
+          <h4 class="quote-text">
+            "Memberikan <span class="text-highlight-yellow">Kehadiran</span> Terpercaya"
+          </h4>
         </div>
         <div class="about-mockup">
           <img :src="mockupAppImg" alt="SiapAbsen Mobile App" class="phone-3d-img" />
@@ -68,23 +76,28 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
     <!-- 4. FEATURES SECTION -->
     <section id="fitur" class="features-section">
       <div class="section-title">
-        <h2>
-          <span class="badge-yellow">Solusi Terbaik</span> untuk Mengelola Kehadiran
-        </h2>
+        <h2><span class="badge-yellow">Solusi Terbaik</span> untuk Mengelola Kehadiran</h2>
       </div>
+      <!-- Wrapper untuk dua aset mockup HP floating -->
+      <div class="features-mockup-container">
+        <div class="mockup-stage">
+          <!-- HP Kiri (Presensi): Lebih besar dan berada di depan -->
+          <div class="phone-card phone-presensi">
+            <img src="../assets/phone-presensi.svg" alt="Fitur Presensi" />
+          </div>
 
-      <div class="features-container">
-        <!-- Jika kamu punya 1 gambar utuh fitur (mockupFeaturesImg) -->
-        <img :src="mockupFeaturesImg" alt="Fitur SiapHadir" class="features-full-img" />
+          <!-- HP Kanan (Cuti): Lebih kecil dan bertengger sedikit di belakang -->
+          <div class="phone-card phone-cuti">
+            <img src="../assets/phone-cuti.svg" alt="Fitur Cuti" />
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- 5. PRICING SECTION -->
     <section class="pricing-section">
       <div class="pricing-header">
-        <h2>
-          Solusi Terbaik dengan <span class="text-highlight-yellow">Harga Tepat</span>
-        </h2>
+        <h2>Solusi Terbaik dengan <span class="text-highlight-yellow">Harga Tepat</span></h2>
         <p>Paket fleksibel untuk berbagai lini bisnis.</p>
       </div>
 
@@ -92,10 +105,10 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
         <!-- Starter Plan -->
         <div class="price-card">
           <h3>Starter</h3>
-          <p class="price-sub">Cocok untuk usaha kecil dan berkembang yang baru memulai otomatisasi.</p>
-          <div class="price-value">
-            <strong>Rp 0</strong> <span>/ bulan</span>
-          </div>
+          <p class="price-sub">
+            Cocok untuk usaha kecil dan berkembang yang baru memulai otomatisasi.
+          </p>
+          <div class="price-value"><strong>Rp 0</strong> <span>/ bulan</span></div>
           <router-link to="/login" class="btn-price">Mulai</router-link>
           <ul class="price-features">
             <li><Icon icon="material-symbols:check-circle" /> Fitur Absensi Utama</li>
@@ -108,10 +121,10 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
         <!-- Enterprise Plan -->
         <div class="price-card">
           <h3>Enterprise</h3>
-          <p class="price-sub">Solusi lengkap untuk skala bisnis menengah hingga perusahaan besar.</p>
-          <div class="price-value">
-            <strong>Rp 50.000</strong> <span>/ bulan</span>
-          </div>
+          <p class="price-sub">
+            Solusi lengkap untuk skala bisnis menengah hingga perusahaan besar.
+          </p>
+          <div class="price-value"><strong>Rp 50.000</strong> <span>/ bulan</span></div>
           <router-link to="/login" class="btn-price">Mulai</router-link>
           <ul class="price-features">
             <li><Icon icon="material-symbols:check-circle" /> Seluruh Fitur Starter</li>
@@ -352,12 +365,91 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
   padding: 4px 12px;
   border-radius: 8px;
 }
-.features-full-img {
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
+.features-mockup-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0;
+  overflow: visible;
 }
 
+/* Arena tempat kedua HP disusun secara overlap */
+.mockup-stage {
+  position: relative;
+  width: 100%;
+  max-width: 700px;
+  height: 600px;
+  display: flex;
+  justify-content: center;
+}
+
+.phone-card {
+  position: absolute;
+  will-change: transform; /* Optimalisasi performa animasi GPU browser */
+}
+
+.phone-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+  /* Shadow halus sesuai arah cahaya */
+  filter: drop-shadow(-10px 20px 30px rgba(15, 23, 42, 0.18));
+}
+
+/* --- HP KIRI (PRESENSI) --- */
+.phone-presensi {
+  width: 240px;
+  right : 330px;
+  top: -20px;
+  z-index: 2; /* Menjamin HP Presensi selalu berada di depan HP Cuti */
+  animation: floatPresensi 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+/* --- HP KANAN (CUTI) --- */
+.phone-cuti {
+  width: 220px; /* Ukuran dibuat sedikit lebih kecil sesuai referensi */
+  right: 120px;
+  top: 40px; /* Digeser agak ke bawah */
+  z-index: 1;
+  animation: floatCuti 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  animation-delay: -2.5s; /* Jeda animasi agar pergerakannya berlawanan arah secara halus */
+}
+
+/* --- KEYFRAMES ANIMASI SMOOTH FLOATING --- */
+@keyframes floatPresensi {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(-1deg); /* Efek miring sangat halus saat terangkat */
+  }
+}
+
+@keyframes floatCuti {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(1deg);
+  }
+}
+
+/* --- RESPONSIONAL UNTUK LAYAR HP --- */
+@media (max-width: 640px) {
+  .mockup-stage {
+    max-width: 340px;
+    height: 400px;
+  }
+  .phone-presensi {
+    width: 190px;
+    left: 10px;
+  }
+  .phone-cuti {
+    width: 170px;
+    right: 10px;
+    top: 70px;
+  }
+}
 /* --- PRICING SECTION --- */
 .pricing-section {
   background: #2f3b69;
@@ -506,9 +598,18 @@ import mockupAppImg from '../assets/mockup-app.svg' // Gambar HP 3D SiapAbsen
 
 /* --- RESPONSIVE MOBILE --- */
 @media (max-width: 900px) {
-  .nav-links { display: none; }
-  .hero-card { grid-template-columns: 1fr; padding: 40px 24px 0; }
-  .about-container { grid-template-columns: 1fr; }
-  .footer-container { grid-template-columns: 1fr 1fr; }
+  .nav-links {
+    display: none;
+  }
+  .hero-card {
+    grid-template-columns: 1fr;
+    padding: 40px 24px 0;
+  }
+  .about-container {
+    grid-template-columns: 1fr;
+  }
+  .footer-container {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 </style>
