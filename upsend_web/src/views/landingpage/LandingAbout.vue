@@ -13,10 +13,10 @@ import mockupAppImg from '../../assets/mockup-app.svg'
         </div>
 
         <p class="about-desc">
-          Banyak perusahaan masih mengandalkan proses absensi manual yang memakan waktu, rentan kesalahan,
-          dan sulit diaudit. Kami hadir dengan SiapAbsen sebagai jawaban atas tantangan tersebut. SiapAbsen
-          merupakan sebuah sistem yang membantu perusahaan mencatat, memantau, dan mengelola kehadiran
-          karyawan secara real-time.
+          Banyak perusahaan masih mengandalkan proses absensi manual yang memakan waktu, rentan
+          kesalahan, dan sulit diaudit. Kami hadir dengan SiapAbsen sebagai jawaban atas tantangan
+          tersebut. SiapAbsen merupakan sebuah sistem yang membantu perusahaan mencatat, memantau,
+          dan mengelola kehadiran karyawan secara real-time.
         </p>
 
         <h4>"Memberikan <span>Kehadiran</span> Terpercaya"</h4>
@@ -37,19 +37,19 @@ import mockupAppImg from '../../assets/mockup-app.svg'
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: clamp(42px, 5vw, 84px) 8%;   
-  background: #4E62AF;
+  padding: clamp(42px, 5vw, 84px) 8%;
+  background: #4e62af;
   color: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .about-container {
-  width: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 560px);
-  gap: clamp(24px, 4vw, 90px);
+  width: fit-content; 
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex; 
   align-items: center;
-  min-height: 0;
+  gap: clamp(24px, 3vw, 56px); 
 }
 
 .about-copy {
@@ -57,7 +57,7 @@ import mockupAppImg from '../../assets/mockup-app.svg'
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  align-self: center;
+  max-width: 560px; 
 }
 
 .brand-badge {
@@ -100,30 +100,29 @@ import mockupAppImg from '../../assets/mockup-app.svg'
 }
 
 .about-copy h4 span {
-  color: #FBEE00;
+  color: #fbee00;
   font-weight: 700;
 }
 
 .about-mockup {
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding-right: 0;
-  margin-top: 0;
+  flex-shrink: 0;
 }
 
 .about-mockup img {
   display: block;
   width: 100%;
-  max-width: 560px;
+  max-width: 340px;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(-12px 24px 28px rgba(15, 21, 35, 0.35));  
+  filter: drop-shadow(-16px 30px 24px rgba(15, 21, 35, 0.55));
   animation: float 3.5s ease-in-out infinite;
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -133,7 +132,12 @@ import mockupAppImg from '../../assets/mockup-app.svg'
 
 @media (max-width: 980px) {
   .about-section {
-    min-height: auto;   /* <-- ini yang ditambahkan */
+    flex-direction: column;
+     width: 100%; 
+  }
+
+  .about-copy {
+    max-width: 100%;
   }
 
   .about-container {
