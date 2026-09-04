@@ -142,7 +142,7 @@ function closeLegalModal() {
 .footer-container {
   display: grid;
   grid-template-columns: max-content max-content max-content max-content;
-  column-gap: 70px;
+  column-gap: 130px;
   row-gap: 28px;
   justify-content: center;
   margin-bottom: 46px;
@@ -353,7 +353,7 @@ function closeLegalModal() {
 
   .footer-container {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 28px;
+    column-gap: 130px;
   }
 
   .footer {
