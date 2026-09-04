@@ -7,7 +7,7 @@ const isVisible = ref(true)
 let previousScrollY = 0
 
 function handleScroll() {
-  const currentScrollY = document.scrollingElement?.scrollTop ?? window.scrollY
+  const currentScrollY = window.scrollY
 
   if (currentScrollY === 0 || currentScrollY < previousScrollY) {
     isVisible.value = true
@@ -19,12 +19,12 @@ function handleScroll() {
 }
 
 onMounted(() => {
-  previousScrollY = document.scrollingElement?.scrollTop ?? window.scrollY
-  document.addEventListener('scroll', handleScroll, { passive: true, capture: true })
+  previousScrollY = window.scrollY
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('scroll', handleScroll, { capture: true })
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
@@ -49,22 +49,26 @@ onBeforeUnmount(() => {
 <style scoped>
 .landing-navbar {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 20px;
+  left: 50%;
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 16px 8%;
+  width: min(90%, 1080px);
+  padding: 12px 20px;
   box-sizing: border-box;
+  border: 1px solid rgba(47, 59, 105, 0.08);
+  border-radius: 18px;
   background: #ffffff;
+  box-shadow: 0 10px 28px rgba(30, 41, 75, 0.12);
+  transform: translateX(-50%);
   transition: transform 0.25s ease;
   will-change: transform;
 }
 
 .landing-navbar--hidden {
-  transform: translateY(-100%);
+  transform: translate(-50%, calc(-100% - 24px));
 }
 
 .landing-navbar__brand {
@@ -107,6 +111,13 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
+  .landing-navbar {
+    top: 12px;
+    width: calc(100% - 24px);
+    padding: 10px 14px;
+    border-radius: 15px;
+  }
+
   .landing-navbar__links {
     display: none;
   }
