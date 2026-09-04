@@ -28,4 +28,14 @@ import LandingFooter from './LandingFooter.vue'
   color: #2c3345;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
+
+.landing-page main {
+  padding-top: 88px;
+}
+
+@media (max-width: 900px) {
+  .landing-page main {
+    padding-top: 72px;
+  }
+}
 </style>
