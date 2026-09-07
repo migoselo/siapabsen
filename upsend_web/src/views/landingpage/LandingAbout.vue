@@ -33,23 +33,25 @@ import mockupAppImg from '../../assets/mockup-app.svg'
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 .about-section {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  padding: clamp(42px, 5vw, 84px) 8%;
+  min-height: 100svh;
+  padding: clamp(56px, 7vw, 96px) 8%;
   background: #4e62af;
   color: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .about-container {
-  width: fit-content; 
+  width: min(100%, 1040px);
   max-width: 100%;
   margin: 0 auto;
-  display: flex; 
+  display: flex;
   align-items: center;
-  gap: clamp(24px, 3vw, 56px); 
+  justify-content: center;
+  gap: clamp(24px, 5vw, 72px);
 }
 
 .about-copy {
@@ -57,7 +59,8 @@ import mockupAppImg from '../../assets/mockup-app.svg'
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  max-width: 560px; 
+  flex: 1 1 0;
+  max-width: 560px;
 }
 
 .brand-badge {
@@ -107,13 +110,15 @@ import mockupAppImg from '../../assets/mockup-app.svg'
 .about-mockup {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex: 0 1 clamp(180px, 28vw, 340px);
   flex-shrink: 0;
 }
 
 .about-mockup img {
   display: block;
   width: 100%;
-  max-width: 340px;
+  max-width: 100%;
   height: auto;
   object-fit: contain;
   filter: drop-shadow(-16px 30px 24px rgba(15, 21, 35, 0.55));
@@ -133,7 +138,6 @@ import mockupAppImg from '../../assets/mockup-app.svg'
 @media (max-width: 980px) {
   .about-section {
     flex-direction: column;
-     width: 100%; 
   }
 
   .about-copy {
@@ -141,13 +145,13 @@ import mockupAppImg from '../../assets/mockup-app.svg'
   }
 
   .about-container {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     gap: 40px;
   }
 
   .about-copy {
-    align-items: center;
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
     padding-left: 0;
   }
 
@@ -155,6 +159,7 @@ import mockupAppImg from '../../assets/mockup-app.svg'
     justify-content: center;
     padding-right: 0;
     transform: none;
+    width: min(100%, 280px);
   }
 
   .about-desc {
@@ -162,9 +167,16 @@ import mockupAppImg from '../../assets/mockup-app.svg'
   }
 }
 
+/* A very wide CSS viewport is commonly caused by browser zoom-out. */
+@media (min-width: 2000px) {
+  .about-section {
+    min-height: auto;
+  }
+}
+
 @media (max-width: 560px) {
   .about-section {
-    padding: 64px 20px 56px;
+    padding: 56px 20px 52px;
   }
 
   .brand-badge {
@@ -185,6 +197,10 @@ import mockupAppImg from '../../assets/mockup-app.svg'
     font-size: 14px;
     line-height: 1.7;
     margin-bottom: 20px;
+  }
+
+  .about-mockup {
+    width: min(62vw, 220px);
   }
 
   .about-copy h4 {

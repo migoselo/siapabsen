@@ -135,16 +135,16 @@ function closeLegalModal() {
   letter-spacing: 0.4px;
 }
 .footer-inner {
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;       
+  max-width: 1200px;
   margin: 0 auto;
 }
 .footer-container {
   display: grid;
-  grid-template-columns: max-content max-content max-content max-content;
-  column-gap: 130px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, max-content)); 
+  column-gap: clamp(32px, 5vw, 130px);  
   row-gap: 28px;
-  justify-content: center;
+  justify-content: space-between;         
   margin-bottom: 46px;
 }
 .footer-brand {
@@ -194,15 +194,15 @@ function closeLegalModal() {
   color: #DCE1FF;
   font-size: 12px;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
   transition: color 0.2s ease, opacity 0.2s ease;
 }
-.footer-col a:hover {
+.footer-col a:hover,
+.footer-col a:focus,
+.footer-col a:focus-visible,
+.footer-col a:active {
   color: #FBEE00;
   opacity: 0.95;
-}
-.footer-col a:active {
-  color: #FFFFFF;
-  opacity: 0.7;
 }
 .footer-bottom {
   width: 100%;
@@ -247,7 +247,7 @@ function closeLegalModal() {
 }
 .legal-modal {
   width: min(620px, 100%);
-  max-height: min(720px, calc(100vh - 40px));
+  max-height: min(720px, calc(100dvh - 40px));  
   overflow: hidden;
   background: #ffffff;
   color: #2f3b69;
@@ -351,11 +351,6 @@ function closeLegalModal() {
     width: 100%;
   }
 
-  .footer-container {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 130px;
-  }
-
   .footer {
     padding-right: 8%;
     padding-left: 8%;
@@ -389,40 +384,13 @@ function closeLegalModal() {
 }
 
 @media (max-width: 640px) {
-  .legal-modal-overlay {
-    padding: 12px;
-  }
-
   .legal-modal {
     width: 100%;
-    max-height: calc(100vh - 24px);
-  }
-
-  .legal-modal-header,
-  .legal-modal-footer {
-    padding: 14px 16px;
-  }
-
-  .legal-modal-title h2 {
-    font-size: 15px;
+    max-height: calc(100dvh - 24px);  
   }
 
   .legal-modal-body {
-    max-height: calc(100vh - 142px);
-    padding: 16px 16px 20px;
-  }
-
-  .legal-modal-section + .legal-modal-section {
-    margin-top: 14px;
-  }
-
-  .legal-modal-section h3 {
-    font-size: 12px;
-  }
-
-  .legal-modal-section p {
-    font-size: 11px;
-    overflow-wrap: anywhere;
+    max-height: calc(100dvh - 142px);  
   }
 }
 </style>
