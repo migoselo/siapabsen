@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api.dart';
@@ -5,6 +6,7 @@ import '../models/user_model.dart';
 
 class AuthRepository {
   static const _tokenKey = 'auth_token';
+  static const _userKey = 'auth_user';
 
   Future<UserModel> login({
     required String noHp,
@@ -20,6 +22,7 @@ class AuthRepository {
       final user = UserModel.fromJson(response.data['user']);
 
       await _saveToken(token);
+      await _saveUser(user);
       Api.dio.options.headers['Authorization'] = 'Bearer $token';
 
       return user;
@@ -47,10 +50,18 @@ class AuthRepository {
     Api.dio.options.headers['Authorization'] = 'Bearer $token';
     try {
       final response = await Api.dio.get('/me');
-      return UserModel.fromJson(response.data);
-    } catch (e) {
-      await _clearToken();
-      return null;
+      final user = UserModel.fromJson(response.data);
+      await _saveUser(user);
+      return user;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        await _clearSession();
+        return null;
+      }
+
+      return _getCachedUser();
+    } catch (_) {
+      return _getCachedUser();
     }
   }
 
@@ -60,7 +71,7 @@ class AuthRepository {
     } catch (_) {
       // Tetap clear token lokal walau request logout ke server gagal
     }
-    await _clearToken();
+    await _clearSession();
   }
 
   Future<void> changePassword({
@@ -103,13 +114,42 @@ class AuthRepository {
     await prefs.setString(_tokenKey, token);
   }
 
+  Future<void> _saveUser(UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _userKey,
+      jsonEncode({
+        'id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'no_hp': user.noHp,
+        'role': user.role,
+        'home_location_id': user.homeLocationId,
+        'is_active': user.isActive,
+      }),
+    );
+  }
+
+  Future<UserModel?> _getCachedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedUser = prefs.getString(_userKey);
+    if (cachedUser == null || cachedUser.isEmpty) return null;
+
+    try {
+      return UserModel.fromJson(jsonDecode(cachedUser));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
   }
 
-  Future<void> _clearToken() async {
+  Future<void> _clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
   }
 }
