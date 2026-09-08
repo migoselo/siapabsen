@@ -9,6 +9,34 @@ class RiwayatCard extends StatelessWidget {
 
   const RiwayatCard({super.key, required this.record, required this.onTap});
 
+  String _statusLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'lupa_absen':
+        return 'Lupa Absen';
+      case 'telat':
+        return 'Telat';
+      case 'lembur':
+        return 'Lembur';
+      case 'tepat_waktu':
+        return 'Tepat Waktu';
+      default:
+        return status;
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'lupa_absen':
+        return const Color(0xFFEF4444);
+      case 'telat':
+        return const Color(0xFFF5A623);
+      case 'lembur':
+        return const Color(0xFF2F6FEB);
+      default:
+        return const Color(0xFF1FAE7C);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final checkIn = DateFormat('HH:mm').format(record.checkInTime.toLocal());
@@ -63,7 +91,32 @@ class RiwayatCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '$checkIn\u2013$checkOut',
-                    style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 13, fontWeight: FontWeight.w400),
+                    style: TextStyle(
+                      color: Color(0xFF9A9A9A),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _statusColor(
+                        record.status,
+                      ).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _statusLabel(record.status),
+                      style: TextStyle(
+                        color: _statusColor(record.status),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
