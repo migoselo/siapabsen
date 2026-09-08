@@ -325,46 +325,74 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     ];
 
     return Container(
-      height: 55,
-      padding: const EdgeInsets.all(6),
+      height: 48,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: selectorBackground,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        children: [
-          for (final option in options)
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  if (_currentLoginType != option.$1) {
-                    setState(() => _currentLoginType = option.$1);
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  alignment: Alignment.center,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final selectedIndex = options.indexWhere(
+            (option) => option.$1 == _currentLoginType,
+          );
+          final itemWidth = constraints.maxWidth / options.length;
+
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                left: selectedIndex * itemWidth,
+                top: 0,
+                bottom: 0,
+                width: itemWidth,
+                child: Container(
                   decoration: BoxDecoration(
-                    color: _currentLoginType == option.$1
-                        ? primaryColor
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Text(
-                    option.$2,
-                    textAlign: TextAlign.center,
-                    style: _jakartaStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _currentLoginType == option.$1
-                          ? Colors.white
-                          : subtitleColor,
-                    ),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x140F172A),
+                        blurRadius: 5,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-        ],
+              Row(
+                children: [
+                  for (final option in options)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_currentLoginType != option.$1) {
+                            setState(() => _currentLoginType = option.$1);
+                          }
+                        },
+                        child: Container(
+                          alignment: Alignment.center,
+                          color: Colors.transparent,
+                          child: Text(
+                            option.$2,
+                            textAlign: TextAlign.center,
+                            style: _jakartaStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _currentLoginType == option.$1
+                                  ? primaryColor
+                                  : subtitleColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
