@@ -16,9 +16,20 @@ class LocationCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: inRange ? const Color(0xFFE2E8F0) : const Color(0xFFFECACA),
+          color: inRange
+              ? const Color(0xFFE2E8F0)
+              : const Color(0xFFFFB4B4),
           width: 1.5,
         ),
+        boxShadow: inRange
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -27,7 +38,7 @@ class LocationCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: inRange
                   ? const Color(0xFFEFF6FF)
-                  : const Color(0xFFFEF2F2),
+                  : const Color(0xFFFFE4E6),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(

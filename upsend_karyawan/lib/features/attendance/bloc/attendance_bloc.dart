@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repository/attendance_repository.dart';
 import 'attendance_event.dart';
 import 'attendance_state.dart';
+import 'package:dio/dio.dart';
 import 'package:geolocator/geolocator.dart';
 
 class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
@@ -63,7 +64,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       emit(
         state.copyWith(
           status: AttendanceStatus.failure,
-          errorMessage: e.toString(),
+          errorMessage: _getUserFriendlyError(e),
           clearSelectedLocation: true,
         ),
       );
@@ -114,7 +115,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       emit(
         state.copyWith(
           status: AttendanceStatus.failure,
-          errorMessage: e.toString(),
+          errorMessage: _getUserFriendlyError(e),
         ),
       );
     }
@@ -131,5 +132,30 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     Emitter<AttendanceState> emit,
   ) {
     emit(AttendanceState());
+  }
+
+  String _getUserFriendlyError(Object error) {
+    if (error is DioException) {
+      final errorType = error.type.toString();
+      if (errorType.contains('connectionTimeout') ||
+          errorType.contains('sendTimeout') ||
+          errorType.contains('receiveTimeout') ||
+          errorType.contains('connectionError')) {
+        return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      }
+      if (errorType.contains('badResponse')) {
+        return 'Server sedang mengalami kendala. Silakan coba lagi.';
+      }
+
+      return 'Terjadi kesalahan saat mengambil data. Silakan coba lagi.';
+    }
+
+    final message = error.toString().replaceFirst('Exception: ', '');
+    if (message.contains('GPS tidak aktif') ||
+        message.contains('Izin lokasi')) {
+      return message;
+    }
+
+    return 'Terjadi kesalahan saat mengambil lokasi. Silakan coba lagi.';
   }
 }

@@ -76,6 +76,10 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
       }
 
       final selected = locations.first;
+      _latitude = position.latitude;
+      _longitude = position.longitude;
+      _selectedLocation = selected;
+
       if (!selected.withinRadius) {
         throw Exception(
           'Anda berada di luar radius ${selected.radiusMeter}m dari ${selected.name}.',
@@ -156,6 +160,7 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
     if (_errorMessage != null || _selectedLocation == null) {
       return _ErrorView(
         message: _errorMessage ?? 'Lokasi kantor tidak tersedia.',
+        location: _selectedLocation,
         onRetry: _loadNearbyLocation,
       );
     }
@@ -310,9 +315,14 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
 
 class _ErrorView extends StatelessWidget {
   final String message;
+  final LocationModel? location;
   final VoidCallback onRetry;
 
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView({
+    required this.message,
+    required this.onRetry,
+    this.location,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -322,29 +332,47 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFFEF2F2),
+          if (location != null && !location!.withinRadius)
+            ...[
+              _LocationUnavailableIcon(),
+              const SizedBox(height: 24),
+              const Text(
+                'Anda berada di luar radius absen',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 20),
+              LocationCard(location: location!),
+            ]
+          else ...[
+            Container(
+              width: 96,
+              height: 96,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFEF2F2),
+              ),
+              child: const Icon(
+                Icons.location_off,
+                color: Color(0xFFDC2626),
+                size: 42,
+              ),
             ),
-            child: const Icon(
-              Icons.location_off_outlined,
-              color: Color(0xFFDC2626),
-              size: 42,
+            const SizedBox(height: 24),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF4B4B4B),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF4B4B4B),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          ],
           const Spacer(), // <-- UBAH: dari SizedBox(16) jadi Spacer, biar tombol selalu nempel bawah, samakan pola dgn checkin
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -367,6 +395,27 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 32), // <-- BARU: samakan dengan checkin
         ],
+      ),
+    );
+  }
+}
+
+class _LocationUnavailableIcon extends StatelessWidget {
+  const _LocationUnavailableIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0xFFFEF2F2),
+      ),
+      child: const Icon(
+        Icons.location_off_outlined,
+        color: Color(0xFFDC2626),
+        size: 42,
       ),
     );
   }

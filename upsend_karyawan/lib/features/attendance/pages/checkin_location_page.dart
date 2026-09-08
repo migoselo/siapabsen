@@ -6,6 +6,7 @@ import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
 import '../repository/attendance_repository.dart';
+import '../models/location_model.dart';
 import '../widgets/location_card.dart';
 import '../widgets/searching_location_view.dart';
 import '../widgets/map_control_button.dart';
@@ -307,44 +308,66 @@ class _LocationRetryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isOutsideRadius =
+        state.selectedLocation != null &&
+        !state.selectedLocation!.withinRadius;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25.0),
       child: Column(
         children: [
           const SizedBox(height: 40),
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFFEF2F2),
+          if (isOutsideRadius)
+            ...[
+              _buildLocationUnavailableIcon(),
+              const SizedBox(height: 24),
+              const Text(
+                'Anda berada di luar radius absen',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildOutsideRadiusCard(state.selectedLocation!),
+            ]
+          else ...[
+            Container(
+              width: 96,
+              height: 96,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFEF2F2),
+              ),
+              child: const Icon(
+                Icons.location_off_outlined,
+                color: Color(0xFFDC2626),
+                size: 42,
+              ),
             ),
-            child: const Icon(
-              Icons.location_off_outlined,
-              color: Color(0xFFDC2626),
-              size: 42,
+            const SizedBox(height: 24),
+            Text(
+              _title(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _title(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 8),
+            Text(
+              _subtitle(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF9A9A9A),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _subtitle(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF9A9A9A),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          ],
           const Spacer(),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -374,6 +397,26 @@ class _LocationRetryView extends StatelessWidget {
           ),
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOutsideRadiusCard(LocationModel location) {
+    return LocationCard(location: location);
+  }
+
+  Widget _buildLocationUnavailableIcon() {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0xFFFEF2F2),
+      ),
+      child: const Icon(
+        Icons.location_off,
+        color: Color(0xFFDC2626),
+        size: 42,
       ),
     );
   }
