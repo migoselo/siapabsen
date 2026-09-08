@@ -22,8 +22,17 @@ class HomeState extends Equatable {
     history: [],
   );
 
-  bool get isCheckedIn =>
-      todayAttendance != null && todayAttendance!.checkOutTime == null;
+  bool get isCheckedIn {
+    final attendance = todayAttendance;
+    if (attendance == null || attendance.checkOutTime != null) return false;
+
+    final checkIn = attendance.checkInTime.toLocal();
+    final now = DateTime.now();
+    return checkIn.year == now.year &&
+        checkIn.month == now.month &&
+        checkIn.day == now.day;
+  }
+
   String? get locationName =>
       isCheckedIn ? todayAttendance?.location?.name : null;
   DateTime? get checkInTime =>

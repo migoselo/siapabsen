@@ -88,16 +88,24 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     AttendanceModel? attendance,
     List<AttendanceModel> history,
   ) {
-    if (attendance != null && attendance.checkOutTime == null)
-      return attendance;
-
     final now = DateTime.now();
+
+    bool isToday(DateTime date) {
+      final localDate = date.toLocal();
+      return localDate.year == now.year &&
+          localDate.month == now.month &&
+          localDate.day == now.day;
+    }
+
+    if (attendance != null &&
+        attendance.checkOutTime == null &&
+        isToday(attendance.checkInTime)) {
+      return attendance;
+    }
+
     final openSessions = history.where((item) {
       final checkIn = item.checkInTime.toLocal();
-      return item.checkOutTime == null &&
-          checkIn.year == now.year &&
-          checkIn.month == now.month &&
-          checkIn.day == now.day;
+      return item.checkOutTime == null && isToday(checkIn);
     });
     return openSessions.isNotEmpty ? openSessions.first : null;
   }

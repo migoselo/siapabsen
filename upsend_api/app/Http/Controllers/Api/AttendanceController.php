@@ -54,6 +54,9 @@ class AttendanceController extends Controller
 
     $employeeId = $request->user()->id;
 
+    // Sesi yang terbawa ke hari berikutnya dianggap lupa checkout.
+    $this->closeOverdueSessions($employeeId);
+
     $openSession = Attendance::where('employee_id', $employeeId)
         ->whereNull('check_out_time')
         ->exists();
@@ -142,6 +145,8 @@ class AttendanceController extends Controller
 
     public function myOpenSession(Request $request)
     {
+        $this->closeOverdueSessions($request->user()->id);
+
         $session = Attendance::where('employee_id', $request->user()->id)
             ->whereNull('check_out_time')
             ->with('location')
@@ -151,8 +156,21 @@ class AttendanceController extends Controller
         return response()->json(['open_session' => $session]);
     }
 
+    private function closeOverdueSessions(int $employeeId): void
+    {
+        Attendance::where('employee_id', $employeeId)
+            ->whereNull('check_out_time')
+            ->whereDate('check_in_time', '<', today())
+            ->update([
+                'check_out_time' => now(),
+                'status' => 'lupa_absen',
+            ]);
+    }
+
     public function myHistory(Request $request)
     {
+        $this->closeOverdueSessions($request->user()->id);
+
         // employee_id selalu dari user yang login, bukan dari input request
         $query = Attendance::where('employee_id', $request->user()->id)->with('location');
 

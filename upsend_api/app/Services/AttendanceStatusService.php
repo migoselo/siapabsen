@@ -25,11 +25,21 @@ class AttendanceStatusService
             $location?->work_end_time ?? '17:00:00',
         );
 
+        $checkOut = $attendance->check_out_time;
+        if ($checkOut !== null &&
+            $checkOut->toDateString() !== $checkIn->toDateString()) {
+            return 'lupa_absen';
+        }
+
+        if ($checkOut === null &&
+            $checkIn->toDateString() < ($referenceTime ?? now())->toDateString()) {
+            return 'lupa_absen';
+        }
+
         if ($checkIn->greaterThan($workStart)) {
             return 'telat';
         }
 
-        $checkOut = $attendance->check_out_time;
         if ($checkOut === null) {
             $now = $referenceTime ?? now();
             return $now->greaterThan($workEnd) ? 'lupa_absen' : 'tepat_waktu';

@@ -34,14 +34,13 @@ class _RiwayatPageState extends State<RiwayatPage> {
   final DateTime _today = DateTime.now();
   PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
   late DateTime _anchorDate = _today;
+  DateTime? _selectedAnnualMonth;
   String? _selectedKategori;
   DateTimeRange?
   _customRange; // aktif kalau user pilih rentang manual lewat kalender
 
-  // cache data terakhir yang berhasil di-load, biar ganti toggle nggak "reload"/kedip
+  // Data terakhir hanya dipakai sementara saat request baru sedang berjalan.
   List<AttendanceModel> _lastRecords = [];
-  final Map<String, List<AttendanceModel>> _recordsCache = {};
-  String? _activeRangeKey;
 
   @override
   void initState() {
@@ -57,6 +56,18 @@ class _RiwayatPageState extends State<RiwayatPage> {
     if (_customRange != null) {
       start = _customRange!.start;
       end = _customRange!.end;
+    } else if (_periode == PeriodeRiwayat.tahunan &&
+        _selectedAnnualMonth != null) {
+      start = DateTime(
+        _selectedAnnualMonth!.year,
+        _selectedAnnualMonth!.month,
+        1,
+      );
+      end = DateTime(
+        _selectedAnnualMonth!.year,
+        _selectedAnnualMonth!.month + 1,
+        0,
+      );
     } else {
       switch (_periode) {
         case PeriodeRiwayat.mingguan:
@@ -74,15 +85,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
       }
     }
 
-    final rangeKey =
-        '${start.year}-${start.month}-${start.day}:'
-        '${end.year}-${end.month}-${end.day}';
-    _activeRangeKey = rangeKey;
-    final cachedRecords = _recordsCache[rangeKey];
-    if (cachedRecords != null) {
-      setState(() => _lastRecords = cachedRecords);
-      return;
-    }
+    // Jangan tampilkan records dari periode sebelumnya saat range baru dimuat.
+    setState(() => _lastRecords = []);
 
     context.read<HistoryBloc>().add(
       HistoryFetchRequested(startDate: start, endDate: end),
@@ -94,6 +98,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
     setState(() {
       _periode = p;
       _anchorDate = _today; // selalu balik ke hari ini tiap ganti toggle
+      _selectedAnnualMonth = null;
       _selectedKategori = null;
       _customRange = null;
     });
@@ -103,12 +108,13 @@ class _RiwayatPageState extends State<RiwayatPage> {
   void _onStripSelected(DateTime date) {
     setState(() {
       _anchorDate = date;
+      _selectedAnnualMonth = _periode == PeriodeRiwayat.tahunan ? date : null;
       _customRange = null;
     });
     _fetchForPeriode();
   }
 
-   Future<void> _pickDateRange(BuildContext context) async {
+  Future<void> _pickDateRange(BuildContext context) async {
     final selection = await showDialog<RiwayatCalendarSelection>(
       context: context,
       builder: (context) => RiwayatCalendarDialog(
@@ -126,6 +132,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
             ? PeriodeRiwayat.bulanan
             : _periode;
         _anchorDate = selection.date;
+        _selectedAnnualMonth = null;
         _customRange = selection.mode == RiwayatCalendarMode.range
             ? selection.range
             : null;
@@ -236,23 +243,11 @@ class _RiwayatPageState extends State<RiwayatPage> {
         listener: (context, state) {
           if (state.status == HistoryStatus.loaded) {
             _lastRecords = state.records;
-            if (_activeRangeKey != null) {
-              _recordsCache[_activeRangeKey!] = state.records;
-            }
           }
         },
         builder: (context, state) {
           // pakai cache selama loading, biar nggak "kedip" balik ke kosong/spinner
-          final effectiveRecords = _lastRecords.isNotEmpty
-              ? _lastRecords
-              : state.records;
-
-          // spinner full-screen CUMA kalau bener-bener belum ada data sama sekali
-          if (state.status == HistoryStatus.loading && _lastRecords.isEmpty) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1B2559)),
-            );
-          }
+          final effectiveRecords = _lastRecords;
 
           if (state.status == HistoryStatus.failure) {
             return Center(
@@ -427,5 +422,3 @@ class _RiwayatPageState extends State<RiwayatPage> {
     );
   }
 }
-
-
