@@ -184,7 +184,7 @@
   .mockup-stage {
     width: 100%;
     height: auto !important;
-    min-height: 320px !important;
+    min-height: 100px !important;
     margin: 10px auto !important;
     display: flex;
     flex-direction: column;
@@ -228,13 +228,13 @@
   .phone-presensi, .phone-cuti { width: 200px; margin: 10px 0 !important; }  
   /* 5. Ikon Pop-Up (Waktu & History) tetap melayang di atas HP */
   .icon-time {
-    width: 140px !important;
+    width: 110px !important;
     left: -10px !important;
     top: 150px !important;
   }
   
   .icon-history {
-    width: 150px !important;
+    width: 130px !important;
     right: -10px !important;
     bottom: 30px !important;
   }
@@ -246,7 +246,7 @@
     right: auto !important;
     left: auto !important;
     transform: none !important;
-    width: 260px !important;
+    width: 200px !important;
     margin: 10px auto !important;
   }
 

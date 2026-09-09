@@ -4,6 +4,7 @@ import '../widgets/profile_header.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/pages/edit_password_page.dart';
 import '../../face_regist/pages/face_registration_intro.dart';
+import '../../gaji/pages/slipgaji.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import 'biodata_page.dart';
@@ -291,6 +292,17 @@ class ProfilePage extends StatelessWidget {
                           ),
                         ),
                       ),
+                       const Divider(height: 1, color: kBorder),
+                      _SettingRow(
+                        label: 'Lihat Slip Gaji',
+                        showChevron: true,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SlipGajiPage(),
+                          ),
+                        ),
+                      ),
                       const Divider(height: 1, color: kBorder),
                       _SettingRow(
                         label: 'Log Out',
@@ -311,183 +323,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 }
-
-/*
-                      const SizedBox(height: 6),
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Full time developer', // TODO: dummy
-                            style: TextStyle(
-                              fontFamily: kFontFamily,
-                              fontSize: 12,
-                              color: kTextSecondary,
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                            Text(
-                              locationName,
-                            size: 14,
-                            color: kTextSecondary,
-                          ),
-                          SizedBox(width: 2),
-                          Text(
-                            'Kantor Pusat', // TODO: dummy
-                            style: TextStyle(
-                              fontFamily: kFontFamily,
-                              fontSize: 12,
-                              color: kTextSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                SizedBox(
-                            user: user!,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BiodataPage(
-                            userName: userName,
-                            userEmail: userEmail,
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kNavy,
-                      minimumSize: const Size.fromHeight(54),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      elevation: 0,
-                      alignment: Alignment.center,
-                    ),
-                    child: const Text(
-                      'Lihat Biodata Lengkap',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: kFontFamily,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                const Text(
-                  'Informasi Akun',
-                  style: TextStyle(
-                    fontFamily: kFontFamily,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kTextSecondary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: kBorder),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _InfoRow(
-                        label: 'ID karyawan',
-                        value: user?.employeeCode ?? '-',
-                      ),
-                      const Divider(height: 1, color: kBorder),
-                      _InfoRow(label: 'Nomor HP', value: user?.noHp ?? '-'),
-                      const Divider(height: 1, color: kBorder),
-                      const _InfoRow(
-                        label: 'Departemen',
-                        value: 'Developer',
-                      ), // TODO: dummy
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                const Text(
-                  'Pengaturan',
-                  style: TextStyle(
-                    fontFamily: kFontFamily,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kTextSecondary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: kBorder),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Column(
-                    children: [
-                      _SettingRow(
-                        label: 'Edit Password',
-                        showChevron: true,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const EditPasswordPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1, color: kBorder),
-                      _SettingRow(
-                        label: 'Daftarkan Wajah',
-                        showChevron: true,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const FaceRegistrationIntroPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1, color: kBorder),
-                      _SettingRow(
-                        label: 'Log Out',
-                        textColor: kDanger,
-                        onTap: () {
-                          context.read<AuthBloc>().add(
-                            const AuthLogoutRequested(),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-*/
 
 class _InfoRow extends StatelessWidget {
   final String label;

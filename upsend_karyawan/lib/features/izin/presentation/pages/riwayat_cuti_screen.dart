@@ -154,9 +154,11 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         final end = DateTime(anchor.year, anchor.month + 1, 0);
         return DateTimeRange(start: start, end: end);
       case PeriodeRiwayat.tahunan:
+        final start = DateTime(anchor.year, anchor.month, 1);
+        final end = DateTime(anchor.year, anchor.month + 1, 0);
         return DateTimeRange(
-          start: DateTime(anchor.year, 1, 1),
-          end: DateTime(anchor.year, 12, 31),
+          start: start,
+          end: end,
         );
     }
   }
