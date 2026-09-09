@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart' as latlong;
 import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
@@ -10,6 +11,8 @@ import '../models/location_model.dart';
 import '../widgets/location_card.dart';
 import '../widgets/searching_location_view.dart';
 import '../widgets/map_control_button.dart';
+import '../../../core/widgets/permission_settings_dialog.dart';
+import '../../../core/widgets/location_permission_retry_view.dart';
 import '../../face_regist/pages/face_registration_intro.dart';
 import 'checkin_camera_page.dart';
 
@@ -20,16 +23,53 @@ class CheckinLocationPage extends StatefulWidget {
   State<CheckinLocationPage> createState() => _CheckinLocationPageState();
 }
 
-class _CheckinLocationPageState extends State<CheckinLocationPage> {
+class _CheckinLocationPageState extends State<CheckinLocationPage>
+  with WidgetsBindingObserver {
   final MapController _mapController = MapController();
   bool _isSatelliteView = false;
+  bool _locationPermissionPermanentlyDenied = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AttendanceBloc>().add(FetchNearbyLocations());
+      _startLocationLookup();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resumeLocationFlow();
+    }
+  }
+
+  Future<void> _resumeLocationFlow() async {
+    if (!_locationPermissionPermanentlyDenied) return;
+    final permission = await Geolocator.checkPermission();
+    if (!mounted || permission == LocationPermission.deniedForever) return;
+
+    if (_locationPermissionPermanentlyDenied) {
+      setState(() => _locationPermissionPermanentlyDenied = false);
+    }
+    context.read<AttendanceBloc>().add(FetchNearbyLocations());
+  }
+
+  Future<void> _startLocationLookup() async {
+    final permission = await Geolocator.checkPermission();
+    if (!mounted) return;
+    if (permission == LocationPermission.deniedForever) {
+      setState(() => _locationPermissionPermanentlyDenied = true);
+    }
+    if (!mounted) return;
+    context.read<AttendanceBloc>().add(FetchNearbyLocations());
   }
 
   @override
@@ -61,6 +101,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
           final hasValidLocation =
               state.selectedLocation != null &&
               state.selectedLocation!.withinRadius;
+          final permissionPermanentlyDenied =
+              _locationPermissionPermanentlyDenied ||
+              (state.errorMessage?.contains('ditolak permanen') ?? false);
 
           // Masih loading -> tampilkan animasi pencarian
           if (state.status == AttendanceStatus.loading) {
@@ -86,12 +129,36 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
             );
           }
 
+          if (permissionPermanentlyDenied) {
+            return LocationPermissionRetryView(
+              onOpenSettings: () {
+                setState(() => _locationPermissionPermanentlyDenied = true);
+                openPermissionSettings();
+              },
+            );
+          }
+
           // Belum loading, TAPI belum ketemu lokasi valid (gagal / di luar radius / kosong)
           // -> TETAP di halaman ini, tampilkan pesan + tombol "Coba lagi"
           if (!hasValidLocation) {
             return _LocationRetryView(
               state: state,
-              onRetry: () {
+                permissionPermanentlyDenied: permissionPermanentlyDenied,
+              onOpenSettings: () async {
+                setState(() => _locationPermissionPermanentlyDenied = true);
+                return openPermissionSettings();
+              },
+              onRetry: () async {
+                var permission = await Geolocator.checkPermission();
+                if (permission == LocationPermission.denied) {
+                  permission = await Geolocator.requestPermission();
+                }
+                if (permission == LocationPermission.deniedForever) {
+                  setState(() => _locationPermissionPermanentlyDenied = true);
+                  return;
+                }
+                if (permission == LocationPermission.denied) return;
+                if (!context.mounted) return;
                 context.read<AttendanceBloc>().add(FetchNearbyLocations());
               },
             );
@@ -278,9 +345,16 @@ class _CheckinLocationPageState extends State<CheckinLocationPage> {
 // ==========================================================================
 class _LocationRetryView extends StatelessWidget {
   final AttendanceState state;
+  final bool permissionPermanentlyDenied;
+  final Future<bool> Function() onOpenSettings;
   final VoidCallback onRetry;
 
-  const _LocationRetryView({required this.state, required this.onRetry});
+  const _LocationRetryView({
+    required this.state,
+    required this.permissionPermanentlyDenied,
+    required this.onOpenSettings,
+    required this.onRetry,
+  });
 
   String _title() {
     if (state.status == AttendanceStatus.failure) {
@@ -369,31 +443,38 @@ class _LocationRetryView extends StatelessWidget {
             ),
           ],
           const Spacer(),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2F3B69),
-              minimumSize: const Size.fromHeight(54),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              elevation: 0,
-            ),
-            onPressed: onRetry,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.refresh, color: Colors.white, size: 18),
-                SizedBox(width: 6),
-                Text(
-                  "Coba lagi",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2F3B69),
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
                   ),
+                  elevation: 0,
                 ),
-              ],
-            ),
+                onPressed: permissionPermanentlyDenied
+                    ? onOpenSettings
+                    : onRetry,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      permissionPermanentlyDenied
+                          ? 'Buka Pengaturan'
+                          : 'Coba lagi',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 32),
         ],

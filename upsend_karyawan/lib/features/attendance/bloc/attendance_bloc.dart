@@ -33,7 +33,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          throw Exception('Izin lokasi ditolak.');
+          permission = await Geolocator.requestPermission();
         }
       }
       if (permission == LocationPermission.deniedForever) {
