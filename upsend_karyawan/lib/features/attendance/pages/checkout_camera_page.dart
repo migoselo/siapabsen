@@ -10,6 +10,8 @@ import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_embedding_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/widgets/face_camera_preview.dart';
+import '../../../core/widgets/permission_settings_dialog.dart';
+import '../../../core/widgets/camera_permission_retry_view.dart';
 import '../repository/attendance_repository.dart';
 import '../../home/bloc/home_bloc.dart';
 import '../../home/bloc/home_event.dart';
@@ -23,16 +25,21 @@ class CheckoutCameraPage extends StatefulWidget {
   State<CheckoutCameraPage> createState() => _CheckoutCameraPageState();
 }
 
-class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
+class _CheckoutCameraPageState extends State<CheckoutCameraPage>
+  with WidgetsBindingObserver {
   final CameraService _cameraService = CameraService();
   bool _cameraInitialized = false;
   bool _cameraInitInProgress = false;
   bool _cameraPermissionDenied = false;
+  bool _cameraPermissionPermanentlyDenied = false;
+  bool _cameraPermissionFlowInProgress = false;
+  bool _waitingForCameraSettings = false;
   bool _isProcessing = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureCameraInitialized();
@@ -41,6 +48,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -51,12 +59,69 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _waitingForCameraSettings) {
+      _resumeCameraFlow();
+    }
+  }
+
+  Future<void> _resumeCameraFlow() async {
+    if (!mounted || _cameraPermissionFlowInProgress) return;
+
+    _waitingForCameraSettings = false;
+    _cameraPermissionFlowInProgress = true;
+    final requestedStatus = await Permission.camera.request();
+    if (!mounted) return;
+    if (requestedStatus.isPermanentlyDenied) {
+      setState(() => _cameraPermissionPermanentlyDenied = true);
+      _cameraPermissionFlowInProgress = false;
+      return;
+    }
+
+    setState(() {
+      _cameraPermissionDenied = !requestedStatus.isGranted;
+      _cameraPermissionPermanentlyDenied = false;
+    });
+    if (requestedStatus.isGranted) {
+      await _initializeGrantedCamera();
+    }
+    _cameraPermissionFlowInProgress = false;
+  }
+
+  Future<void> _openCameraSettings() async {
+    if (_waitingForCameraSettings) return;
+    _waitingForCameraSettings = true;
+    await openPermissionSettings();
+  }
+
+  Future<void> _initializeGrantedCamera() async {
+    if (_cameraInitialized || _cameraInitInProgress) return;
+    _cameraInitInProgress = true;
+    try {
+      await _cameraService.init();
+      if (!mounted) return;
+      setState(() => _cameraInitialized = true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cameraPermissionDenied = true);
+      AppSnackbar.error(context, 'Gagal memulai kamera: ${e.toString()}');
+    } finally {
+      _cameraInitInProgress = false;
+    }
+  }
+
   Future<void> _ensureCameraInitialized() async {
     if (_cameraInitialized || _cameraInitInProgress) return;
 
     _cameraInitInProgress = true;
     final status = await Permission.camera.request();
     if (!status.isGranted) {
+      if (status.isPermanentlyDenied) {
+        _cameraPermissionPermanentlyDenied = true;
+      }
+      if (!mounted) return;
       setState(() {
         _cameraPermissionDenied = true;
         _cameraInitInProgress = false;
@@ -80,7 +145,6 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
       _cameraInitInProgress = false;
     }
   }
-
   Future<void> _captureAndSubmit() async {
     if (_isProcessing) return;
     if (!_cameraInitialized || _cameraService.controller == null) {
@@ -233,6 +297,34 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_cameraPermissionPermanentlyDenied) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text(
+            'Check Out',
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+              fontSize: 22,
+            ),
+          ),
+        ),
+        body: SafeArea(
+          child: CameraPermissionRetryView(
+            onOpenSettings: _openCameraSettings,
+          ),
+        ),
+      );
+    }
+
     final isBusy = _isProcessing || _cameraInitInProgress;
     Widget previewChild;
 
@@ -335,13 +427,18 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
                             'Checkout Sekarang',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
+                              ),
+                            ],
                           ),
                   ),
                 ),

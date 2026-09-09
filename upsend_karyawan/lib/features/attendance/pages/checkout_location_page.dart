@@ -8,6 +8,8 @@ import '../../attendance/repository/attendance_repository.dart';
 import '../../attendance/widgets/location_card.dart';
 import '../../attendance/widgets/searching_location_view.dart';
 import '../../attendance/widgets/map_control_button.dart';
+import '../../../core/widgets/permission_settings_dialog.dart';
+import '../../../core/widgets/location_permission_retry_view.dart';
 import 'checkout_camera_page.dart';
 
 class CheckoutLocationPage extends StatefulWidget {
@@ -19,7 +21,8 @@ class CheckoutLocationPage extends StatefulWidget {
   State<CheckoutLocationPage> createState() => _CheckoutLocationPageState();
 }
 
-class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
+class _CheckoutLocationPageState extends State<CheckoutLocationPage>
+  with WidgetsBindingObserver {
   bool _isLoading = true;
   String? _errorMessage;
   double? _latitude;
@@ -28,11 +31,37 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
 
   final MapController _mapController = MapController();
   bool _isSatelliteView = false;
+  bool _locationPermissionPermanentlyDenied = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadNearbyLocation();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resumeLocationFlow();
+    }
+  }
+
+  Future<void> _resumeLocationFlow() async {
+    if (!_locationPermissionPermanentlyDenied) return;
+    final permission = await Geolocator.checkPermission();
+    if (!mounted || permission == LocationPermission.deniedForever) return;
+
+    if (_locationPermissionPermanentlyDenied) {
+      setState(() => _locationPermissionPermanentlyDenied = false);
+    }
+    await _loadNearbyLocation();
   }
 
   Future<void> _loadNearbyLocation() async {
@@ -52,10 +81,13 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          throw Exception('Izin lokasi ditolak.');
+          permission = await Geolocator.requestPermission();
         }
       }
       if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() => _locationPermissionPermanentlyDenied = true);
+        }
         throw Exception('Izin lokasi ditolak permanen, ubah di Settings.');
       }
 
@@ -157,11 +189,43 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
       );
     }
 
+    final permissionPermanentlyDenied =
+        _locationPermissionPermanentlyDenied ||
+        (_errorMessage?.contains('ditolak permanen') ?? false);
+
+    if (permissionPermanentlyDenied) {
+      return LocationPermissionRetryView(
+        onOpenSettings: () {
+          setState(() => _locationPermissionPermanentlyDenied = true);
+          openPermissionSettings();
+        },
+      );
+    }
+
     if (_errorMessage != null || _selectedLocation == null) {
       return _ErrorView(
         message: _errorMessage ?? 'Lokasi kantor tidak tersedia.',
         location: _selectedLocation,
-        onRetry: _loadNearbyLocation,
+        permissionPermanentlyDenied:
+            _locationPermissionPermanentlyDenied ||
+            (_errorMessage?.contains('ditolak permanen') ?? false),
+        onOpenSettings: () async {
+          setState(() => _locationPermissionPermanentlyDenied = true);
+          return openPermissionSettings();
+        },
+        onRetry: () async {
+          var permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          if (permission == LocationPermission.deniedForever && mounted) {
+            setState(() => _locationPermissionPermanentlyDenied = true);
+            return;
+          }
+          if (permission == LocationPermission.denied) return;
+          if (!mounted) return;
+          await _loadNearbyLocation();
+        },
       );
     }
 
@@ -316,11 +380,15 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage> {
 class _ErrorView extends StatelessWidget {
   final String message;
   final LocationModel? location;
+  final bool permissionPermanentlyDenied;
+  final Future<bool> Function() onOpenSettings;
   final VoidCallback onRetry;
 
   const _ErrorView({
     required this.message,
     required this.onRetry,
+    required this.permissionPermanentlyDenied,
+    required this.onOpenSettings,
     this.location,
   });
 
@@ -374,24 +442,38 @@ class _ErrorView extends StatelessWidget {
             ),
           ],
           const Spacer(), // <-- UBAH: dari SizedBox(16) jadi Spacer, biar tombol selalu nempel bawah, samakan pola dgn checkin
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2F3B69),
-              minimumSize: const Size.fromHeight(54),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2F3B69),
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: permissionPermanentlyDenied
+                    ? onOpenSettings
+                    : onRetry,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      permissionPermanentlyDenied
+                          ? 'Buka Pengaturan'
+                          : 'Coba lagi',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              elevation: 0,
-            ),
-            onPressed: onRetry,
-            child: const Text(
-              'Coba lagi',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            ],
           ),
           const SizedBox(height: 32), // <-- BARU: samakan dengan checkin
         ],

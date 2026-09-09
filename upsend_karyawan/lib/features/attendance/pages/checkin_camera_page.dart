@@ -12,6 +12,8 @@ import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_embedding_service.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/widgets/face_camera_preview.dart';
+import '../../../core/widgets/permission_settings_dialog.dart';
+import '../../../core/widgets/camera_permission_retry_view.dart';
 import '../../face_regist/pages/face_registration_intro.dart';
 import '../../history/bloc/history_bloc.dart';
 import '../../history/bloc/history_event.dart';
@@ -25,11 +27,15 @@ class CheckinCameraPage extends StatefulWidget {
   State<CheckinCameraPage> createState() => _CheckinCameraPageState();
 }
 
-class _CheckinCameraPageState extends State<CheckinCameraPage> {
+class _CheckinCameraPageState extends State<CheckinCameraPage>
+  with WidgetsBindingObserver {
   final CameraService _cameraService = CameraService();
   bool _cameraInitialized = false;
   bool _cameraInitInProgress = false;
   bool _cameraPermissionDenied = false;
+  bool _cameraPermissionPermanentlyDenied = false;
+  bool _cameraPermissionFlowInProgress = false;
+  bool _waitingForCameraSettings = false;
   bool _successDialogShown = false;
 
   // Flag lokal terpisah dari AttendanceStatus.loading, karena proses
@@ -40,11 +46,13 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -53,6 +61,67 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
     ]);
     _cameraService.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _waitingForCameraSettings) {
+      _resumeCameraFlow();
+    }
+  }
+
+  Future<void> _resumeCameraFlow() async {
+    if (!mounted || _cameraPermissionFlowInProgress) return;
+
+    _waitingForCameraSettings = false;
+    _cameraPermissionFlowInProgress = true;
+    final requestedStatus = await Permission.camera.request();
+    if (!mounted) return;
+    if (requestedStatus.isPermanentlyDenied) {
+      setState(() => _cameraPermissionPermanentlyDenied = true);
+      _cameraPermissionFlowInProgress = false;
+      return;
+    }
+
+    setState(() {
+      _cameraPermissionDenied = !requestedStatus.isGranted;
+      _cameraPermissionPermanentlyDenied = false;
+    });
+    if (requestedStatus.isGranted) {
+      await _initializeGrantedCamera(
+        context.read<AttendanceBloc>().state,
+      );
+    }
+    _cameraPermissionFlowInProgress = false;
+  }
+
+  Future<void> _openCameraSettings() async {
+    if (_waitingForCameraSettings) return;
+    _waitingForCameraSettings = true;
+    await openPermissionSettings();
+  }
+
+  Future<void> _initializeGrantedCamera(AttendanceState state) async {
+    if (_cameraInitialized || _cameraInitInProgress) return;
+    if (state.selectedLocation == null ||
+        state.latitude == null ||
+        state.longitude == null) {
+      return;
+    }
+
+    _cameraInitInProgress = true;
+    try {
+      await _cameraService.init();
+      if (!mounted) return;
+      setState(() => _cameraInitialized = true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cameraPermissionDenied = true);
+      AppSnackbar.error(context, 'Gagal memulai kamera: ${e.toString()}');
+    } finally {
+      _cameraInitInProgress = false;
+    }
   }
 
   Future<void> _ensureCameraInitializedIfNeeded(AttendanceState state) async {
@@ -67,6 +136,9 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
     final status = await Permission.camera.request();
     if (!status.isGranted) {
       if (!mounted) return;
+      if (status.isPermanentlyDenied) {
+        _cameraPermissionPermanentlyDenied = true;
+      }
       setState(() {
         _cameraPermissionDenied = true;
         _cameraInitInProgress = false;
@@ -281,6 +353,11 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
         },
         child: BlocBuilder<AttendanceBloc, AttendanceState>(
           builder: (context, state) {
+            if (_cameraPermissionPermanentlyDenied) {
+              return CameraPermissionRetryView(
+                onOpenSettings: _openCameraSettings,
+              );
+            }
             _ensureCameraInitializedIfNeeded(state);
 
             // Preview SELALU tampilkan kamera live (tidak ada lagi tahap
@@ -345,7 +422,9 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
             }
 
             final isBusy =
-                _isProcessing || state.status == AttendanceStatus.loading;
+              _isProcessing ||
+              state.status == AttendanceStatus.loading ||
+              _cameraInitInProgress;
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -389,12 +468,12 @@ class _CheckinCameraPageState extends State<CheckinCameraPage> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
                                     'Simpan',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
