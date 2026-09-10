@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:dio/dio.dart';
 import '../repository/history_repository.dart';
 import 'history_event.dart';
 import 'history_state.dart';
@@ -24,8 +25,28 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
     } catch (e) {
       emit(state.copyWith(
         status: HistoryStatus.failure,
-        errorMessage: e.toString(),
+        errorMessage: _getUserFriendlyError(e),
       ));
     }
+  }
+
+  String _getUserFriendlyError(Object error) {
+    if (error is DioException) {
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      }
+
+      if (error.response?.statusCode != null &&
+          error.response!.statusCode! >= 500) {
+        return 'Server sedang mengalami kendala. Silakan coba lagi.';
+      }
+
+      return 'Riwayat tidak dapat dimuat. Silakan coba lagi.';
+    }
+
+    return 'Riwayat tidak dapat dimuat. Silakan coba lagi.';
   }
 }
