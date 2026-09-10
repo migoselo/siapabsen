@@ -28,6 +28,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage>
   final MapController _mapController = MapController();
   bool _isSatelliteView = false;
   bool _locationPermissionPermanentlyDenied = false;
+  bool _locationServiceDisabled = false;
 
   @override
   void initState() {
@@ -52,13 +53,21 @@ class _CheckinLocationPageState extends State<CheckinLocationPage>
   }
 
   Future<void> _resumeLocationFlow() async {
-    if (!_locationPermissionPermanentlyDenied) return;
-    final permission = await Geolocator.checkPermission();
-    if (!mounted || permission == LocationPermission.deniedForever) return;
-
-    if (_locationPermissionPermanentlyDenied) {
-      setState(() => _locationPermissionPermanentlyDenied = false);
+    if (!_locationPermissionPermanentlyDenied && !_locationServiceDisabled) {
+      return;
     }
+    final permission = await Geolocator.checkPermission();
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!mounted ||
+        permission == LocationPermission.deniedForever ||
+        !serviceEnabled) {
+      return;
+    }
+
+    setState(() {
+      _locationPermissionPermanentlyDenied = false;
+      _locationServiceDisabled = false;
+    });
     context.read<AttendanceBloc>().add(FetchNearbyLocations());
   }
 
@@ -104,6 +113,9 @@ class _CheckinLocationPageState extends State<CheckinLocationPage>
           final permissionPermanentlyDenied =
               _locationPermissionPermanentlyDenied ||
               (state.errorMessage?.contains('ditolak permanen') ?? false);
+            final locationServiceDisabled =
+              _locationServiceDisabled ||
+              (state.errorMessage?.contains('GPS tidak aktif') ?? false);
 
           // Masih loading -> tampilkan animasi pencarian
           if (state.status == AttendanceStatus.loading) {
@@ -143,10 +155,15 @@ class _CheckinLocationPageState extends State<CheckinLocationPage>
           if (!hasValidLocation) {
             return _LocationRetryView(
               state: state,
-                permissionPermanentlyDenied: permissionPermanentlyDenied,
+              permissionPermanentlyDenied: permissionPermanentlyDenied,
+              locationServiceDisabled: locationServiceDisabled,
               onOpenSettings: () async {
                 setState(() => _locationPermissionPermanentlyDenied = true);
                 return openPermissionSettings();
+              },
+              onOpenLocationSettings: () {
+                setState(() => _locationServiceDisabled = true);
+                return openLocationSettings();
               },
               onRetry: () async {
                 var permission = await Geolocator.checkPermission();
@@ -346,13 +363,17 @@ class _CheckinLocationPageState extends State<CheckinLocationPage>
 class _LocationRetryView extends StatelessWidget {
   final AttendanceState state;
   final bool permissionPermanentlyDenied;
+  final bool locationServiceDisabled;
   final Future<bool> Function() onOpenSettings;
+  final Future<bool> Function() onOpenLocationSettings;
   final VoidCallback onRetry;
 
   const _LocationRetryView({
     required this.state,
     required this.permissionPermanentlyDenied,
+    required this.locationServiceDisabled,
     required this.onOpenSettings,
+    required this.onOpenLocationSettings,
     required this.onRetry,
   });
 
@@ -455,14 +476,18 @@ class _LocationRetryView extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                onPressed: permissionPermanentlyDenied
-                    ? onOpenSettings
-                    : onRetry,
+                onPressed: locationServiceDisabled
+                  ? onOpenLocationSettings
+                  : permissionPermanentlyDenied
+                  ? onOpenSettings
+                  : onRetry,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      permissionPermanentlyDenied
+                        locationServiceDisabled
+                          ? 'Aktifkan lokasi'
+                          : permissionPermanentlyDenied
                           ? 'Buka Pengaturan'
                           : 'Coba lagi',
                       style: const TextStyle(
