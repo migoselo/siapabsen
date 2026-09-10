@@ -10,6 +10,11 @@ class Tenant extends Model
         'name',
         'slug',
         'status',
+        'alpha_deduction_per_day',
+    ];
+
+    protected $casts = [
+        'alpha_deduction_per_day' => 'decimal:2',
     ];
 
     public function users()

@@ -47,9 +47,8 @@ class PayrollCalculationService
         );
         $coveredDates = $attendedDates->merge($approvedLeaveDates)->unique();
         $absenceDays = max(0, $effectiveWorkDays - $coveredDates->count());
-        $absenceDeduction = $effectiveWorkDays > 0
-            ? ($absenceDays / $effectiveWorkDays) * (float) $payroll->basic_salary
-            : 0;
+        $alphaDeductionPerDay = (float) ($payroll->user?->tenant?->alpha_deduction_per_day ?? 0);
+        $absenceDeduction = $absenceDays * $alphaDeductionPerDay;
 
         $lateMinutes = 0;
         $lateDeduction = 0;
@@ -158,7 +157,7 @@ class PayrollCalculationService
     {
         return match (true) {
             $minutesLate <= 15 => 0,
-            $minutesLate <= 60 => 25000,
+            $minutesLate <= 60 => 15000,
             $minutesLate > 60 && $effectiveWorkDays > 0 => $basicSalary / $effectiveWorkDays / 2,
             default => 0,
         };

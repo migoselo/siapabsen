@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../../core/api/api.dart';
 import '../../../core/widgets/riwayat_calendar_dialog.dart';
 
@@ -111,6 +115,204 @@ class _SlipGajiPageState extends State<SlipGajiPage> {
       });
       _loadPayroll();
     }
+  }
+
+  Future<void> _downloadSlip() async {
+    final payroll = _payroll;
+    if (payroll == null) return;
+
+    final logoBytes = await rootBundle.load('assets/images/app_icon.png');
+    final document = pw.Document();
+    final logo = pw.MemoryImage(logoBytes.buffer.asUint8List());
+
+    pw.Widget moneyRow(String label, String value, {bool bold = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 5),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              label,
+              style: pw.TextStyle(
+                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              ),
+            ),
+            pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget section(String title, List<pw.Widget> rows) {
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 16),
+        padding: const pw.EdgeInsets.all(12),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.grey300),
+          borderRadius: pw.BorderRadius.circular(8),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(
+              title,
+              style: pw.TextStyle(
+                color: PdfColors.blue900,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            ...rows,
+          ],
+        ),
+      );
+    }
+
+    document.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            pw.Row(
+              children: [
+                pw.Image(logo, width: 52, height: 52),
+                pw.SizedBox(width: 14),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'UPSend',
+                      style: pw.TextStyle(
+                        fontSize: 20,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.Text(
+                      'SLIP GAJI',
+                      style: pw.TextStyle(
+                        fontSize: 11,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.Spacer(),
+                pw.Text(
+                  _monthYearText,
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            pw.Divider(color: PdfColors.blue900),
+            section('Informasi Penerima', [
+              moneyRow('Nama Bank', payroll.text('bank_name') ?? '-'),
+              moneyRow(
+                'Akun Penerima',
+                payroll.text('bank_account_name') ?? '-',
+              ),
+              moneyRow(
+                'Nomor Rekening',
+                payroll.text('bank_account_number') ?? '-',
+              ),
+            ]),
+            section('Rincian Penerimaan', [
+              moneyRow(
+                'Gaji Pokok',
+                _formatRupiah(payroll.money('basic_salary')),
+              ),
+              moneyRow(
+                'Transport',
+                _formatRupiah(payroll.money('transport_allowance')),
+              ),
+              moneyRow('Makan', _formatRupiah(payroll.money('meal_allowance'))),
+              moneyRow(
+                'Kehadiran',
+                _formatRupiah(payroll.money('attendance_allowance')),
+              ),
+              moneyRow(
+                'Tunjangan Lainnya',
+                _formatRupiah(payroll.money('other_allowance')),
+              ),
+              moneyRow(
+                'Total Penerimaan',
+                _formatRupiah(payroll.money('total_income')),
+                bold: true,
+              ),
+            ]),
+            section('Rincian Potongan', [
+              moneyRow(
+                'Alpha (${payroll.money('absence_days')} hari)',
+                _formatRupiah(payroll.money('absence_deduction')),
+              ),
+              moneyRow(
+                'Keterlambatan (${payroll.money('late_minutes')} menit)',
+                _formatRupiah(payroll.money('late_deduction')),
+              ),
+              moneyRow(
+                'Cicilan Bank',
+                _formatRupiah(payroll.money('loan_deduction')),
+              ),
+              moneyRow('Pajak', _formatRupiah(payroll.money('tax_deduction'))),
+              moneyRow(
+                'Potongan Lainnya',
+                _formatRupiah(payroll.money('other_deduction')),
+              ),
+              moneyRow(
+                'Total Potongan',
+                _formatRupiah(payroll.money('total_deduction')),
+                bold: true,
+              ),
+            ]),
+            pw.Container(
+              margin: const pw.EdgeInsets.only(top: 20),
+              padding: const pw.EdgeInsets.all(16),
+              color: PdfColors.blue900,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'GAJI BERSIH',
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    _formatRupiah(payroll.money('net_salary')),
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            pw.Spacer(),
+            pw.Text(
+              'Dokumen ini dibuat otomatis oleh aplikasi UPSend.',
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await Printing.sharePdf(
+      bytes: await document.save(),
+      filename:
+          'slip-gaji-${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}.pdf',
+    );
   }
 
   @override
@@ -243,7 +445,7 @@ class _SlipGajiPageState extends State<SlipGajiPage> {
                         width: double.infinity,
                         height: 44,
                         child: ElevatedButton(
-                          onPressed: null,
+                          onPressed: payroll == null ? null : _downloadSlip,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
@@ -338,7 +540,7 @@ class _SlipGajiPageState extends State<SlipGajiPage> {
                       title: 'Rincian Potongan',
                       rows: [
                         (
-                          'Mangkir (${payroll.money('absence_days')}/${payroll.money('effective_work_days')} hari)',
+                          'Alpha (${payroll.money('absence_days')} hari)',
                           _formatRupiah(payroll.money('absence_deduction')),
                           false,
                         ),
