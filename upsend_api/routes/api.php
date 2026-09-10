@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\LeaveRequestController;
+use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
     Route::delete('/leave-requests/{id}', [LeaveRequestController::class, 'destroy']);
     Route::get('/leave-balances', [LeaveRequestController::class, 'balances']);
+    Route::get('/payrolls/{year}/{month}', [PayrollController::class, 'show'])
+        ->whereNumber(['year', 'month']);
 
     // ==== Khusus admin ====
     Route::middleware('role:admin,super_admin')->group(function () {

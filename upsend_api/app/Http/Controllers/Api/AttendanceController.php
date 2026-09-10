@@ -6,7 +6,9 @@ use App\Helpers\DistanceHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Location;
+use App\Models\LeaveRequest;
 use App\Services\AttendanceStatusService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
@@ -170,24 +172,95 @@ class AttendanceController extends Controller
     public function myHistory(Request $request)
     {
         $this->closeOverdueSessions($request->user()->id);
+        $timezone = config('app.timezone');
+        $startDate = $request->filled('start_date')
+            ? Carbon::parse($request->start_date, $timezone)->startOfDay()
+            : Carbon::parse($request->user()->created_at, $timezone)->startOfDay();
+        $endDate = $request->filled('end_date')
+            ? Carbon::parse($request->end_date, $timezone)->endOfDay()
+            : Carbon::now($timezone)->endOfDay();
+        $endDate = $endDate->isFuture() ? Carbon::now($timezone)->endOfDay() : $endDate;
 
         // employee_id selalu dari user yang login, bukan dari input request
-        $query = Attendance::where('employee_id', $request->user()->id)->with('location');
-
-        if ($request->filled('start_date')) {
-            $query->whereDate('check_in_time', '>=', $request->start_date);
-        }
-
-        if ($request->filled('end_date')) {
-            $query->whereDate('check_in_time', '<=', $request->end_date);
-        }
-
-        $page = $query->orderByDesc('check_in_time')->paginate(20);
-        $page->getCollection()->transform(function (Attendance $attendance): Attendance {
+        $records = Attendance::where('employee_id', $request->user()->id)
+            ->whereBetween('check_in_time', [$startDate, $endDate])
+            ->with('location')
+            ->get();
+        $records->transform(function (Attendance $attendance): Attendance {
             $attendance->status = $this->attendanceStatusService->determine($attendance);
             return $attendance;
         });
 
-        return response()->json($page);
+        $attendedDates = $records
+            ->map(fn (Attendance $attendance): string => $attendance->check_in_time
+                ->copy()->setTimezone($timezone)->toDateString())
+            ->unique()
+            ->all();
+        $approvedLeaveDates = LeaveRequest::where('user_id', $request->user()->id)
+            ->where('status', 'approved')
+            ->whereDate('start_date', '<=', $endDate)
+            ->whereDate('end_date', '>=', $startDate)
+            ->get(['start_date', 'end_date'])
+            ->flatMap(function (LeaveRequest $leave) use ($startDate, $endDate, $timezone): array {
+                $leaveStart = Carbon::parse($leave->start_date, $timezone)->max($startDate);
+                $leaveEnd = Carbon::parse($leave->end_date, $timezone)->min($endDate);
+                $dates = [];
+                for ($date = $leaveStart->copy(); $date->lte($leaveEnd); $date->addDay()) {
+                    if ($date->isWeekday()) $dates[] = $date->toDateString();
+                }
+                return $dates;
+            })
+            ->unique()
+            ->all();
+
+        foreach ($this->missingWorkDates($startDate, $endDate, array_merge($attendedDates, $approvedLeaveDates)) as $date) {
+            $records->push($this->makeAlphaRecord($request->user()->id, $date, $timezone));
+        }
+
+        $records = $records->sortByDesc('check_in_time')->values();
+        $page = (int) $request->query('page', 1);
+        $perPage = 20;
+        $total = $records->count();
+        $items = $records->slice(($page - 1) * $perPage, $perPage)->values();
+
+        return response()->json([
+            'current_page' => $page,
+            'data' => $items,
+            'per_page' => $perPage,
+            'total' => $total,
+            'last_page' => max(1, (int) ceil($total / $perPage)),
+        ]);
+    }
+
+    private function missingWorkDates(Carbon $start, Carbon $end, array $coveredDates): array
+    {
+        $covered = array_fill_keys($coveredDates, true);
+        $missing = [];
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $key = $date->toDateString();
+            if ($date->isWeekday() && !isset($covered[$key])) $missing[] = $key;
+        }
+        return $missing;
+    }
+
+    private function makeAlphaRecord(int $userId, string $date, string $timezone): array
+    {
+        return [
+            'id' => -abs(crc32("alpha:$userId:$date")),
+            'employee_id' => $userId,
+            'location_id' => 0,
+            'check_in_time' => Carbon::parse($date, $timezone)->startOfDay()->toISOString(),
+            'check_in_lat' => 0,
+            'check_in_long' => 0,
+            'check_in_distance' => 0,
+            'check_in_photo' => null,
+            'check_out_time' => null,
+            'check_out_lat' => null,
+            'check_out_long' => null,
+            'check_out_distance' => null,
+            'check_out_photo' => null,
+            'status' => 'alpha',
+            'location' => null,
+        ];
     }
 }

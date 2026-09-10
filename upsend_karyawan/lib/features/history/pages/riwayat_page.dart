@@ -399,15 +399,17 @@ class _RiwayatPageState extends State<RiwayatPage> {
                         ...entry.value.map(
                           (record) => RiwayatCard(
                             record: record,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      RiwayatDetailPage(record: record),
-                                ),
-                              );
-                            },
+                            onTap: record.status.toLowerCase() == 'alpha'
+                                ? () {}
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            RiwayatDetailPage(record: record),
+                                      ),
+                                    );
+                                  },
                           ),
                         ),
                         const SizedBox(height: 12),

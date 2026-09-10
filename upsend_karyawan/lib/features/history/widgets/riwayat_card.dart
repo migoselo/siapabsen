@@ -13,6 +13,8 @@ class RiwayatCard extends StatelessWidget {
     switch (status.toLowerCase()) {
       case 'lupa_absen':
         return 'Lupa Absen';
+      case 'alpha':
+        return 'Alpha';
       case 'telat':
         return 'Telat';
       case 'lembur':
@@ -27,6 +29,7 @@ class RiwayatCard extends StatelessWidget {
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'lupa_absen':
+      case 'alpha':
         return const Color(0xFFEF4444);
       case 'telat':
         return const Color(0xFFF5A623);
