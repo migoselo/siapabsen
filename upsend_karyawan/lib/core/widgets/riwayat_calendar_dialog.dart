@@ -125,7 +125,6 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     return AlertDialog(
       content: SizedBox(
@@ -238,19 +237,47 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                   crossAxisCount: 3,
                   mainAxisSpacing: 8,
                   crossAxisSpacing: 8,
+                  childAspectRatio: 2.2,
                 ),
                 itemBuilder: (context, index) {
                   final month = index + 1;
                   final date = DateTime(_visibleMonth.year, month, 1);
                   final disabled = date.isAfter(_lastDate);
-                  return OutlinedButton(
-                    onPressed: disabled
+                  final isSelected = month == _visibleMonth.month;
+
+                  return GestureDetector(
+                    onTap: disabled
                         ? null
                         : () {
                             _visibleMonth = date;
                             _selectMonth(month);
                           },
-                    child: Text(DateFormat('MMM', 'id_ID').format(date)),
+                    child: Container(
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.rectangle,
+                        borderRadius: BorderRadius.circular(12),
+                        color: isSelected ? const Color(0xFF2F3B69) : null,
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF2F3B69)
+                              : const Color(0xFFC9D1E3),
+                        ),
+                      ),
+                      child: Text(
+                        DateFormat('MMM', 'id_ID').format(date),
+                        style: TextStyle(
+                          color: disabled
+                              ? const Color(0xFF91A0BF)
+                              : isSelected
+                                  ? Colors.white
+                                  : const Color(0xFF202B4D),
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),
