@@ -251,9 +251,41 @@ class _RiwayatPageState extends State<RiwayatPage> {
 
           if (state.status == HistoryStatus.failure) {
             return Center(
-              child: Text(
-                state.errorMessage ?? 'Gagal memuat riwayat',
-                style: const TextStyle(fontFamily: 'PlusJakartaSans'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_outlined,
+                      size: 48,
+                      color: Color(0xFF9A9A9A),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      state.errorMessage ?? 'Riwayat tidak dapat dimuat.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'PlusJakartaSans',
+                        color: Color(0xFF4B4B4B),
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _fetchForPeriode,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2F3B69),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Coba lagi'),
+                    ),
+                  ],
+                ),
               ),
             );
           }
