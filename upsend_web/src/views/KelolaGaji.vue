@@ -10,8 +10,10 @@ const employees = ref([])
 const loading = ref(false)
 const search = ref('')
 const divisi = ref('Semua Divisi')
+const lokasiKerja = ref('Semua Kantor')
 const status = ref('Semua Status')
 const grade = ref('Semua Level')
+const selectedMonth = ref(new Date().toISOString().slice(0, 7))
 const page = ref(1)
 const perPage = ref(20)
 const pageInput = ref(1)
@@ -39,15 +41,21 @@ const normalizeEmployee = (item) => {
     code: item.user?.employee_id || item.employee_id || '-',
     position: item.user?.role || 'Karyawan',
     divisi: item.user?.home_location?.name || 'Belum diatur',
+    lokasiKerja: item.user?.home_location?.name || 'Belum diatur',
     pokok: Number(item.basic_salary || 0),
     tetap: Number(item.transport_allowance || 0) + Number(item.attendance_allowance || 0),
     variabel: Number(item.meal_allowance || 0) + Number(item.other_allowance || 0),
     potongan,
     status: 'Aktif',
+    period: item.payroll_period || item.period || '',
   }
 }
 
 const divisions = computed(() => ['Semua Divisi', ...new Set(employees.value.map((e) => e.divisi))])
+const locations = computed(() => [
+  'Semua Kantor',
+  ...new Set(employees.value.map((employee) => employee.lokasiKerja).filter(Boolean)),
+])
 
 const filtered = computed(() =>
   employees.value.filter((employee) => {
@@ -58,11 +66,14 @@ const filtered = computed(() =>
         String(val || '').toLowerCase().includes(query),
       )
     const matchesDivisi = divisi.value === 'Semua Divisi' || employee.divisi === divisi.value
+    const matchesLokasi =
+      lokasiKerja.value === 'Semua Kantor' || employee.lokasiKerja === lokasiKerja.value
     const matchesStatus = status.value === 'Semua Status' || employee.status === status.value
     const matchesGrade =
       grade.value === 'Semua Level' || grade.value === 'Grade 0' || employee.position != null
+    const matchesMonth = !employee.period || String(employee.period).slice(0, 7) === selectedMonth.value
 
-    return matchesSearch && matchesDivisi && matchesStatus && matchesGrade
+    return matchesSearch && matchesDivisi && matchesLokasi && matchesStatus && matchesGrade && matchesMonth
   }),
 )
 
@@ -82,7 +93,13 @@ const totalBudget = computed(() =>
 async function fetchPayrolls() {
   loading.value = true
   try {
-    const res = await api.get('/payrolls', { params: { per_page: perPage.value } })
+    const res = await api.get('/payrolls', {
+      params: {
+        per_page: perPage.value,
+        month: selectedMonth.value,
+        payroll_period: `${selectedMonth.value}-01`,
+      },
+    })
     const list = Array.isArray(res.data?.data) ? res.data.data : []
     employees.value = list.map(normalizeEmployee)
     page.value = 1
@@ -98,6 +115,11 @@ async function fetchPayrolls() {
 function resetPage() {
   page.value = 1
   pageInput.value = 1
+}
+
+function applyMonthFilter() {
+  resetPage()
+  fetchPayrolls()
 }
 
 function prevPage() {
@@ -191,8 +213,15 @@ onMounted(() => {
       <!-- Filter Bar -->
       <div class="filter-bar">
         <div class="filters">
+          <label class="month-filter">
+            <input v-model="selectedMonth" type="month" @change="applyMonthFilter" />
+          </label>
           <select v-model="divisi" @change="resetPage">
             <option v-for="item in divisions" :key="item" :value="item">{{ item }}</option>
+          </select>
+
+          <select v-model="lokasiKerja" @change="resetPage">
+            <option v-for="item in locations" :key="item" :value="item">{{ item }}</option>
           </select>
 
           <select v-model="status" @change="resetPage">
@@ -474,6 +503,31 @@ onMounted(() => {
   align-items: center;
   flex-wrap: wrap;
 }
+.month-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  margin: 0;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.month-filter input {
+  width: 135px;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  background: transparent;
+}
 .filters select {
   height: 40px;
   padding: 0 12px;
@@ -723,6 +777,7 @@ tbody tr:last-child td {
   font-weight: 700;
   font-size: 13px;
   outline: none;
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 .page-input::-webkit-outer-spin-button,
