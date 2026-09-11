@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../features/attendance/models/attendance_model.dart';
 
 class KategoriChartItem {
   final String key;
@@ -68,7 +67,9 @@ class KategoriBarChart extends StatelessWidget {
               return Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => onKategoriTap(isSelected ? null : k.key),
+                  onTap: () => onKategoriTap(
+                    isSelected && k.key != 'semua' ? null : k.key,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -113,7 +114,7 @@ class KategoriBarChart extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? k.color
-                                : k.color.withOpacity(0.55),
+                                : k.color.withOpacity(0.35),
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),

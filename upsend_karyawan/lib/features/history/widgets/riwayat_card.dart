@@ -29,14 +29,15 @@ class RiwayatCard extends StatelessWidget {
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'lupa_absen':
+        return const Color(0xFF0284C7);
       case 'alpha':
-        return const Color(0xFFEF4444);
+        return const Color(0xFFDC2626);
       case 'telat':
-        return const Color(0xFFF5A623);
+        return const Color(0xFFF59E0B);
       case 'lembur':
-        return const Color(0xFF2F6FEB);
+        return const Color(0xFF7C3AED);
       default:
-        return const Color(0xFF1FAE7C);
+        return const Color(0xFF16A34A);
     }
   }
 

@@ -13,7 +13,7 @@ import 'riwayat_detail_page.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
-import '../kategori_presensi.dart';
+import '../widgets/kategori_presensi.dart';
 import '../../../core/widgets/riwayat_calendar_dialog.dart';
 
 class RiwayatPage extends StatefulWidget {
@@ -35,7 +35,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
   PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
   late DateTime _anchorDate = _today;
   DateTime? _selectedAnnualMonth;
-  String? _selectedKategori;
+  String? _selectedKategori = 'semua';
   DateTimeRange?
   _customRange; // aktif kalau user pilih rentang manual lewat kalender
 
@@ -99,7 +99,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
       _periode = p;
       _anchorDate = _today; // selalu balik ke hari ini tiap ganti toggle
       _selectedAnnualMonth = null;
-      _selectedKategori = null;
+      _selectedKategori = 'semua';
       _customRange = null;
     });
     _fetchForPeriode();
@@ -136,7 +136,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
         _customRange = selection.mode == RiwayatCalendarMode.range
             ? selection.range
             : null;
-        _selectedKategori = null;
+        _selectedKategori = 'semua';
       });
       _fetchForPeriode();
     }
@@ -290,7 +290,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
             );
           }
 
-          final filteredRecords = _selectedKategori == null
+            final filteredRecords = _selectedKategori == null ||
+              _selectedKategori == 'semua'
               ? effectiveRecords
               : effectiveRecords
                     .where(

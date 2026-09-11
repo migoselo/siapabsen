@@ -3,7 +3,7 @@ import 'package:upsend_karyawan/core/widgets/kategori_bar_chart.dart';
 import 'package:upsend_karyawan/features/izin/models/cuti_model.dart';
 
 const List<KategoriChartItem> kategoriCutiList = [
-  KategoriChartItem('semua', 'Semua', Color(0xFFF4B752)),
+  KategoriChartItem('semua', 'Semua', Color(0xFF7D7C7C)),
   KategoriChartItem('cuti', 'Cuti', Color(0xFF2E3A6E)),
   KategoriChartItem('izin', 'Izin', Color(0xFF1DB677)),
   KategoriChartItem('lembur', 'Lembur', Color(0xFF85409D)),
