@@ -57,6 +57,16 @@ const routes = [
         name: 'lembur',
         component: () => import('@/views/DataLembur.vue'),
       },
+      {
+        path: 'gaji',
+        name: 'gaji',
+        component: () => import('@/views/KelolaGaji.vue'),
+      },
+      {
+        path: 'gaji/form/:employeeId?',
+        name: 'GajiForm',
+        component: () => import('@/views/FormGaji.vue'),
+      },
     ],
   },
 ]

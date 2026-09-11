@@ -103,7 +103,11 @@ async function handleLogin() {
             @click="showPassword = !showPassword"
           >
             <Icon
-              :icon="showPassword ? 'material-symbols:visibility-off-rounded' : 'material-symbols:visibility-rounded'"
+              :icon="
+                showPassword
+                  ? 'material-symbols:visibility-off-rounded'
+                  : 'material-symbols:visibility-rounded'
+              "
               width="20"
               height="20"
             />
@@ -135,7 +139,7 @@ async function handleLogin() {
   box-sizing: border-box;
   height: 100vh;
   min-height: 100dvh;
-  background: #2F3B69;
+  background: #2f3b69;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -162,8 +166,8 @@ async function handleLogin() {
 }
 
 .brand-icon {
-  width: 38px;
-  height: 38px;
+  width: 60px;
+  height: 60px;
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -172,15 +176,15 @@ async function handleLogin() {
 
 .brand-icon img {
   display: block;
-  width: 90px;
-  height: 90px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
 .brand h1 {
   font-size: 24px;
   font-weight: 600;
-  color: #1C1C19;
+  color: #1c1c19;
   margin: 0;
   letter-spacing: -0.4px;
 }
@@ -189,8 +193,14 @@ form label {
   display: block;
   font-size: 16px;
   font-weight: 500;
-  color: #1C1C19;
+  color: #1c1c19;
   margin-bottom: 7px;
+}
+
+/* FIX: Menyembunyikan ikon bawaan browser (MS Edge / Internet Explorer) */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none !important;
 }
 
 .input-wrap {
@@ -206,7 +216,7 @@ form label {
 }
 
 .input-wrap:last-of-type {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .input-wrap input {
@@ -215,7 +225,8 @@ form label {
   flex: 1;
   font-size: 14px;
   font-family: inherit;
-  color: #1C1C19;
+  color: #1c1c19;
+  background: transparent;
 }
 
 .password-toggle {
@@ -245,7 +256,7 @@ form label {
 .error-msg {
   color: #dc4646;
   font-size: 13px;
-  margin: -8px 0 16px;
+  margin: 0 0 16px;
 }
 
 .submit-btn {
@@ -253,7 +264,7 @@ form label {
   width: 100%;
   height: 52px;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  background: #2F3B69;
+  background: #2f3b69;
   color: #fff;
   border: none;
   padding: 0 14px;
@@ -265,7 +276,7 @@ form label {
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #2F3B69;
+  background: #232c4f;
 }
 
 .submit-btn:disabled {
