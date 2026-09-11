@@ -1,79 +1,18 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, CheckCircle2, Plus, Trash2 } from 'lucide-vue-next'
+import api from '../api'
 
 const route = useRoute()
 const router = useRouter()
-const employees = [
-  [
-    'Ahmad Rivaldi',
-    'EMP-2023089',
-    'Sr. Software Engineer',
-    'Engineering',
-    11500000,
-    2000000,
-    1550000,
-    650000,
-  ],
-  [
-    'Siti Rahmawati',
-    'EMP-2023012',
-    'Product Manager',
-    'Product',
-    13000000,
-    2500000,
-    1800000,
-    1100000,
-  ],
-  ['Budi Santoso', 'EMP-2022045', 'UI/UX Designer', 'Design', 9000000, 1500000, 1250000, 500000],
-  ['Dewi Lestari', 'EMP-2024003', 'HR Specialist', 'HR', 8500000, 1200000, 1150000, 450000],
-  [
-    'Rian Prasetyo',
-    'EMP-2023118',
-    'Backend Developer',
-    'Engineering',
-    10800000,
-    1800000,
-    1650000,
-    600000,
-  ],
-  [
-    'Fitri Handayani',
-    'EMP-2022150',
-    'Finance Analyst',
-    'Finance',
-    8000000,
-    1200000,
-    900000,
-    400000,
-  ],
-  [
-    'Joko Setiawan',
-    'EMP-2023151',
-    'Operations Staff',
-    'Operations',
-    8800000,
-    1400000,
-    1100000,
-    450000,
-  ],
-].map((item, index) => ({
-  id: index + 1,
-  name: item[0],
-  code: item[1],
-  title: item[2],
-  division: item[3],
-  basic: item[4],
-  positionAllowance: item[5],
-  variableAllowance: item[6],
-  deduction: item[7],
-}))
+const employees = ref([])
+const loading = ref(false)
 
 const isEdit = computed(() => Boolean(route.params.employeeId))
 const selectedEmployeeId = ref(route.params.employeeId ? String(route.params.employeeId) : '')
 const selectedEmployee = computed(() =>
-  employees.find((item) => String(item.id) === selectedEmployeeId.value),
+  employees.value.find((item) => String(item.id) === selectedEmployeeId.value),
 )
 const basic = ref(0)
 const positionAllowance = ref(0)
@@ -87,14 +26,32 @@ const loan = ref(0)
 const customComponents = ref([])
 const money = (value) => `Rp ${Math.round(value || 0).toLocaleString('id-ID')}`
 
+async function fetchEmployees() {
+  loading.value = true
+  try {
+    const res = await api.get('/users', { params: { per_page: 100 } })
+    employees.value = Array.isArray(res.data?.data) ? res.data.data : []
+    if (!selectedEmployeeId.value && employees.value[0]) {
+      selectedEmployeeId.value = String(employees.value[0].id)
+    }
+  } catch (error) {
+    console.error('Gagal mengambil data karyawan:', error)
+    employees.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
 watch(
   selectedEmployee,
   (employee) => {
     if (!employee) return
-    basic.value = employee.basic
-    positionAllowance.value = employee.positionAllowance
-    internetAllowance.value = employee.variableAllowance
-    loan.value = employee.deduction
+    basic.value = Number(employee.gaji_pokok ?? employee.basic_salary ?? employee.basic ?? 0)
+    positionAllowance.value = Number(employee.tunjangan_jabatan ?? employee.transport_allowance ?? 0)
+    internetAllowance.value = Number(employee.allowance_variable ?? employee.attendance_allowance ?? 0)
+    mealAllowance.value = Number(employee.meal_allowance ?? 0)
+    loan.value =
+      Number(employee.potongan ?? employee.other_deduction ?? employee.loan_deduction ?? 0)
   },
   { immediate: true },
 )
@@ -103,25 +60,59 @@ function handleBack() {
   router.push({ name: 'gaji' })
 }
 
-function handleSave() {
+async function handleSave() {
   if (!selectedEmployee.value) {
     window.alert('Pilih identitas karyawan terlebih dahulu.')
     return
   }
-  window.alert('Data gaji berhasil disiapkan.')
+
+  const payload = {
+    user_id: Number(selectedEmployeeId.value),
+    payroll_period: new Date().toISOString().slice(0, 10),
+    basic_salary: Number(basic.value || 0),
+    transport_allowance: Number(positionAllowance.value || 0),
+    meal_allowance: Number(mealAllowance.value || 0),
+    attendance_allowance: Number(internetAllowance.value || 0),
+    other_allowance: customComponents.value.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    tax_deduction: taxMethod.value === 'Ditanggung Kantor' ? 0 : Number(calculation.value.tax || 0),
+    other_deduction: Number(loan.value || 0),
+    bank_name: 'Bank Mandiri',
+    bank_account_name: selectedEmployee.value.name,
+    bank_account_number: '0000000000',
+  }
+
+  try {
+    if (isEdit.value) {
+      const existing = await api.get('/payrolls', { params: { user_id: payload.user_id, per_page: 1 } })
+      const payroll = Array.isArray(existing.data?.data) ? existing.data.data[0] : null
+      if (payroll?.id) {
+        await api.put(`/payrolls/${payroll.id}`, payload)
+      } else {
+        await api.post('/payrolls', payload)
+      }
+    } else {
+      await api.post('/payrolls', payload)
+    }
+
+    window.alert('Data gaji berhasil disiapkan.')
+    router.push({ name: 'gaji' })
+  } catch (error) {
+    console.error('Gagal menyimpan payroll:', error)
+    window.alert(error.response?.data?.message || 'Gagal menyimpan data gaji.')
+  }
 }
 
 const calculation = computed(() => {
-  const fixed = positionAllowance.value + certificationAllowance.value
+  const fixed = Number(positionAllowance.value || 0) + Number(certificationAllowance.value || 0)
   const variable =
-    internetAllowance.value +
-    mealAllowance.value +
-    customComponents.value.reduce((sum, item) => sum + item.amount, 0)
-  const gross = basic.value + fixed + variable
-  const employment = bpjsEmployment.value ? basic.value * 0.03 : 0
-  const health = bpjsHealth.value ? Math.min(basic.value, 12000000) * 0.01 : 0
+    Number(internetAllowance.value || 0) +
+    Number(mealAllowance.value || 0) +
+    customComponents.value.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const gross = Number(basic.value || 0) + fixed + variable
+  const employment = bpjsEmployment.value ? Number(basic.value || 0) * 0.03 : 0
+  const health = bpjsHealth.value ? Math.min(Number(basic.value || 0), 12000000) * 0.01 : 0
   const tax = taxMethod.value === 'Ditanggung Kantor' ? 0 : gross * 0.0122
-  const deductions = employment + health + tax + loan.value
+  const deductions = employment + health + tax + Number(loan.value || 0)
   return {
     fixed,
     variable,
@@ -133,8 +124,8 @@ const calculation = computed(() => {
     takeHome: gross - deductions,
     companyCost:
       gross +
-      (bpjsEmployment.value ? basic.value * 0.1026 : 0) +
-      (bpjsHealth.value ? Math.min(basic.value, 12000000) * 0.0417 : 0),
+      (bpjsEmployment.value ? Number(basic.value || 0) * 0.1026 : 0) +
+      (bpjsHealth.value ? Math.min(Number(basic.value || 0), 12000000) * 0.0417 : 0),
   }
 })
 function addComponent() {
@@ -143,6 +134,10 @@ function addComponent() {
 function removeComponent(id) {
   customComponents.value = customComponents.value.filter((item) => item.id !== id)
 }
+
+onMounted(() => {
+  fetchEmployees()
+})
 </script>
 
 <template>
