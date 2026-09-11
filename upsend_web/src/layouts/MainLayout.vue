@@ -29,40 +29,48 @@ const navigation = [
     text: 'Lokasi Kerja',
     icon: 'material-symbols:location-on-outline',
     activeIcon: 'material-symbols:location-on',
-    path: '/lokasi-kerja',
+    path: '/dashboard/lokasi-kerja',
   },
   {
     id: 'karyawan',
     text: 'Data Karyawan',
     icon: 'material-symbols:group-outline',
     activeIcon: 'material-symbols:group',
-    path: '/karyawan',
+    path: '/dashboard/karyawan',
   },
   {
     id: 'absensi',
     text: 'Data Absensi',
     icon: 'material-symbols:history',
     activeIcon: 'material-symbols:history',
-    path: '/absensi',
+    path: '/dashboard/absensi',
   },
   {
     id: 'izin-cuti',
     text: 'Data Izin dan Cuti',
     icon: 'material-symbols:calendar-month-outline',
     activeIcon: 'material-symbols:calendar-month',
-    path: '/izin-cuti',
+    path: '/dashboard/izin-cuti',
   },
   {
     id: 'lembur',
     text: 'Data Lembur',
     icon: 'material-symbols:more-time',
     activeIcon: 'material-symbols:more-time',
-    path: '/lembur',
+    path: '/dashboard/lembur',
   },
+  {
+    id: 'gaji',
+    text: 'Kelola Gaji',
+    icon: 'material-symbols:account-balance',
+    activeIcon: 'material-symbols:account-balance',
+    path: '/dashboard/gaji',
+  }
 ]
 
 function isActive(item) {
-  return route.path === item.path || (route.path.startsWith(item.path) && item.path !== '/')
+  if (item.id === 'dashboard') return route.path === item.path
+  return route.path === item.path || route.path.startsWith(`${item.path}/`)
 }
 
 function iconFor(item) {
@@ -185,7 +193,7 @@ onUnmounted(() => {
           <h1>{{ currentRouteName }}</h1>
         </div>
 
-        <div class="profile" @click="router.push('/profile')">
+        <div class="profile" @click="router.push('/dashboard/profile')">
           <div class="profile-text" v-if="!isMobile">
             <strong>{{ profile.name }}</strong>
             <span>{{ profile.role }}</span>
