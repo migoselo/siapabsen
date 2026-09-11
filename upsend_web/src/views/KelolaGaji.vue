@@ -1,59 +1,66 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import api from '../api'
 
 const router = useRouter()
 
-const employees = [
-  ['Ahmad Rivaldi', 'EMP-2023089', 'Sr. Software Engineer', 'Engineering', 5, 11500000, 2000000, 1550000, 650000, 'Aktif'],
-  ['Siti Rahmawati', 'EMP-2023012', 'Product Manager', 'Product', 6, 13000000, 2500000, 1800000, 1100000, 'Aktif'],
-  ['Budi Santoso', 'EMP-2022045', 'UI/UX Designer', 'Design', 4, 9000000, 1500000, 1250000, 500000, 'Menunggu Review'],
-  ['Dewi Lestari', 'EMP-2024003', 'HR Specialist', 'HR', 3, 8500000, 1200000, 1150000, 450000, 'Aktif'],
-  ['Rian Prasetyo', 'EMP-2023118', 'Backend Developer', 'Engineering', 4, 10800000, 1800000, 1650000, 600000, 'Perlu Update'],
-  ['Fitri Handayani', 'EMP-2022150', 'Finance Analyst', 'Finance', 3, 8000000, 1200000, 900000, 400000, 'Aktif'],
-  ['Joko Setiawan', 'EMP-2023151', 'Operations Staff', 'Operations', 4, 8800000, 1400000, 1100000, 450000, 'Aktif'],
-].map((item, index) => ({
-  id: index + 1,
-  name: item[0],
-  code: item[1],
-  position: item[2],
-  divisi: item[3],
-  grade: item[4],
-  pokok: item[5],
-  tetap: item[6],
-  variabel: item[7],
-  potongan: item[8],
-  status: item[9],
-}))
-
+const employees = ref([])
+const loading = ref(false)
 const search = ref('')
 const divisi = ref('Semua Divisi')
 const status = ref('Semua Status')
 const grade = ref('Semua Level')
-
-// State Pagination
 const page = ref(1)
 const perPage = ref(20)
 const pageInput = ref(1)
 
-const rupiah = (value) => `Rp ${Math.round(value).toLocaleString('id-ID')}`
-const initials = (name) => name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()
+const rupiah = (value) => `Rp ${Math.round(Number(value || 0)).toLocaleString('id-ID')}`
+const initials = (name) =>
+  (name || '')
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 
-const divisions = computed(() => ['Semua Divisi', ...new Set(employees.map((e) => e.divisi))])
+const normalizeEmployee = (item) => {
+  const potongan =
+    Number(item.tax_deduction || 0) +
+    Number(item.other_deduction || 0) +
+    Number(item.absence_deduction || 0) +
+    Number(item.late_deduction || 0) +
+    Number(item.loan_deduction || 0)
+
+  return {
+    id: item.id,
+    name: item.user?.name || 'Karyawan',
+    code: item.user?.employee_id || item.employee_id || '-',
+    position: item.user?.role || 'Karyawan',
+    divisi: item.user?.home_location?.name || 'Belum diatur',
+    pokok: Number(item.basic_salary || 0),
+    tetap: Number(item.transport_allowance || 0) + Number(item.attendance_allowance || 0),
+    variabel: Number(item.meal_allowance || 0) + Number(item.other_allowance || 0),
+    potongan,
+    status: 'Aktif',
+  }
+}
+
+const divisions = computed(() => ['Semua Divisi', ...new Set(employees.value.map((e) => e.divisi))])
 
 const filtered = computed(() =>
-  employees.filter((employee) => {
+  employees.value.filter((employee) => {
     const query = search.value.trim().toLowerCase()
     const matchesSearch =
       !query ||
       [employee.name, employee.code, employee.position].some((val) =>
-        val.toLowerCase().includes(query),
+        String(val || '').toLowerCase().includes(query),
       )
     const matchesDivisi = divisi.value === 'Semua Divisi' || employee.divisi === divisi.value
     const matchesStatus = status.value === 'Semua Status' || employee.status === status.value
     const matchesGrade =
-      grade.value === 'Semua Level' || employee.grade === Number(grade.value.replace('Grade ', ''))
+      grade.value === 'Semua Level' || grade.value === 'Grade 0' || employee.position != null
 
     return matchesSearch && matchesDivisi && matchesStatus && matchesGrade
   }),
@@ -66,11 +73,27 @@ const pageItems = computed(() =>
 )
 
 const totalBudget = computed(() =>
-  employees.reduce(
+  employees.value.reduce(
     (sum, employee) => sum + employee.pokok + employee.tetap + employee.variabel - employee.potongan,
     0,
   ),
 )
+
+async function fetchPayrolls() {
+  loading.value = true
+  try {
+    const res = await api.get('/payrolls', { params: { per_page: perPage.value } })
+    const list = Array.isArray(res.data?.data) ? res.data.data : []
+    employees.value = list.map(normalizeEmployee)
+    page.value = 1
+    pageInput.value = 1
+  } catch (error) {
+    console.error('Gagal mengambil data payroll:', error)
+    employees.value = []
+  } finally {
+    loading.value = false
+  }
+}
 
 function resetPage() {
   page.value = 1
@@ -116,6 +139,10 @@ function handleCreateNewSalary() {
 function handleEditSalary(employeeId) {
   router.push({ name: 'GajiForm', params: { employeeId } })
 }
+
+onMounted(() => {
+  fetchPayrolls()
+})
 </script>
 
 <template>
