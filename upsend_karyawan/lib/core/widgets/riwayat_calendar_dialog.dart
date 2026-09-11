@@ -105,16 +105,20 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
         _rangeStart = date;
       } else {
         _rangeEnd = date;
-        Navigator.pop(
-          context,
-          RiwayatCalendarSelection(
-            mode: RiwayatCalendarMode.range,
-            date: _rangeStart!,
-            range: DateTimeRange(start: _rangeStart!, end: _rangeEnd!),
-          ),
-        );
       }
     });
+  }
+
+  void _confirmRange() {
+    if (_rangeStart == null || _rangeEnd == null) return;
+    Navigator.pop(
+      context,
+      RiwayatCalendarSelection(
+        mode: RiwayatCalendarMode.range,
+        date: _rangeStart!,
+        range: DateTimeRange(start: _rangeStart!, end: _rangeEnd!),
+      ),
+    );
   }
 
   void _selectSingleDate(DateTime date) {
@@ -127,17 +131,84 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: const Color(0xFFF7FBFF),
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       content: SizedBox(
-        width: 360,
-        height: 320,
+        width: 400,
+        height: 500,
         child: Column(
           children: [
             if (_mode == RiwayatCalendarMode.range ||
                 _mode == RiwayatCalendarMode.single)
               _buildCalendarHeader(),
+            if (_mode == RiwayatCalendarMode.range) _buildRangeHint(),
             Expanded(child: _buildCalendar()),
+            if (_mode == RiwayatCalendarMode.range)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      'BATAL',
+                      style: TextStyle(
+                        color: Color(0xFF075985),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _rangeStart != null && _rangeEnd != null
+                        ? _confirmRange
+                        : null,
+                    child: const Text(
+                      'OKE',
+                      style: TextStyle(
+                        color: Color(0xFF075985),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRangeHint() {
+    final hint = _rangeStart == null
+        ? 'Pilih tanggal mulai dan tanggal selesai'
+        : _rangeEnd == null
+        ? 'Sekarang pilih tanggal selesai'
+        : 'Rentang tanggal sudah dipilih';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE7F1FA),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.date_range, size: 18, color: Color(0xFF0759B5)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hint,
+              style: const TextStyle(
+                color: Color(0xFF075985),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -154,35 +225,19 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
               icon: const Icon(Icons.chevron_left),
             ),
             Expanded(
-              child: Column(
-                children: [
-                  GestureDetector(
-                    onTap: _allowModeSwitch
-                        ? () =>
-                              setState(() => _mode = RiwayatCalendarMode.month)
-                        : null,
-                    child: Text(
-                      DateFormat('MMMM', 'id_ID').format(_visibleMonth),
-                      style: const TextStyle(
-                        color: Color(0xFF1B2559),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+              child: GestureDetector(
+                onTap: _allowModeSwitch
+                    ? () => setState(() => _mode = RiwayatCalendarMode.month)
+                    : null,
+                child: Text(
+                  '${DateFormat('MMMM', 'id_ID').format(_visibleMonth)} ${_visibleMonth.year}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF075985),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
                   ),
-                  GestureDetector(
-                    onTap: _allowModeSwitch
-                        ? () => setState(() => _mode = RiwayatCalendarMode.year)
-                        : null,
-                    child: Text(
-                      '${_visibleMonth.year}',
-                      style: const TextStyle(
-                        color: Color(0xFF91A0BF),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
             IconButton(
@@ -193,7 +248,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 18),
       ],
     );
   }
@@ -324,7 +379,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
+          children: ['S', 'S', 'R', 'K', 'J', 'S', 'M']
               .map(
                 (day) => SizedBox(
                   width: 36,
@@ -332,8 +387,9 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                     day,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xFF4E62AF),
+                      color: Color(0xFF27364D),
                       fontWeight: FontWeight.w600,
+                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -369,7 +425,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                 onTap: disabled ? null : () => _selectRangeDate(date),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: inRange ? const Color(0xFF4E62AF) : null,
+                    color: inRange ? const Color(0xFFD7E6F5) : null,
                     borderRadius: BorderRadius.horizontal(
                       left: isStart ? const Radius.circular(20) : Radius.zero,
                       right: isEnd ? const Radius.circular(20) : Radius.zero,
@@ -381,7 +437,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                     height: 32,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: isStart || isEnd ? const Color(0xFF2F3B69) : null,
+                      color: isStart || isEnd ? const Color(0xFF0759B5) : null,
                       shape: BoxShape.circle,
                     ),
                     child: Text(

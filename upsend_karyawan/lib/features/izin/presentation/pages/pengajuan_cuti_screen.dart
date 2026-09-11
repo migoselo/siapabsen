@@ -56,36 +56,27 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
   final Color _primaryColor = const Color(0xFF2F3B69);
 
-  // Function untuk memilih tanggal
-  Future<void> _selectDate(BuildContext context, bool isMulai) async {
+  Future<void> _selectDate(BuildContext context) async {
     FocusScope.of(context).unfocus();
 
-    final DateTime? picked = await showDatePicker(
+    final today = DateTime.now();
+    final selection = await showDialog<RiwayatCalendarSelection>(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(), // Hanya bisa mulai dari hari ini
-      lastDate: DateTime(DateTime.now().year + 1),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: _primaryColor,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context) => RiwayatCalendarDialog(
+        initialDate: _tanggalMulai ?? today,
+        initialRange: _tanggalMulai != null && _tanggalSelesai != null
+            ? DateTimeRange(start: _tanggalMulai!, end: _tanggalSelesai!)
+            : null,
+        today: DateTime(today.year + 1, today.month, today.day),
+        firstDate: DateTime(today.year, today.month, today.day),
+        lastDate: DateTime(today.year + 1, today.month, today.day),
+      ),
     );
 
-    if (picked != null) {
+    if (selection?.range != null) {
       setState(() {
-        if (isMulai) {
-          _tanggalMulai = picked;
-        } else {
-          _tanggalSelesai = picked;
-        }
+        _tanggalMulai = selection!.range!.start;
+        _tanggalSelesai = selection.range!.end;
       });
     }
   }
@@ -630,7 +621,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                           const SizedBox(height: 8),
                           _buildDateField(
                             date: _tanggalMulai,
-                            onTap: () => _selectDate(context, true),
+                            onTap: () => _selectDate(context),
                           ),
                         ],
                       ),
@@ -650,7 +641,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                           const SizedBox(height: 8),
                           _buildDateField(
                             date: _tanggalSelesai,
-                            onTap: () => _selectDate(context, false),
+                            onTap: () => _selectDate(context),
                             hasError: _isDateRangeInvalid,
                           ),
                           if (_isDateRangeInvalid) ...[
