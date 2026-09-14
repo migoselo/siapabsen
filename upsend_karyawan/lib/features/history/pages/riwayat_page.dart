@@ -6,7 +6,6 @@ import '../bloc/history_event.dart';
 import '../bloc/history_state.dart';
 import '../widgets/riwayat_card.dart';
 import '../../../core/widgets/riwayat_periode_toggle.dart';
-import '../../../core/widgets/riwayat_periode_strip.dart';
 import '../../../core/widgets/kategori_bar_chart.dart';
 import '../../attendance/models/attendance_model.dart';
 import 'riwayat_detail_page.dart';
@@ -34,7 +33,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
   final DateTime _today = DateTime.now();
   PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
   late DateTime _anchorDate = _today;
-  DateTime? _selectedAnnualMonth;
   String? _selectedKategori = 'semua';
   DateTimeRange?
   _customRange; // aktif kalau user pilih rentang manual lewat kalender
@@ -56,18 +54,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
     if (_customRange != null) {
       start = _customRange!.start;
       end = _customRange!.end;
-    } else if (_periode == PeriodeRiwayat.tahunan &&
-        _selectedAnnualMonth != null) {
-      start = DateTime(
-        _selectedAnnualMonth!.year,
-        _selectedAnnualMonth!.month,
-        1,
-      );
-      end = DateTime(
-        _selectedAnnualMonth!.year,
-        _selectedAnnualMonth!.month + 1,
-        0,
-      );
     } else {
       switch (_periode) {
         case PeriodeRiwayat.mingguan:
@@ -98,20 +84,65 @@ class _RiwayatPageState extends State<RiwayatPage> {
     setState(() {
       _periode = p;
       _anchorDate = _today; // selalu balik ke hari ini tiap ganti toggle
-      _selectedAnnualMonth = null;
       _selectedKategori = 'semua';
       _customRange = null;
     });
     _fetchForPeriode();
   }
 
-  void _onStripSelected(DateTime date) {
+  // Geser mundur satu unit waktu (minggu/bulan/tahun) sesuai periode aktif.
+  void _goToPrevious() {
     setState(() {
-      _anchorDate = date;
-      _selectedAnnualMonth = _periode == PeriodeRiwayat.tahunan ? date : null;
-      _customRange = null;
+      switch (_periode) {
+        case PeriodeRiwayat.mingguan:
+          _anchorDate = _anchorDate.subtract(const Duration(days: 7));
+          break;
+        case PeriodeRiwayat.bulanan:
+          _anchorDate = DateTime(_anchorDate.year, _anchorDate.month - 1, 1);
+          break;
+        case PeriodeRiwayat.tahunan:
+          _anchorDate = DateTime(_anchorDate.year - 1, _anchorDate.month, 1);
+          break;
+      }
+      _selectedKategori = 'semua';
     });
     _fetchForPeriode();
+  }
+
+  // Geser maju satu unit waktu — dibatasi supaya tidak bisa lompat ke masa depan.
+  void _goToNext() {
+    if (!_canGoNext) return;
+    setState(() {
+      switch (_periode) {
+        case PeriodeRiwayat.mingguan:
+          _anchorDate = _anchorDate.add(const Duration(days: 7));
+          break;
+        case PeriodeRiwayat.bulanan:
+          _anchorDate = DateTime(_anchorDate.year, _anchorDate.month + 1, 1);
+          break;
+        case PeriodeRiwayat.tahunan:
+          _anchorDate = DateTime(_anchorDate.year + 1, _anchorDate.month, 1);
+          break;
+      }
+      _selectedKategori = 'semua';
+    });
+    _fetchForPeriode();
+  }
+
+  // Tombol "next" mati kalau unit waktu berikutnya sudah melewati hari ini.
+  bool get _canGoNext {
+    switch (_periode) {
+      case PeriodeRiwayat.mingguan:
+        final nextWeekStart = _anchorDate
+            .subtract(Duration(days: _anchorDate.weekday - 1))
+            .add(const Duration(days: 7));
+        return !nextWeekStart.isAfter(_today);
+      case PeriodeRiwayat.bulanan:
+        final nextMonth = DateTime(_anchorDate.year, _anchorDate.month + 1, 1);
+        return !nextMonth.isAfter(DateTime(_today.year, _today.month, 1));
+      case PeriodeRiwayat.tahunan:
+        return _anchorDate.year < _today.year;
+    }
   }
 
   Future<void> _pickDateRange(BuildContext context) async {
@@ -132,7 +163,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
             ? PeriodeRiwayat.bulanan
             : _periode;
         _anchorDate = selection.date;
-        _selectedAnnualMonth = null;
         _customRange = selection.mode == RiwayatCalendarMode.range
             ? selection.range
             : null;
@@ -308,16 +338,51 @@ class _RiwayatPageState extends State<RiwayatPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      _currentHeader,
-                      style: const TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    // Panah navigasi cuma tampil kalau tidak sedang custom range —
+                    // karena "geser mundur/maju" tidak make sense untuk rentang bebas.
+                    if (_customRange == null)
+                      IconButton(
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onPressed: _goToPrevious,
+                        icon: const Icon(
+                          Icons.chevron_left,
+                          color: Color(0xFF2F3B69),
+                        ),
+                      ),
+                    Expanded(
+                      child: Text(
+                        _currentHeader,
+                        textAlign: _customRange == null
+                            ? TextAlign.center
+                            : TextAlign.left,
+                        style: const TextStyle(
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    if (_customRange == null)
+                      IconButton(
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onPressed: _canGoNext ? _goToNext : null,
+                        icon: Icon(
+                          Icons.chevron_right,
+                          color: _canGoNext
+                              ? const Color(0xFF2F3B69)
+                              : const Color(0xFFC9D1E3),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _pickDateRange(context),
                       child: SvgPicture.asset(
@@ -350,13 +415,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
                   RiwayatPeriodeToggle(
                     selected: _periode,
                     onChanged: _onPeriodeChanged,
-                  ),
-                  const SizedBox(height: 16),
-                  RiwayatPeriodeStrip(
-                    periode: _periode,
-                    anchorDate: _anchorDate,
-                    today: _today,
-                    onSelected: _onStripSelected,
                   ),
                   const SizedBox(height: 16),
                 ] else
