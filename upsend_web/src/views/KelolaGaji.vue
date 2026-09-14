@@ -4,13 +4,14 @@ import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
+
 const router = useRouter()
 
 const employees = ref([])
 const loading = ref(false)
 const search = ref('')
-const divisi = ref('Semua Divisi')
 const lokasiKerja = ref('Semua Kantor')
+const divisi = ref('Semua Divisi')
 const status = ref('Semua Status')
 const grade = ref('Semua Level')
 const selectedMonth = ref(new Date().toISOString().slice(0, 7))
@@ -40,6 +41,7 @@ const normalizeEmployee = (item) => {
     name: item.user?.name || 'Karyawan',
     code: item.user?.employee_id || item.employee_id || '-',
     position: item.user?.role || 'Karyawan',
+    kantor: item.user?.home_location?.name || 'Belum diatur',
     divisi: item.user?.home_location?.name || 'Belum diatur',
     lokasiKerja: item.user?.home_location?.name || 'Belum diatur',
     pokok: Number(item.basic_salary || 0),
@@ -65,9 +67,9 @@ const filtered = computed(() =>
       [employee.name, employee.code, employee.position].some((val) =>
         String(val || '').toLowerCase().includes(query),
       )
-    const matchesDivisi = divisi.value === 'Semua Divisi' || employee.divisi === divisi.value
     const matchesLokasi =
       lokasiKerja.value === 'Semua Kantor' || employee.lokasiKerja === lokasiKerja.value
+       const matchesDivisi = divisi.value === 'Semua Divisi' || employee.divisi === divisi.value
     const matchesStatus = status.value === 'Semua Status' || employee.status === status.value
     const matchesGrade =
       grade.value === 'Semua Level' || grade.value === 'Grade 0' || employee.position != null
@@ -216,26 +218,23 @@ onMounted(() => {
           <label class="month-filter">
             <input v-model="selectedMonth" type="month" @change="applyMonthFilter" />
           </label>
+           <select v-model="lokasiKerja" @change="resetPage">
+            <option v-for="item in locations" :key="item" :value="item">{{ item }}</option>
+          </select>
           <select v-model="divisi" @change="resetPage">
             <option v-for="item in divisions" :key="item" :value="item">{{ item }}</option>
           </select>
-
-          <select v-model="lokasiKerja" @change="resetPage">
-            <option v-for="item in locations" :key="item" :value="item">{{ item }}</option>
-          </select>
-
-          <select v-model="status" @change="resetPage">
-            <option value="Semua Status">Semua Status</option>
-            <option value="Aktif">Aktif</option>
-            <option value="Menunggu Review">Menunggu Review</option>
-            <option value="Perlu Update">Perlu Update</option>
-          </select>
-
           <select v-model="grade" @change="resetPage">
             <option value="Semua Level">Semua Level</option>
             <option v-for="item in [3, 4, 5, 6]" :key="item" :value="`Grade ${item}`">
               Grade {{ item }}
             </option>
+          </select>
+          <select v-model="status" @change="resetPage">
+            <option value="Semua Status">Semua Status</option>
+            <option value="Aktif">Aktif</option>
+            <option value="Menunggu Review">Menunggu Review</option>
+            <option value="Perlu Update">Perlu Update</option>
           </select>
         </div>
 

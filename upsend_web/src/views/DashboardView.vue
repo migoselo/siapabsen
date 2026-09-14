@@ -574,7 +574,7 @@ onBeforeUnmount(() => {
   z-index: 20;
   top: calc(100% + 8px);
   left: 0;
-  width: 100%;
+  width: 240px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;

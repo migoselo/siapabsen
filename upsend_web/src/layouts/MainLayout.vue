@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { useAuthStore } from '../stores/auth'
+import gajiIcon from '../assets/gaji.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -62,8 +63,8 @@ const navigation = [
   {
     id: 'gaji',
     text: 'Kelola Gaji',
-    icon: 'material-symbols:account-balance',
-    activeIcon: 'material-symbols:account-balance',
+    icon: gajiIcon,
+    activeIcon: gajiIcon,
     path: '/dashboard/gaji',
   }
 ]
@@ -74,6 +75,10 @@ function isActive(item) {
 }
 
 function iconFor(item) {
+  if (item.id === 'gaji') {
+    return isActive(item) ? gajiIcon : item.icon
+  }
+
   return isActive(item) ? item.activeIcon : item.icon
 }
 
@@ -171,7 +176,10 @@ onUnmounted(() => {
           :class="{ active: isActive(item) }"
           :title="isSidebarMinimized ? item.text : ''"
         >
-          <Icon :icon="iconFor(item)" class="menu-icon" />
+          <template v-if="item.id === 'gaji'">
+            <img :src="gajiIcon" alt="Kelola Gaji" class="menu-icon menu-icon-image" />
+          </template>
+          <Icon v-else :icon="iconFor(item)" class="menu-icon" />
           <span class="nav-label" v-if="!isSidebarMinimized">{{ item.text }}</span>
         </router-link>
       </nav>
@@ -423,6 +431,16 @@ onUnmounted(() => {
   height: 22px;
   color: currentColor;
   flex-shrink: 0;
+}
+
+.menu-icon-image {
+  display: block;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.nav-item.active .menu-icon-image {
+  filter: brightness(0) saturate(100%) invert(23%) sepia(18%) saturate(1360%) hue-rotate(192deg) brightness(85%) contrast(110%);
 }
 
 .logout {

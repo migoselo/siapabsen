@@ -115,7 +115,7 @@ function handleMissingBackendFeature(action) {
   const message =
     `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia atau belum dihubungkan. ` +
     'Silakan sambungkan API dari backend teman Anda.'
-  window.alert(message)
+  showToast(message, 'error')
 }
 
 function openAddModal() {
@@ -158,11 +158,34 @@ async function submitNewEmployee() {
   const name = String(form.value.name || '').trim()
   const email = String(form.value.email || '').trim()
   const password = String(form.value.password || '')
+  const no_hp = String(form.value.no_hp || '').trim()
 
-  if (!name || !email || (!editingEmployeeId.value && password.length < 6)) {
-    window.alert(editingEmployeeId.value
-      ? 'Nama dan email wajib diisi.'
-      : 'Nama, email, dan password minimal 6 karakter wajib diisi.')
+  // 🔹 REGEX & VALIDASI FORM
+  const nameRegex = /^[a-zA-Z\s'.-]{2,100}$/
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,64}$/
+  const phoneRegex = /^(?:\+62|62|0)8[1-9][0-9]{6,11}$/
+
+  if (!name || !nameRegex.test(name)) {
+    showToast('Nama minimal 2 karakter dan hanya boleh berisi huruf.', 'error')
+    return
+  }
+
+  if (!email || !emailRegex.test(email) || email.length > 254) {
+    showToast('Format email tidak valid (contoh: user@domain.com).', 'error')
+    return
+  }
+
+  // Password wajib saat tambah baru, atau opsional saat edit jika diisi
+  if (!editingEmployeeId.value || password) {
+    if (!passRegex.test(password)) {
+      showToast('Password minimal 8 karakter, kombinasi huruf besar, kecil, dan angka.', 'error')
+      return
+    }
+  }
+
+  if (no_hp && !phoneRegex.test(no_hp)) {
+    showToast('Nomor HP tidak valid. Gunakan format Indonesia (contoh: 08123456789).', 'error')
     return
   }
 
@@ -172,7 +195,7 @@ async function submitNewEmployee() {
       name,
       email,
       ...(editingEmployeeId.value || password ? { password } : {}),
-      no_hp: form.value.no_hp ? String(form.value.no_hp).trim() : null,
+      no_hp: no_hp || null,
       role: form.value.role,
       ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
     }
@@ -206,7 +229,7 @@ async function submitNewEmployee() {
     } else {
       const errors = err.response?.data?.errors || {}
       const detail = Object.values(errors).flat().join(' ')
-      window.alert(detail || err.response?.data?.message || `Gagal ${actionText} data karyawan.`)
+      showToast(detail || err.response?.data?.message || `Gagal ${actionText} data karyawan.`, 'error')
     }
   } finally {
     saving.value = false
@@ -230,7 +253,7 @@ async function deleteEmployee(employee) {
     if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
       handleMissingBackendFeature('menghapus')
     } else {
-      window.alert('Gagal menghapus karyawan. Silakan coba lagi.')
+      showToast('Gagal menghapus karyawan. Silakan coba lagi.', 'error')
     }
   } finally {
     deletingId.value = null
@@ -257,14 +280,16 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="karyawan">
-    <div v-if="toast.show" class="toast" :class="toast.type">
-      <Icon
-        :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
-        width="18"
-        height="18"
-      />
-      <span>{{ toast.message }}</span>
-    </div>
+    <Teleport to="body">
+      <div v-if="toast.show" class="toast" :class="toast.type">
+        <Icon
+          :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
+          width="18"
+          height="18"
+        />
+        <span>{{ toast.message }}</span>
+      </div>
+    </Teleport>
 
     <section class="panel table-panel">
       <div class="table-head">
@@ -332,7 +357,7 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
 
-            <div class="table-footer">
+      <div class="table-footer">
         <div class="table-footer-content">
           <div class="pager">
             <button
@@ -397,18 +422,19 @@ onBeforeUnmount(() => {
           <div class="modal-body">
             <div class="field">
               <label>Nama</label>
-              <input type="text" v-model="form.name" placeholder="Nama lengkap" />
+              <input type="text" v-model="form.name" maxlength="100" placeholder="Nama lengkap" />
             </div>
             <div class="field">
               <label>Email</label>
-              <input type="email" v-model="form.email" placeholder="Email" />
+              <input type="email" v-model="form.email" maxlength="254" placeholder="Email" />
             </div>
             <div class="field">
-              <label>Password</label>
+              <label>Password {{ editingEmployeeId ? '(Kosongkan jika tidak diubah)' : '' }}</label>
               <div class="input-eye-wrap">
                 <input
                   :type="showPassword ? 'text' : 'password'"
                   v-model="form.password"
+                  maxlength="64"
                   placeholder="Password"
                 />
                 <button
@@ -427,8 +453,9 @@ onBeforeUnmount(() => {
                 type="text"
                 inputmode="numeric"
                 v-model="form.no_hp"
+                maxlength="15"
                 @input="form.no_hp = form.no_hp.replace(/\D/g, '')"
-                placeholder="Nomor HP"
+                placeholder="Contoh: 081234567890"
               />
             </div>
             <div class="field-row">
@@ -878,7 +905,7 @@ tbody tr:last-child td {
   border-radius: 0 0 20px 20px;
   flex-shrink: 0;
 }
-.btn-cancel {                                                                                                                                                        
+.btn-cancel {
   padding: 12px 20px;
   border-radius: 10px;
   border: 1.5px solid #cbd5e1;
@@ -903,7 +930,7 @@ tbody tr:last-child td {
   color: #fff;
   font-size: 14px;
   font-weight: 700;
-  font-family:inherit;
+  font-family: inherit;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -916,7 +943,7 @@ tbody tr:last-child td {
   cursor: not-allowed;
 }
 
-/* 🔽 TAMBAHAN: wrapper input password + tombol mata */
+/* Wrapper input password + tombol mata */
 .input-eye-wrap {
   position: relative;
   display: flex;
@@ -944,21 +971,23 @@ tbody tr:last-child td {
   color: var(--blue-900);
 }
 
+/* Toast Notifikasi Melayang di Atas Tengah */
 .toast {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 1000;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 20px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
   color: white;
-  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.15);
-  animation: toastIn 0.2s ease;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.2);
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .toast.success {
   background: #1f9d67;
@@ -969,11 +998,11 @@ tbody tr:last-child td {
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translate(-50%, -20px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate(-50%, 0);
   }
 }
 
