@@ -28,7 +28,7 @@ class CheckinCameraPage extends StatefulWidget {
 }
 
 class _CheckinCameraPageState extends State<CheckinCameraPage>
-  with WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final CameraService _cameraService = CameraService();
   bool _cameraInitialized = false;
   bool _cameraInitInProgress = false;
@@ -65,8 +65,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        _waitingForCameraSettings) {
+    if (state == AppLifecycleState.resumed && _waitingForCameraSettings) {
       _resumeCameraFlow();
     }
   }
@@ -89,9 +88,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
       _cameraPermissionPermanentlyDenied = false;
     });
     if (requestedStatus.isGranted) {
-      await _initializeGrantedCamera(
-        context.read<AttendanceBloc>().state,
-      );
+      await _initializeGrantedCamera(context.read<AttendanceBloc>().state);
     }
     _cameraPermissionFlowInProgress = false;
   }
@@ -242,7 +239,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
     if (_successDialogShown) return;
     _successDialogShown = true;
 
-    final checkInTime = state.attendanceResult?.checkInTime.toLocal();
+    final checkInTime = state.attendanceResult?.checkInTime?.toLocal();
     final timeText = checkInTime != null
         ? DateFormat('HH:mm').format(checkInTime)
         : '--:--';
@@ -422,9 +419,9 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
             }
 
             final isBusy =
-              _isProcessing ||
-              state.status == AttendanceStatus.loading ||
-              _cameraInitInProgress;
+                _isProcessing ||
+                state.status == AttendanceStatus.loading ||
+                _cameraInitInProgress;
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),

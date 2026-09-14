@@ -30,13 +30,17 @@ class RiwayatDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateText = DateFormat(
-      'EEEE, d MMMM yyyy',
-      'id_ID',
-    ).format(record.checkInTime.toLocal());
-    final checkInTime = DateFormat(
-      'HH:mm',
-    ).format(record.checkInTime.toLocal());
+    final isAbsent =
+        record.status.toLowerCase() == 'alpha' || record.checkInTime == null;
+    final dateText = record.checkInTime != null
+        ? DateFormat(
+            'EEEE, d MMMM yyyy',
+            'id_ID',
+          ).format(record.checkInTime!.toLocal())
+        : 'Tidak ada data absensi';
+    final checkInTime = isAbsent
+        ? '--:--'
+        : DateFormat('HH:mm').format(record.checkInTime!.toLocal());
     final checkOutTime = record.checkOutTime != null
         ? DateFormat('HH:mm').format(record.checkOutTime!.toLocal())
         : null;
