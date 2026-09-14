@@ -33,6 +33,11 @@ const routes = [
         component: () => import('../views/DataKaryawanView.vue'),
       },
       {
+        path: 'role-akses',
+        name: 'Role',
+        component: () => import('../views/RoleAkses.vue'),
+      },
+      {
         path: 'absensi',
         name: 'DataAbsensi',
         component: () => import('../views/DataAbsensiView.vue'),

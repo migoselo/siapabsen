@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { useAuthStore } from '../stores/auth'
 import gajiIcon from '../assets/gaji.svg'
+import roleIcon from '../assets/role.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -38,6 +39,13 @@ const navigation = [
     icon: 'material-symbols:group-outline',
     activeIcon: 'material-symbols:group',
     path: '/dashboard/karyawan',
+  },
+  {
+    id: 'role',
+    text: 'Role dan Akses',
+    icon: roleIcon,
+    activeIcon: roleIcon,
+    path: '/dashboard/role-akses',
   },
   {
     id: 'absensi',
@@ -75,13 +83,16 @@ function isActive(item) {
 }
 
 function iconFor(item) {
+  if (item.id === 'role') {
+    return isActive(item) ? roleIcon : item.icon
+  }
+
   if (item.id === 'gaji') {
     return isActive(item) ? gajiIcon : item.icon
   }
 
   return isActive(item) ? item.activeIcon : item.icon
 }
-
 const currentRouteName = computed(() => {
   const current = navigation.find((n) => isActive(n))
   return current ? current.text : 'Dashboard'
@@ -176,7 +187,10 @@ onUnmounted(() => {
           :class="{ active: isActive(item) }"
           :title="isSidebarMinimized ? item.text : ''"
         >
-          <template v-if="item.id === 'gaji'">
+          <template v-if="item.id === 'role'">
+            <img :src="roleIcon" alt="Kelola Role" class="menu-icon menu-icon-image" />
+          </template>
+          <template v-else-if="item.id === 'gaji'">
             <img :src="gajiIcon" alt="Kelola Gaji" class="menu-icon menu-icon-image" />
           </template>
           <Icon v-else :icon="iconFor(item)" class="menu-icon" />
