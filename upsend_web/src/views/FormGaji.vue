@@ -152,7 +152,7 @@ onMounted(() => {
       <div class="form-column">
         <section class="card employee-card">
           <p class="eyebrow">INFORMASI KARYAWAN</p>
-          <label v-if="!isEdit"
+          <label v-if="!isEdit" 
             >Pilih Karyawan<select v-model="selectedEmployeeId" required>
               <option disabled value="">Pilih identitas karyawan</option>
               <option v-for="item in employees" :key="item.id" :value="String(item.id)">

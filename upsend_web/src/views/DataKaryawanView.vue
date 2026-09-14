@@ -421,15 +421,15 @@ onBeforeUnmount(() => {
 
           <div class="modal-body">
             <div class="field">
-              <label>Nama</label>
+              <label class="required">Nama</label>
               <input type="text" v-model="form.name" maxlength="100" placeholder="Nama lengkap" />
             </div>
             <div class="field">
-              <label>Email</label>
+              <label class="required">Email</label>
               <input type="email" v-model="form.email" maxlength="254" placeholder="Email" />
             </div>
             <div class="field">
-              <label>Password {{ editingEmployeeId ? '(Kosongkan jika tidak diubah)' : '' }}</label>
+              <label class="required">Password {{ editingEmployeeId ? '(Kosongkan jika tidak diubah)' : '' }}</label>
               <div class="input-eye-wrap">
                 <input
                   :type="showPassword ? 'text' : 'password'"
@@ -448,7 +448,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div class="field">
-              <label>Nomor HP</label>
+              <label class="required">Nomor HP</label>
               <input
                 type="text"
                 inputmode="numeric"
@@ -460,14 +460,14 @@ onBeforeUnmount(() => {
             </div>
             <div class="field-row">
               <div class="field">
-                <label>Peran</label>
+                <label class="required">Peran</label>
                 <select v-model="form.role">
                   <option value="karyawan">Karyawan</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
               <div class="field">
-                <label>Lokasi Cabang</label>
+                <label class="required">Lokasi Cabang</label>
                 <select v-model="form.home_location_id">
                   <option value="" disabled>Pilih lokasi</option>
                   <option v-for="loc in locations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
@@ -498,6 +498,17 @@ onBeforeUnmount(() => {
   --bg: #f7f8fa;
   --card: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.required {
+  color: #d92d20; /* Warna merah */
+  margin-left: 2px;
+}
+
+/* Styling otomatis jika menggunakan kelas di label */
+label.required::after {
+  content: ' *';
+  color: #d92d20; /* Warna merah error */
+  font-weight: bold;
 }
 .karyawan * {
   box-sizing: border-box;
