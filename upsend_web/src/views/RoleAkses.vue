@@ -122,30 +122,6 @@ const showModal = ref(false)
 const roleName = ref('')
 const roleDescription = ref('')
 
-// Dynamic Fields untuk Level & Divisi
-const roleLevels = ref(['Level 3 - Manajerial'])
-const roleDivisis = ref(['HR & People Operations'])
-
-function addLevelField() {
-  roleLevels.value.push('Level 1 - Operasional')
-}
-
-function removeLevelField(index) {
-  if (roleLevels.value.length > 1) {
-    roleLevels.value.splice(index, 1)
-  }
-}
-
-function addDivisiField() {
-  roleDivisis.value.push('')
-}
-
-function removeDivisiField(index) {
-  if (roleDivisis.value.length > 1) {
-    roleDivisis.value.splice(index, 1)
-  }
-}
-
 // Hak Akses (Permissions) Structure
 const permissions = reactive({
   ess: {
@@ -206,8 +182,6 @@ function openAddModal() {
   editingRoleId.value = null
   roleName.value = ''
   roleDescription.value = ''
-  roleLevels.value = ['Level 1 - Operasional']
-  roleDivisis.value = ['']
   showModal.value = true
 }
 
@@ -215,8 +189,6 @@ function openEditModal(role) {
   editingRoleId.value = role.id
   roleName.value = role.name
   roleDescription.value = role.deskripsi
-  roleLevels.value = role.levels ? [...role.levels] : ['Level 3 - Manajerial']
-  roleDivisis.value = role.divisis ? [...role.divisis] : ['HR & People Operations']
   showModal.value = true
 }
 
@@ -234,8 +206,6 @@ function submitRole() {
     return
   }
 
-  const cleanedDivisis = roleDivisis.value.map(d => d.trim()).filter(Boolean)
-
   if (editingRoleId.value) {
     const idx = roles.value.findIndex((r) => r.id === editingRoleId.value)
     if (idx !== -1) {
@@ -243,8 +213,6 @@ function submitRole() {
         ...roles.value[idx],
         name,
         deskripsi: desc || '-',
-        levels: [...roleLevels.value],
-        divisis: cleanedDivisis.length ? cleanedDivisis : ['General']
       }
     }
     showToast('Role berhasil diperbarui.')
@@ -255,8 +223,6 @@ function submitRole() {
       name,
       hak_akses: 'Custom Access',
       deskripsi: desc || '-',
-      levels: [...roleLevels.value],
-      divisis: cleanedDivisis.length ? cleanedDivisis : ['General']
     })
     showToast('Role berhasil ditambahkan.')
   }
@@ -407,8 +373,8 @@ function deleteRole(role) {
             <div class="header-title">
               <Icon icon="material-symbols:admin-panel-settings-outline" width="24" height="24" class="header-icon" />
               <div>
-                <h3>{{ editingRoleId ? 'Edit Role & Akses' : 'Form Konfigurasi Role & Akses' }}</h3>
-                <p>Atur kredensial dan batas otorisasi pengguna aplikasi</p>
+                <h3>{{ editingRoleId ? 'Edit Role' : 'Tambah Role' }}</h3>
+                <p>Nama role, deskripsi, dan hak akses</p>
               </div>
             </div>
             <button type="button" class="btn-close" @click="closeModal">
@@ -446,56 +412,6 @@ function deleteRole(role) {
                   </div>
                 </div>
 
-                <!-- Input Dynamic: Level Role -->
-                <div class="dynamic-group">
-                  <label class="group-label">Level Role</label>
-                  <div class="dynamic-inputs-grid">
-                    <div v-for="(lvl, index) in roleLevels" :key="'lvl-' + index" class="input-with-remove">
-                      <select v-model="roleLevels[index]">
-                        <option value="Level 1 - Operasional">Level 1 - Operasional</option>
-                        <option value="Level 2 - Supervisor">Level 2 - Supervisor</option>
-                        <option value="Level 3 - Manajerial">Level 3 - Manajerial</option>
-                        <option value="Level 4 - Eksekutif">Level 4 - Eksekutif</option>
-                      </select>
-                      <button 
-                        v-if="roleLevels.length > 1" 
-                        type="button" 
-                        class="btn-remove-field"
-                        @click="removeLevelField(index)"
-                      >
-                        <Icon icon="material-symbols:delete-outline-rounded" width="18" height="18" />
-                      </button>
-                    </div>
-                  </div>
-                  <button type="button" class="btn-add-component" @click="addLevelField">
-                    + Tambah Level
-                  </button>
-                </div>
-
-                <!-- Input Dynamic: Divisi -->
-                <div class="dynamic-group">
-                  <label class="group-label">Divisi</label>
-                  <div class="dynamic-inputs-grid">
-                    <div v-for="(div, index) in roleDivisis" :key="'div-' + index" class="input-with-remove">
-                      <input
-                        type="text"
-                        v-model="roleDivisis[index]"
-                        placeholder="Contoh: HR & People Operations"
-                      />
-                      <button 
-                        v-if="roleDivisis.length > 1" 
-                        type="button" 
-                        class="btn-remove-field"
-                        @click="removeDivisiField(index)"
-                      >
-                        <Icon icon="material-symbols:delete-outline-rounded" width="18" height="18" />
-                      </button>
-                    </div>
-                  </div>
-                  <button type="button" class="btn-add-component" @click="addDivisiField">
-                    + Tambah Divisi
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -503,8 +419,7 @@ function deleteRole(role) {
             <div class="permissions-section">
               <div class="permissions-header">
                 <div>
-                  <h4 class="section-title">Konfigurasi Hak Akses (Permissions)</h4>
-                  <p class="section-subtitle">Tentukan otorisasi fitur untuk platform mobile karyawan dan portal web backoffice</p>
+                  <h4 class="section-title">Hak Akses</h4>
                 </div>
                 <div class="legend">
                   <span class="legend-item"><span class="dot dot-ess"></span> Mobile ESS</span>
@@ -649,7 +564,7 @@ function deleteRole(role) {
             <button type="button" class="btn-cancel" @click="closeModal">Batal</button>
             <button type="button" class="btn-save" @click="submitRole">
               <Icon icon="material-symbols:save-outline" width="18" height="18" />
-              {{ editingRoleId ? 'Simpan Perubahan' : 'Simpan Konfigurasi Role' }}
+              {{ editingRoleId ? 'Simpan Perubahan' : 'Simpan Role' }}
             </button>
           </div>
         </div>
@@ -1171,8 +1086,8 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 50%;
 }
 
-.dot-ess { background: var(--mint-primary); }
-.dot-admin { background: var(--blue-dark); }
+.dot-ess { background: #4E62AF; }
+.dot-admin { background: #2C3964; }
 
 .permissions-grid {
   display: grid;
@@ -1188,8 +1103,8 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 16px;
 }
 
-.column-ess { background: #ffffff; border: 1.5px solid #a7f3d0; }
-.column-admin { background: #ffffff; border: 1.5px solid #cbd5e1; }
+.column-ess { background: #ffffff; border: 1.5px solid #4E62AF; }
+.column-admin { background: #ffffff; border: 1.5px solid #2C3964; }
 
 .column-header {
   display: flex;
@@ -1260,70 +1175,80 @@ tbody tr:last-child td { border-bottom: none; }
 .checkbox-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .custom-checkbox {
   display: flex;
   align-items: center;
   position: relative;
-  padding-left: 28px;
   cursor: pointer;
-  font-size: 13px;
-  color: var(--ink-soft);
+  font-size: 18px;
+  color: var(--ink);
   user-select: none;
+  gap: 14px;
+  line-height: 1.4;
+  min-height: 26px;
 }
 
 .custom-checkbox input {
   position: absolute;
   opacity: 0;
-  cursor: pointer;
-  height: 0;
-  width: 0;
+  pointer-events: none;
 }
 
 .checkmark {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 18px;
-  width: 18px;
+  position: relative;
+  display: inline-block;
+  height: 24px;
+  width: 24px;
+  min-width: 24px;
   background-color: #fff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 5px;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
-.ess-check input:checked ~ .checkmark {
-  background-color: var(--mint-primary);
-  border-color: var(--mint-primary);
+.ess-check input:checked + .checkmark{
+    background-color: #4E62AF;
+    border-color: #4E62AF;
+    box-shadow: none;
+}
+.admin-check input:checked + .checkmark {
+  background-color: #2C3964;
+  border-color: #2C3964;
+  box-shadow: none;
 }
 
-.admin-check input:checked ~ .checkmark {
-  background-color: var(--blue-dark);
-  border-color: var(--blue-dark);
-}
-
-.checkmark:after {
+.checkmark::after {
   content: "";
   position: absolute;
-  display: none;
-}
-
-.custom-checkbox input:checked ~ .checkmark:after { display: block; }
-
-.custom-checkbox .checkmark:after {
-  left: 5px;
+  left: 7px;
   top: 2px;
-  width: 4px;
-  height: 9px;
+  width: 6px;
+  height: 12px;
   border: solid white;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.custom-checkbox input:checked + .checkmark::after {
+  opacity: 1;
 }
 
 .custom-checkbox input:checked ~ .label-text {
   color: var(--ink);
-  font-weight: 600;
+  font-weight: 400;
+}
+
+.label-text {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .modal-footer {
