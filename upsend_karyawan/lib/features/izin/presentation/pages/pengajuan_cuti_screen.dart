@@ -56,7 +56,8 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
   final Color _primaryColor = const Color(0xFF2F3B69);
 
-  Future<void> _selectDate(BuildContext context) async {
+  // Pilih Tanggal Mulai — kalender single-date sendiri, terpisah dari Tanggal Selesai.
+  Future<void> _selectTanggalMulai(BuildContext context) async {
     FocusScope.of(context).unfocus();
 
     final today = DateTime.now();
@@ -64,21 +65,55 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       context: context,
       builder: (context) => RiwayatCalendarDialog(
         initialDate: _tanggalMulai ?? today,
-        initialRange: _tanggalMulai != null && _tanggalSelesai != null
-            ? DateTimeRange(start: _tanggalMulai!, end: _tanggalSelesai!)
-            : null,
+        initialRange: null,
+        initialMode: RiwayatCalendarMode.single,
+        allowModeSwitch: false,
         today: DateTime(today.year + 1, today.month, today.day),
         firstDate: DateTime(today.year, today.month, today.day),
         lastDate: DateTime(today.year + 1, today.month, today.day),
       ),
     );
 
-    if (selection?.range != null) {
-      setState(() {
-        _tanggalMulai = selection!.range!.start;
-        _tanggalSelesai = selection.range!.end;
-      });
+    if (selection == null) return;
+
+    setState(() {
+      _tanggalMulai = selection.date;
+      // Kalau tanggal selesai yang sudah dipilih jadi nggak valid lagi
+      // (sebelum tanggal mulai baru), reset supaya user pilih ulang.
+      if (_tanggalSelesai != null && _tanggalSelesai!.isBefore(selection.date)) {
+        _tanggalSelesai = null;
+      }
+    });
+  }
+
+  // Pilih Tanggal Selesai — dikunci minimal sama dengan Tanggal Mulai.
+  Future<void> _selectTanggalSelesai(BuildContext context) async {
+    FocusScope.of(context).unfocus();
+
+    if (_tanggalMulai == null) {
+      AppSnackbar.warning(context, 'Pilih Tanggal Mulai terlebih dahulu');
+      return;
     }
+
+    final today = DateTime.now();
+    final selection = await showDialog<RiwayatCalendarSelection>(
+      context: context,
+      builder: (context) => RiwayatCalendarDialog(
+        initialDate: _tanggalSelesai ?? _tanggalMulai!,
+        initialRange: null,
+        initialMode: RiwayatCalendarMode.single,
+        allowModeSwitch: false,
+        today: DateTime(today.year + 1, today.month, today.day),
+        firstDate: _tanggalMulai!,
+        lastDate: DateTime(today.year + 1, today.month, today.day),
+      ),
+    );
+
+    if (selection == null) return;
+
+    setState(() {
+      _tanggalSelesai = selection.date;
+    });
   }
 
   bool get _isDateRangeInvalid {
@@ -621,7 +656,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                           const SizedBox(height: 8),
                           _buildDateField(
                             date: _tanggalMulai,
-                            onTap: () => _selectDate(context),
+                            onTap: () => _selectTanggalMulai(context),
                           ),
                         ],
                       ),
@@ -641,7 +676,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                           const SizedBox(height: 8),
                           _buildDateField(
                             date: _tanggalSelesai,
-                            onTap: () => _selectDate(context),
+                            onTap: () => _selectTanggalSelesai(context),
                             hasError: _isDateRangeInvalid,
                           ),
                           if (_isDateRangeInvalid) ...[
