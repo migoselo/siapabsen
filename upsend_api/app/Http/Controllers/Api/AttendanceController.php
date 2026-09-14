@@ -164,7 +164,11 @@ class AttendanceController extends Controller
             ->whereNull('check_out_time')
             ->whereDate('check_in_time', '<', today())
             ->update([
-                'check_out_time' => now(),
+                'check_out_time' => null,
+                'check_out_lat' => null,
+                'check_out_long' => null,
+                'check_out_distance' => null,
+                'check_out_photo' => null,
                 'status' => 'lupa_absen',
             ]);
     }
@@ -188,6 +192,15 @@ class AttendanceController extends Controller
             ->get();
         $records->transform(function (Attendance $attendance): Attendance {
             $attendance->status = $this->attendanceStatusService->determine($attendance);
+
+            if (in_array($attendance->status, ['lupa_absen', 'alpha'], true)) {
+                $attendance->check_out_time = null;
+                $attendance->check_out_lat = null;
+                $attendance->check_out_long = null;
+                $attendance->check_out_distance = null;
+                $attendance->check_out_photo = null;
+            }
+
             return $attendance;
         });
 
@@ -214,7 +227,7 @@ class AttendanceController extends Controller
             ->all();
 
         foreach ($this->missingWorkDates($startDate, $endDate, array_merge($attendedDates, $approvedLeaveDates)) as $date) {
-            $records->push($this->makeAlphaRecord($request->user()->id, $date, $timezone));
+            $records->push(new Attendance($this->makeAlphaRecord($request->user()->id, $date, $timezone)));
         }
 
         $records = $records->sortByDesc('check_in_time')->values();
@@ -249,7 +262,7 @@ class AttendanceController extends Controller
             'id' => -abs(crc32("alpha:$userId:$date")),
             'employee_id' => $userId,
             'location_id' => 0,
-            'check_in_time' => Carbon::parse($date, $timezone)->startOfDay()->toISOString(),
+            'check_in_time' => null,
             'check_in_lat' => 0,
             'check_in_long' => 0,
             'check_in_distance' => 0,

@@ -33,12 +33,16 @@ class RecentAttendanceList extends StatelessWidget {
   List<_HistoryEntry> _buildEntries() {
     final entries = <_HistoryEntry>[];
     for (final r in history) {
-      entries.add(
-        _HistoryEntry(record: r, isCheckIn: true, time: r.checkInTime),
-      );
-      if (r.checkOutTime != null) {
+      final checkInTime = r.checkInTime;
+      if (checkInTime != null) {
         entries.add(
-          _HistoryEntry(record: r, isCheckIn: false, time: r.checkOutTime!),
+          _HistoryEntry(record: r, isCheckIn: true, time: checkInTime),
+        );
+      }
+      final checkOutTime = r.checkOutTime;
+      if (checkOutTime != null) {
+        entries.add(
+          _HistoryEntry(record: r, isCheckIn: false, time: checkOutTime),
         );
       }
     }

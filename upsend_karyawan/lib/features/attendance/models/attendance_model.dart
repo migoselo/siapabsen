@@ -4,7 +4,7 @@ class AttendanceModel {
   final int id;
   final int employeeId;
   final int locationId;
-  final DateTime checkInTime;
+  final DateTime? checkInTime;
   final double checkInLat;
   final double checkInLng;
   final double checkInDistance;
@@ -35,15 +35,20 @@ class AttendanceModel {
     this.location,
   });
 
+  bool get hasCheckIn => checkInTime != null;
+
   factory AttendanceModel.fromJson(Map<String, dynamic> json) {
+    final rawCheckIn = json['check_in_time'];
+    final parsedCheckIn =
+        rawCheckIn == null || rawCheckIn.toString().trim().isEmpty
+        ? null
+        : DateTime.tryParse(rawCheckIn.toString())?.toLocal();
+
     return AttendanceModel(
       id: _toInt(json['id']),
       employeeId: _toInt(json['employee_id']),
       locationId: _toInt(json['location_id']),
-      checkInTime:
-          (DateTime.tryParse(json['check_in_time']?.toString() ?? '') ??
-                  DateTime.now())
-              .toLocal(),
+      checkInTime: parsedCheckIn,
       checkInLat: _toDouble(json['check_in_lat']),
       checkInLng: _toDouble(json['check_in_long']),
       checkInDistance: _toDouble(json['check_in_distance']),

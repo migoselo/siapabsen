@@ -26,7 +26,9 @@ class HomeState extends Equatable {
     final attendance = todayAttendance;
     if (attendance == null || attendance.checkOutTime != null) return false;
 
-    final checkIn = attendance.checkInTime.toLocal();
+    final checkIn = attendance.checkInTime?.toLocal();
+    if (checkIn == null) return false;
+
     final now = DateTime.now();
     return checkIn.year == now.year &&
         checkIn.month == now.month &&

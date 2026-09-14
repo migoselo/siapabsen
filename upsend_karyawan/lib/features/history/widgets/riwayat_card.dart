@@ -43,7 +43,11 @@ class RiwayatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final checkIn = DateFormat('HH:mm').format(record.checkInTime.toLocal());
+    final hasMissingCheckIn =
+        record.status.toLowerCase() == 'alpha' || record.checkInTime == null;
+    final checkIn = hasMissingCheckIn
+        ? '--:--'
+        : DateFormat('HH:mm').format(record.checkInTime!.toLocal());
     final checkOut = record.checkOutTime != null
         ? DateFormat('HH:mm').format(record.checkOutTime!.toLocal())
         : '--:--';

@@ -165,10 +165,10 @@ class _RiwayatPageState extends State<RiwayatPage> {
   ) {
     final Map<String, List<AttendanceModel>> grouped = {};
     for (final r in records) {
-      final key = DateFormat(
-        'EEEE, d MMMM yyyy',
-        'id_ID',
-      ).format(r.checkInTime.toLocal());
+      final checkInTime = r.checkInTime?.toLocal();
+      final key = checkInTime != null
+          ? DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(checkInTime)
+          : 'Tidak ada data absensi';
       grouped.putIfAbsent(key, () => []).add(r);
     }
     return grouped;
@@ -290,8 +290,8 @@ class _RiwayatPageState extends State<RiwayatPage> {
             );
           }
 
-            final filteredRecords = _selectedKategori == null ||
-              _selectedKategori == 'semua'
+          final filteredRecords =
+              _selectedKategori == null || _selectedKategori == 'semua'
               ? effectiveRecords
               : effectiveRecords
                     .where(
