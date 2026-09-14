@@ -198,7 +198,9 @@ function ensureLeaveTypeForApiResult(rawLeaveTypeId, rawLeaveTypeName) {
 function isOvertimeRow(row = {}) {
   const rawType = String(
     row?.type ?? row?.leaveTypeName ?? row?.leave_type?.name ?? row?.leaveType?.name ?? '',
-  ).trim().toLowerCase()
+  )
+    .trim()
+    .toLowerCase()
 
   if (rawType.includes('lembur') || rawType.includes('overtime')) return true
   if (row?.start_time || row?.end_time || row?.startTime || row?.endTime) return true
@@ -294,7 +296,8 @@ async function fetchLeaveRequests() {
 
     if (!['admin', 'super_admin'].includes(normalizedRole)) {
       requests.splice(0, requests.length)
-      apiError.value = 'Akun ini tidak memiliki akses admin. Login menggunakan akun admin/super_admin untuk melihat data semua karyawan.'
+      apiError.value =
+        'Akun ini tidak memiliki akses admin. Login menggunakan akun admin/super_admin untuk melihat data semua karyawan.'
       return
     }
 
@@ -306,7 +309,11 @@ async function fetchLeaveRequests() {
       })
 
       const payload = firstPage?.data || {}
-      const firstBatch = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
+      const firstBatch = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : []
       rows = [...firstBatch]
 
       const lastPage = Number(payload?.last_page || 1)
@@ -388,7 +395,9 @@ const filteredRequests = computed(() => {
   })
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRequests.value.length / perPage.value)))
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredRequests.value.length / perPage.value)),
+)
 
 const paginatedRequests = computed(() => {
   const start = (currentPage.value - 1) * perPage.value
@@ -616,30 +625,28 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
       <!-- Stat cards -->
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-top">
-            <div class="stat-icon">
-              <Icon icon="material-symbols:pending-actions-outline" width="22" />
+        <div class="summary-card">
+          <div class="summary-top">
+            <div class="summary-icon amber">
+              <Icon icon="material-symbols:pending-actions-outline" />
             </div>
-            <span class="trend trend-up">
-              <Icon icon="material-symbols:arrow-upward" width="12" /> 12%
-            </span>
+            <span class="summary-tag amber">MENUNGGU</span>
           </div>
-          <p class="stat-label">Permintaan tertunda</p>
-          <p class="stat-value">{{ pendingCount }}</p>
-          <p class="stat-sub">{{ newSinceYesterday }} baru sejak kemarin</p>
+          <span class="summary-label">Permintaan Tertunda</span>
+          <strong class="amber-text">{{ pendingCount }}</strong>
+          <small>{{ newSinceYesterday }} baru sejak kemarin</small>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-top">
-            <div class="stat-icon"><Icon icon="material-symbols:timer-outline" width="22" /></div>
-            <span class="trend trend-down">
-              <Icon icon="material-symbols:arrow-downward" width="12" /> 4m
-            </span>
+        <div class="summary-card">
+          <div class="summary-top">
+            <div class="summary-icon green">
+              <Icon icon="material-symbols:timer-outline" />
+            </div>
+            <span class="summary-tag green">PERFORMA</span>
           </div>
-          <p class="stat-label">Rata-rata waktu persetujuan</p>
-          <p class="stat-value">{{ avgApprovalTime }}</p>
-          <p class="stat-sub">Performa seluruh perusahaan</p>
+          <span class="summary-label">Rata-Rata Waktu Persetujuan</span>
+          <strong class="green-text">{{ avgApprovalTime }}</strong>
+          <small>Seluruh perusahaan</small>
         </div>
       </div>
 
@@ -802,7 +809,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
           </table>
         </div>
 
-                <div class="table-footer">
+        <div class="table-footer">
           <div class="table-footer-content">
             <div class="pager">
               <button
@@ -977,69 +984,83 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 /* Stat cards */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
   margin-bottom: 20px;
 }
-.stat-card {
-  background: #fff;
-  border: 1px solid #eaecf0;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+.summary-card {
+  min-height: 146px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #d9dde5;
+  border-radius: 14px;
+  box-shadow: 0 5px 12px rgba(47, 59, 105, 0.04);
 }
-.stat-top {
+.summary-top {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 16px;
 }
-.stat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: #eaf0ff;
-  color: #2a4365;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.summary-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
 }
-.trend {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 999px;
+.summary-icon svg {
+  width: 18px;
+  height: 18px;
 }
-.trend-up {
-  color: #c05621;
-  background: #fff3e6;
+.summary-icon.green {
+  background: #e0f5e9;
+  color: #17a057;
 }
-.trend-down {
-  color: #2a4365;
-  background: #eaf0ff;
+.summary-icon.amber {
+  background: #fff2d9;
+  color: #efb34f;
 }
-.stat-label {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  color: var(--ink-soft);
-  margin: 0 0 4px;
-}
-.stat-value {
-  font-size: 32px;
+.summary-tag {
+  padding: 4px 7px;
+  border-radius: 4px;
+  font-size: 9px;
   font-weight: 800;
-  margin: 0 0 4px;
-  color: var(--ink-dark);
 }
-.stat-sub {
-  font-size: 13px;
-  color: var(--ink-soft);
-  margin: 0;
+.summary-tag.green {
+  color: #15924f;
+  background: #e5f5e9;
 }
-
+.summary-tag.amber {
+  color: #b17a18;
+  background: #fff0d3;
+}
+.summary-label {
+  display: block;
+  color: #667085;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.summary-card strong {
+  display: block;
+  font-size: 30px;
+  line-height: 1.1;
+  margin-bottom: 9px;
+  font-weight: 800;
+}
+.summary-card small {
+  color: #667085;
+  font-size: 11px;
+}
+.summary-card .green-text {
+  color: #17a057;
+}
+.summary-card .amber-text {
+  color: #efb34f;
+}
+.summary-card .red-text {
+  color: #c91f2d;
+}
 /* Main card */
 .card {
   background: #fff;
@@ -1121,7 +1142,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #2F3B69;
+  background: #2f3b69;
   color: #ffffff;
   font-size: 15px;
   font-weight: 700;

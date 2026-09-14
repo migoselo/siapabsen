@@ -14,7 +14,7 @@ const editingLocationId = ref(null)
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
 
-// Pagination State (Sama persis dengan dataabsensi)
+// Pagination State
 const currentPage = ref(1)
 const lastPage = ref(1)
 const totalRecords = ref(0)
@@ -41,15 +41,12 @@ const filteredLocations = computed(() => {
     })
   }
 
-  // Hitung total halaman berdasarkan data yang tersaring
   lastPage.value = Math.ceil(result.length / perPage.value) || 1
 
-  // Potong array sesuai halaman saat ini (Client-side pagination)
   const start = (currentPage.value - 1) * perPage.value
   return result.slice(start, start + perPage.value)
 })
 
-// Watcher untuk menyinkronkan input halaman
 watch(currentPage, (newPage) => {
   pageInput.value = newPage
 })
@@ -59,7 +56,6 @@ watch([searchQuery], () => {
   pageInput.value = 1
 })
 
-// Fungsi Aksi Pagination
 function prevPage() {
   if (currentPage.value > 1) {
     currentPage.value--
@@ -102,7 +98,7 @@ async function fetchLocations() {
 }
 
 function onSearchInput() {
-  // Tempat pencarian server-side jika diperlukan di masa depan
+  // Tempat pencarian server-side jika diperlukan
 }
 
 /* ---------------- Modal Tambah Lokasi Baru ---------------- */
@@ -209,13 +205,6 @@ function closeModal(force = false) {
   destroyMap()
 }
 
-function handleMissingBackendFeature(action) {
-  const message =
-    `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia atau belum dihubungkan. ` +
-    'Silakan sambungkan API dari backend teman Anda.'
-  window.alert(message)
-}
-
 function showToast(message, type = 'success') {
   toast.value = { show: true, type, message }
 
@@ -228,9 +217,16 @@ function showToast(message, type = 'success') {
   }, 2600)
 }
 
+function handleMissingBackendFeature(action) {
+  const message =
+    `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia. ` +
+    'Silakan sambungkan API dari backend.'
+  showToast(message, 'error')
+}
+
 function useCurrentLocation() {
   if (!navigator.geolocation) {
-    window.alert('Browser ini tidak mendukung geolocation.')
+    showToast('Browser ini tidak mendukung geolocation.', 'error')
     return
   }
 
@@ -244,7 +240,7 @@ function useCurrentLocation() {
     },
     () => {
       geolocating.value = false
-      window.alert('Tidak bisa mengambil lokasi saat ini. Silakan pilih titik di peta.')
+      showToast('Tidak bisa mengambil lokasi saat ini. Silakan pilih titik di peta.', 'error')
     },
   )
 }
@@ -264,11 +260,11 @@ async function searchLocation() {
       setCoordinates(p.lat, p.lon)
       if (mapInstance) mapInstance.setView([Number(p.lat), Number(p.lon)], 15)
     } else {
-      window.alert('Lokasi tidak ditemukan. Coba kata kunci lain.')
+      showToast('Lokasi tidak ditemukan. Coba kata kunci lain.', 'error')
     }
   } catch (err) {
     console.error('Gagal mencari lokasi:', err)
-    window.alert('Gagal mencari lokasi. Silakan coba lagi.')
+    showToast('Gagal mencari lokasi. Silakan coba lagi.', 'error')
   } finally {
     searchingLocation.value = false
   }
@@ -296,23 +292,24 @@ async function submitLocation() {
   const longitude = Number(form.value.longitude)
   const radius = Number(form.value.radius)
 
+  // 🔹 VALIDASI MENGGUNAKAN TOAST NOTIFIKASI
   if (!trimmedName) {
-    window.alert('Nama lokasi wajib diisi.')
+    showToast('Nama lokasi wajib diisi.', 'error')
     return
   }
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    window.alert('Pilih titik lokasi di peta atau gunakan GPS terlebih dahulu.')
+    showToast('Pilih titik lokasi di peta atau gunakan GPS terlebih dahulu.', 'error')
     return
   }
 
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-    window.alert('Koordinat lokasi tidak valid.')
+    showToast('Koordinat lokasi tidak valid', 'error')
     return
   }
 
   if (!Number.isFinite(radius) || radius <= 0) {
-    window.alert('Radius lokasi harus lebih dari 0 meter.')
+    showToast('Radius lokasi harus lebih dari 0 meter.', 'error')
     return
   }
 
@@ -354,8 +351,7 @@ async function submitLocation() {
       handleMissingBackendFeature(actionText)
     } else {
       const backendMessage = err.response?.data?.message || err.response?.data?.error || ''
-      const details = backendMessage ? `\nDetail: ${backendMessage}` : ''
-      window.alert(`Gagal ${actionText} lokasi. Silakan cek data yang dimasukkan.${details}`)
+      showToast(backendMessage ? `Gagal ${actionText}: ${backendMessage}` : `Gagal ${actionText} lokasi.`, 'error')
     }
   } finally {
     saving.value = false
@@ -379,7 +375,7 @@ async function deleteLocation(location) {
     if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
       handleMissingBackendFeature('menghapus')
     } else {
-      window.alert('Gagal menghapus lokasi. Silakan coba lagi.')
+      showToast('Gagal menghapus lokasi. Silakan coba lagi.', 'error')
     }
   } finally {
     deletingId.value = null
@@ -396,14 +392,18 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="lokasi">
-    <div v-if="toast.show" class="toast" :class="toast.type">
-      <Icon
-        :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
-        width="18"
-        height="18"
-      />
-      <span>{{ toast.message }}</span>
-    </div>
+    <!-- Teleport Toast di Luar Hierarchy DOM agar Selalu Melayang di Atas Modal -->
+    <Teleport to="body">
+      <div v-if="toast.show" class="toast" :class="toast.type">
+        <Icon
+          :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
+          width="18"
+          height="18"
+        />
+        <span>{{ toast.message }}</span>
+      </div>
+    </Teleport>
+
     <section class="panel table-panel">
       <div class="table-head">
         <div class="search">
@@ -472,7 +472,6 @@ onBeforeUnmount(() => {
 
       <div class="table-footer">
         <div class="table-footer-content">
-          <!-- Kontrol Pagination -->
           <div class="pager">
             <button
               type="button"
@@ -509,7 +508,6 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <!-- Dropdown Per Page / Rows -->
           <div class="per-page-select">
             <select v-model="perPage" @change="changePerPage" :disabled="loading">
               <option :value="10">10 baris</option>
@@ -519,7 +517,6 @@ onBeforeUnmount(() => {
             </select>
           </div>
 
-          <!-- Informasi Total Records -->
           <span class="total-records-info">{{ locations.length }} catatan</span>
         </div>
       </div>
@@ -549,18 +546,32 @@ onBeforeUnmount(() => {
             <div class="field-row">
               <div class="field">
                 <label>Latitude</label>
-                <input type="text" v-model="form.latitude" placeholder="-6.2088" />
+                <input 
+                  type="number" 
+                  v-model="form.latitude" 
+                  min="-90" 
+                  max="90" 
+                  step="0.000001" 
+                  placeholder="-6.2088" 
+                />
               </div>
               <div class="field">
                 <label>Longitude</label>
-                <input type="text" v-model="form.longitude" placeholder="106.8456" />
+                <input 
+                  type="number" 
+                  v-model="form.longitude" 
+                  min="-180" 
+                  max="180" 
+                  step="0.000001" 
+                  placeholder="106.8456" 
+                />
               </div>
             </div>
 
             <div class="field">
               <label>Radius Absensi (Meter)</label>
               <div class="input-suffix">
-                <input type="number" v-model="form.radius" min="0" placeholder="25" />
+                <input type="number" v-model="form.radius" min="1" placeholder="25" />
               </div>
             </div>
 
@@ -608,7 +619,7 @@ onBeforeUnmount(() => {
           <div class="modal-footer">
             <button class="btn-cancel" @click="closeModal" :disabled="saving">Batal</button>
             <button class="btn-save" @click="submitLocation" :disabled="saving">
-              <Icon :icon="editingLocationId ? 'material-symbols:save-outline' : 'material-symbols:save-outline'" width="18" height="18" />
+              <Icon icon="material-symbols:save-outline" width="18" height="18" />
               {{ saving ? (editingLocationId ? 'Menyimpan perubahan...' : 'Menyimpan...') : (editingLocationId ? 'Simpan Perubahan' : 'Simpan Lokasi') }}
             </button>
           </div>
@@ -630,8 +641,6 @@ onBeforeUnmount(() => {
   --line: #d9dde5;
   --bg: #f7f8fa;
   --card: #ffffff;
-}
-.lokasi {
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .lokasi * {
@@ -795,22 +804,6 @@ tbody tr:last-child td {
   color: var(--ink-soft);
   margin-top: 2px;
 }
-.badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12.5px;
-  font-weight: 700;
-  padding: 5px 14px;
-  border-radius: 20px;
-}
-.badge.aktif {
-  background: var(--mint-bg);
-  color: var(--mint-text);
-}
-.badge.nonaktif {
-  background: var(--red-bg);
-  color: var(--red);
-}
 
 .table-footer {
   display: flex;
@@ -823,7 +816,6 @@ tbody tr:last-child td {
   background: var(--bg);
   border-radius: 0 0 15px 15px;
 }
-
 .table-footer-content {
   display: flex;
   align-items: center;
@@ -835,7 +827,6 @@ tbody tr:last-child td {
   align-items: center;
   gap: 6px;
 }
-
 .pager-btn {
   width: 32px;
   height: 32px;
@@ -849,13 +840,11 @@ tbody tr:last-child td {
   transition: all 0.15s ease;
   color: var(--ink-soft);
 }
-
 .pager-btn:hover:not(:disabled) {
   background: #fff;
   border-color: var(--blue-900);
   color: var(--blue-900);
 }
-
 .pager-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -869,7 +858,6 @@ tbody tr:last-child td {
   color: var(--ink-soft);
   font-size: 13px;
 }
-
 .page-input {
   font-family: 'Plus Jakarta Sans', sans-serif;
   width: 44px;
@@ -884,13 +872,11 @@ tbody tr:last-child td {
   outline: none;
   -moz-appearance: textfield;
 }
-
 .page-input::-webkit-outer-spin-button,
 .page-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-
 .page-input:focus {
   border-color: var(--blue-900);
   box-shadow: 0 0 0 2px rgba(47, 59, 105, 0.12);
@@ -907,19 +893,9 @@ tbody tr:last-child td {
   font-weight: 600;
   cursor: pointer;
   outline: none;
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
-
 .per-page-select select:focus {
   border-color: var(--blue-900);
-}
-
-.per-page-select select option {
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  background: var(--card);
 }
 
 .total-records-info {
@@ -929,55 +905,8 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
-.add-btn-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-.add-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--blue-900);
-  color: #fff;
-  border: none;
-  padding: 14px 22px;
-  border-radius: 12px;
-  font-size: 14.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.add-btn:hover {
-  background: #273258;
-}
-.add-btn svg,
-.add-btn .iconify {
-  color: #fff;
-}
-
-@media (max-width: 700px) {
-  .table-head {
-    justify-content: stretch;
-  }
-  .search {
-    min-width: 0;
-    flex: 1;
-  }
-}
-
 /* ================= MODAL ================= */
 .modal-overlay {
-  --blue-900: #2f3b69;
-  --red: #d91e2e;
-  --red-bg: #fdebed;
-  --mint-bg: #ddf5ec;
-  --mint-text: #177a5b;
-  --ink: #1c1c19;
-  --ink-soft: #667085;
-  --line: #d9dde5;
-  --bg: #f7f8fa;
-  --card: #ffffff;
   position: fixed;
   inset: 0;
   background: rgba(28, 32, 55, 0.55);
@@ -988,12 +917,6 @@ tbody tr:last-child td {
   padding: 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-.modal-overlay button,
-.modal-overlay input,
-.modal-overlay select,
-.modal-overlay textarea {
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
@@ -1010,11 +933,6 @@ tbody tr:last-child td {
   border-radius: 20px;
   clip-path: inset(0 round 20px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-
-/* Thinner, subtle scrollbar for modal while preserving scroll behavior */
-.modal {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
 }
@@ -1034,6 +952,7 @@ tbody tr:last-child td {
 .modal::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.18);
 }
+
 .modal-head {
   display: flex;
   align-items: center;
@@ -1056,21 +975,6 @@ tbody tr:last-child td {
   font-size: 18px;
   font-weight: 700;
   color: var(--blue-900);
-}
-.modal-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--ink-soft);
-}
-.modal-close:hover {
-  background: rgba(0, 0, 0, 0.06);
 }
 
 .modal-body {
@@ -1122,11 +1026,6 @@ tbody tr:last-child td {
   font-family: inherit;
   color: var(--ink);
   width: 100%;
-}
-.field-counter {
-  font-size: 12px;
-  color: var(--ink-soft);
-  margin-top: -4px;
 }
 
 .map-actions {
@@ -1192,21 +1091,24 @@ tbody tr:last-child td {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Toast Notifikasi Melayang di Atas Tengah */
 .toast {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 1000;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 20px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
   color: white;
-  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.15);
-  animation: toastIn 0.2s ease;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.2);
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .toast.success {
   background: #1f9d67;
@@ -1217,13 +1119,14 @@ tbody tr:last-child td {
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translate(-50%, -20px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate(-50%, 0);
   }
 }
+
 .map-help-box {
   display: flex;
   flex-wrap: wrap;
@@ -1241,7 +1144,6 @@ tbody tr:last-child td {
   background: #eef0f7;
 }
 .map-preview > div,
-.map-preview .gm-style,
 .map-preview .leaflet-container {
   width: 100%;
   height: 100%;
@@ -1299,7 +1201,7 @@ tbody tr:last-child td {
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: var(--blue-900);
+  background: #2C3964;
   color: #fff;
   font-size: 14px;
   font-weight: 700;
@@ -1324,38 +1226,31 @@ tbody tr:last-child td {
     align-items: flex-start;
     padding: 12px;
   }
-
   .modal {
     max-height: calc(100dvh - 24px);
     border-radius: 16px;
   }
-
   .modal-head,
   .modal-body,
   .modal-footer {
     padding-left: 16px;
     padding-right: 16px;
   }
-
   .field-row {
     flex-direction: column;
     gap: 14px;
   }
-
   .map-search {
     min-width: 0;
     width: 100%;
   }
-
   .map-action-btn {
     width: 100%;
     justify-content: center;
   }
-
   .modal-footer {
     flex-wrap: wrap;
   }
-
   .btn-cancel,
   .btn-save {
     flex: 1 1 140px;

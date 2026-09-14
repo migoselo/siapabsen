@@ -95,16 +95,71 @@ const apiLoading = ref(false)
 const apiError = ref('')
 
 const fallbackOvertimeRequests = [
-  mkReq('Bambang Kusuma', 'Senior Developer', 'd1', '2023-10-12', '18:00', '22:00', 4, 'Critical deployment for the Q4 release candidate.'),
-  mkReq('Dewi Sartika', 'Marketing Specialist', 'd2', '2023-10-14', '17:00', '20:00', 3, 'Menyelesaikan laporan kampanye marketing bulanan.'),
-  mkReq('Budi Santoso', 'Finance Staff', 'd3', '2023-10-15', '16:00', '22:00', 6, 'Audit penutupan buku keuangan bulanan.'),
-  mkReq('Andi Saputra', 'Accountant', 'd3', '2023-10-18', '18:30', '21:30', 3, 'Rekonsiliasi data keuangan kuartal ketiga.'),
-  mkReq('Siti Aminah', 'Lead Designer', 'd4', '2023-10-25', '17:00', '21:00', 4, 'Revisi aset UI/UX untuk klien prioritas.'),
+  mkReq(
+    'Bambang Kusuma',
+    'Senior Developer',
+    'd1',
+    '2023-10-12',
+    '18:00',
+    '22:00',
+    4,
+    'Critical deployment for the Q4 release candidate.',
+  ),
+  mkReq(
+    'Dewi Sartika',
+    'Marketing Specialist',
+    'd2',
+    '2023-10-14',
+    '17:00',
+    '20:00',
+    3,
+    'Menyelesaikan laporan kampanye marketing bulanan.',
+  ),
+  mkReq(
+    'Budi Santoso',
+    'Finance Staff',
+    'd3',
+    '2023-10-15',
+    '16:00',
+    '22:00',
+    6,
+    'Audit penutupan buku keuangan bulanan.',
+  ),
+  mkReq(
+    'Andi Saputra',
+    'Accountant',
+    'd3',
+    '2023-10-18',
+    '18:30',
+    '21:30',
+    3,
+    'Rekonsiliasi data keuangan kuartal ketiga.',
+  ),
+  mkReq(
+    'Siti Aminah',
+    'Lead Designer',
+    'd4',
+    '2023-10-25',
+    '17:00',
+    '21:00',
+    4,
+    'Revisi aset UI/UX untuk klien prioritas.',
+  ),
 ]
 
 const requests = reactive([])
 
-function mkReq(name, position, departmentId, date, startTime, endTime, durationHours, reason, status = 'pending') {
+function mkReq(
+  name,
+  position,
+  departmentId,
+  date,
+  startTime,
+  endTime,
+  durationHours,
+  reason,
+  status = 'pending',
+) {
   return reactive({
     id: crypto.randomUUID ? crypto.randomUUID() : nextId('req'),
     requester: { name, position, departmentId, avatarUrl: '' },
@@ -121,7 +176,9 @@ function mkReq(name, position, departmentId, date, startTime, endTime, durationH
 function isOvertimeRow(row = {}) {
   const rawType = String(
     row?.type ?? row?.leaveTypeName ?? row?.leave_type?.name ?? row?.leaveType?.name ?? '',
-  ).trim().toLowerCase()
+  )
+    .trim()
+    .toLowerCase()
 
   if (rawType.includes('lembur') || rawType.includes('overtime')) return true
   if (row?.start_time || row?.end_time || row?.startTime || row?.endTime) return true
@@ -151,7 +208,8 @@ function parseDurationHours(value, startTime, endTime) {
 function normalizeOvertimeApiRequest(item) {
   const payload = item || {}
   const name = payload.requester?.name || payload.employee?.name || payload.user?.name || 'Unknown'
-  const position = payload.requester?.position || payload.employee?.position || payload.user?.role || '-'
+  const position =
+    payload.requester?.position || payload.employee?.position || payload.user?.role || '-'
   const departmentId =
     payload.requester?.departmentId ||
     payload.employee?.departmentId ||
@@ -161,8 +219,17 @@ function normalizeOvertimeApiRequest(item) {
 
   const startTime = payload.startTime || payload.start_time || '18:00'
   const endTime = payload.endTime || payload.end_time || '21:00'
-  const date = payload.startDate || payload.start_date || payload.createdAt || payload.created_at || new Date().toISOString().slice(0, 10)
-  const durationHours = parseDurationHours(payload.durationHours ?? payload.totalHours ?? payload.duration_hours, startTime, endTime)
+  const date =
+    payload.startDate ||
+    payload.start_date ||
+    payload.createdAt ||
+    payload.created_at ||
+    new Date().toISOString().slice(0, 10)
+  const durationHours = parseDurationHours(
+    payload.durationHours ?? payload.totalHours ?? payload.duration_hours,
+    startTime,
+    endTime,
+  )
 
   return mkReq(
     name,
@@ -189,7 +256,11 @@ async function fetchOvertimeRequests() {
         params: { page: 1, per_page: 50 },
       })
       const payload = firstPage?.data || {}
-      const firstBatch = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
+      const firstBatch = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : []
       rows = [...firstBatch]
 
       const lastPage = Number(payload?.last_page || 1)
@@ -233,7 +304,7 @@ const totalOvertimeHours = computed(() => {
 
 const topOvertimeEmployee = computed(() => {
   if (requests.length === 0) return null
-  
+
   const summaryMap = {}
   requests.forEach((req) => {
     const name = req.requester.name
@@ -242,7 +313,7 @@ const topOvertimeEmployee = computed(() => {
         name,
         department: departmentName(req.requester.departmentId),
         totalHours: 0,
-        avatarUrl: req.requester.avatarUrl
+        avatarUrl: req.requester.avatarUrl,
       }
     }
     summaryMap[name].totalHours += req.durationHours
@@ -287,7 +358,9 @@ const filteredRequests = computed(() => {
   })
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRequests.value.length / perPage.value)))
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredRequests.value.length / perPage.value)),
+)
 
 const paginatedRequests = computed(() => {
   const start = (currentPage.value - 1) * perPage.value
@@ -363,10 +436,19 @@ const detailRequestForView = computed(() => {
 /* Helper & Ekspor Laporan                                             */
 /* ------------------------------------------------------------------ */
 function initials(name) {
-  return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 }
 
-const dateFmt = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+const dateFmt = new Intl.DateTimeFormat('id-ID', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+})
 
 function exportRows() {
   return filteredRequests.value.map((r) => ({
@@ -387,7 +469,10 @@ function exportCSV() {
   if (rows.length === 0) return
   const headers = Object.keys(rows[0])
   const escapeCsv = (val) => `"${String(val).replace(/"/g, '""')}"`
-  const lines = [headers.join(','), ...rows.map((row) => headers.map((h) => escapeCsv(row[h])).join(','))]
+  const lines = [
+    headers.join(','),
+    ...rows.map((row) => headers.map((h) => escapeCsv(row[h])).join(',')),
+  ]
   const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
   downloadBlob(blob, `data-lembur-${activeTab.value}-${todayStamp()}.csv`)
 }
@@ -471,46 +556,44 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
       </div>
 
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-top">
-            <div class="stat-icon"><Icon icon="material-symbols:schedule-outline" width="22" /></div>
-            <span class="trend trend-up">
-              <Icon icon="material-symbols:arrow-upward" width="12" /> 12%
-            </span>
+        <div class="summary-card">
+          <div class="summary-top">
+            <div class="summary-icon amber">
+              <Icon icon="material-symbols:schedule-outline" />
+            </div>
+            <span class="summary-tag amber">BULAN INI</span>
           </div>
-          <p class="stat-label">Total Jam Lembur (Bulan Ini)</p>
-          <p class="stat-value">{{ totalOvertimeHours }}</p>
-          <p class="stat-sub">Akumulasi seluruh departemen</p>
+          <span class="summary-label">Total Jam Lembur</span>
+          <strong class="amber-text">{{ totalOvertimeHours }}</strong>
+          <small>Akumulasi seluruh departemen</small>
         </div>
 
-        <div class="stat-card" v-if="topOvertimeEmployee">
-          <div class="stat-top">
-            <div class="stat-icon stat-icon-green">
-              <Icon icon="material-symbols:chair-alt-outline" width="22" />
+        <div class="summary-card" v-if="topOvertimeEmployee">
+          <div class="summary-top">
+            <div class="summary-icon green">
+              <Icon icon="material-symbols:person-outline" />
             </div>
+            <span class="summary-tag green">TOP</span>
           </div>
-          <p class="stat-label">Karyawan Lembur Tertinggi</p>
-          <div class="top-employee-row">
-            <div class="avatar-sm avatar-fallback-green">
-              {{ initials(topOvertimeEmployee.name) }}
-            </div>
-            <div>
-              <p class="top-employee-name">{{ topOvertimeEmployee.name }}</p>
-              <p class="top-employee-sub">{{ topOvertimeEmployee.department }} • {{ topOvertimeEmployee.totalHours }} Jam</p>
-            </div>
-          </div>
+          <span class="summary-label">Karyawan Lembur Tertinggi</span>
+          <strong class="green-text" style="font-size: 18px; line-height: 1.3; margin-top: 4px">
+            {{ topOvertimeEmployee.name }}
+          </strong>
+          <small
+            >{{ topOvertimeEmployee.department }} • {{ topOvertimeEmployee.totalHours }} Jam</small
+          >
         </div>
 
-        <div class="stat-card">
-          <div class="stat-top">
-            <div class="stat-icon"><Icon icon="material-symbols:timer-outline" width="22" /></div>
-            <span class="trend trend-down">
-              <Icon icon="material-symbols:arrow-downward" width="12" /> 2%
-            </span>
+        <div class="summary-card">
+          <div class="summary-top">
+            <div class="summary-icon red">
+              <Icon icon="material-symbols:timer-outline" />
+            </div>
+            <span class="summary-tag red">RATA-RATA</span>
           </div>
-          <p class="stat-label">Rata-rata Durasi / Hari</p>
-          <p class="stat-value">2.4 Jam</p>
-          <p class="stat-sub">Efisiensi waktu kerja ekstra</p>
+          <span class="summary-label">Durasi / Hari</span>
+          <strong class="red-text">2.4 Jam</strong>
+          <small>Efisiensi waktu kerja ekstra</small>
         </div>
       </div>
 
@@ -658,7 +741,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
           </table>
         </div>
 
-                <div class="table-footer">
+        <div class="table-footer">
           <div class="table-footer-content">
             <div class="pager">
               <button
@@ -783,39 +866,103 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   font-weight: 600;
   color: #c53030;
 }
-
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
   margin-bottom: 20px;
 }
-.stat-card {
-  background: #fff;
-  border: 1px solid #eaecf0;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+.summary-card {
+  min-height: 146px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #d9dde5;
+  border-radius: 14px;
+  box-shadow: 0 5px 12px rgba(47, 59, 105, 0.04);
 }
-.stat-top {
+.summary-top {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 16px;
 }
-.stat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: #eaf0ff;
-  color: #2a4365;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.summary-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
 }
-.stat-icon-green {
-  background: #e6f7f6;
-  color: #0f766e;
+.summary-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.summary-icon.green {
+  background: #e0f5e9;
+  color: #17a057;
+}
+.summary-icon.amber {
+  background: #fff2d9;
+  color: #efb34f;
+}
+.summary-icon.red {
+  background: #fde7e8;
+  color: #d91e2e;
+}
+.summary-icon.blue {
+  background: #e8ebf5;
+  color: #2f3b69;
+}
+.summary-tag {
+  padding: 4px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+}
+.summary-tag.green {
+  color: #15924f;
+  background: #e5f5e9;
+}
+.summary-tag.amber {
+  color: #b17a18;
+  background: #fff0d3;
+}
+.summary-tag.red {
+  color: #d91e2e;
+  background: #fdebed;
+}
+.summary-tag.blue {
+  color: #2f3b69;
+  background: #e8ebf5;
+}
+.summary-label {
+  display: block;
+  color: #667085;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.summary-card strong {
+  display: block;
+  font-size: 30px;
+  line-height: 1.1;
+  margin-bottom: 9px;
+  font-weight: 800;
+}
+.summary-card small {
+  color: #667085;
+  font-size: 11px;
+}
+.summary-card .green-text {
+  color: #17a057;
+}
+.summary-card .amber-text {
+  color: #efb34f;
+}
+.summary-card .red-text {
+  color: #c91f2d;
+}
+.summary-card .blue-text {
+  color: #2f3b69;
 }
 .trend {
   display: inline-flex;
@@ -836,7 +983,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 }
 .stat-label {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.6px;
   color: var(--ink-soft);
   margin: 0 0 4px;
@@ -845,7 +992,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   font-size: 32px;
   font-weight: 800;
   margin: 0 0 4px;
-  color: var(--ink-dark);
 }
 .stat-sub {
   font-size: 13px;
@@ -964,7 +1110,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #2F3B69;
+  background: #2f3b69;
   color: #ffffff;
   font-size: 15px;
   font-weight: 700;

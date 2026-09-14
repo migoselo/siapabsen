@@ -154,7 +154,7 @@ async function handleLogin() {
   border-radius: 9px;
   padding: 50px 34px 49px;
   width: 100%;
-  max-width: 330px;
+  max-width: 440px;
   box-shadow: 0 12px 30px rgba(22, 31, 67, 0.12);
 }
 

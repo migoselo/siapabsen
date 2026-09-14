@@ -286,20 +286,19 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 .back-btn {
-  display: inline-grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  padding: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  color: #475569;
-  background: #ffffff;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: none;
+  color: var(--ink-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 .back-btn:hover {
-  color: #172554;
-  border-color: #172554;
+  background: var(--surface-soft);
 }
 .detail-title {
   margin: 0;
