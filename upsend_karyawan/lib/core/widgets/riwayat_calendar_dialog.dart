@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 enum RiwayatCalendarMode { year, month, range, single }
@@ -130,50 +131,36 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    // Lebar responsif: maksimal 360, tapi mengecil kalau layar sempit
+    // (dikurangi margin kiri-kanan supaya tidak mepet ke tepi layar).
+    final dialogWidth = screenSize.width < 400
+        ? screenSize.width * 0.88
+        : 360.0;
+    // Tinggi maksimal dibatasi ke persentase layar, dengan fallback
+    // scroll kalau kontennya tetap lebih tinggi (misal font besar/aksesibilitas).
+    final maxDialogHeight = screenSize.height * 0.85;
+
     return AlertDialog(
-      backgroundColor: const Color(0xFFF7FBFF),
-      surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      content: SizedBox(
-        width: 400,
-        height: 500,
-        child: Column(
-          children: [
-            if (_mode == RiwayatCalendarMode.range ||
-                _mode == RiwayatCalendarMode.single)
-              _buildCalendarHeader(),
-            if (_mode == RiwayatCalendarMode.range) _buildRangeHint(),
-            Expanded(child: _buildCalendar()),
-            if (_mode == RiwayatCalendarMode.range)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'BATAL',
-                      style: TextStyle(
-                        color: Color(0xFF075985),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _rangeStart != null && _rangeEnd != null
-                        ? _confirmRange
-                        : null,
-                    child: const Text(
-                      'OKE',
-                      style: TextStyle(
-                        color: Color(0xFF075985),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-          ],
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxDialogHeight),
+        child: SizedBox(
+          width: dialogWidth,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_mode == RiwayatCalendarMode.range ||
+                    _mode == RiwayatCalendarMode.single)
+                  _buildCalendarHeader(),
+                if (_mode == RiwayatCalendarMode.range) _buildRangeHint(),
+                _buildCalendar(),
+                if (_mode == RiwayatCalendarMode.range) _buildFooterButtons(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -191,19 +178,60 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFE7F1FA),
+        color: const Color(0xFFB7C0DF),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          const Icon(Icons.date_range, size: 18, color: Color(0xFF0759B5)),
+          SvgPicture.asset(
+            'assets/images/Calendar.svg',
+            width: 18,
+            height: 18,
+            colorFilter: const ColorFilter.mode(
+              Color(0xFF2F3B69),
+              BlendMode.srcIn,
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               hint,
               style: const TextStyle(
-                color: Color(0xFF075985),
+                color: Color(0xFF2F3B69),
                 fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterButtons() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, left: 8, right: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'BATAL',
+              style: TextStyle(
+                color: Color(0xFF2F3B69),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _rangeStart != null && _rangeEnd != null
+                ? _confirmRange
+                : null,
+            child: const Text(
+              'OKE',
+              style: TextStyle(
+                color: Color(0xFF2F3B69),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -225,19 +253,36 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
               icon: const Icon(Icons.chevron_left),
             ),
             Expanded(
-              child: GestureDetector(
-                onTap: _allowModeSwitch
-                    ? () => setState(() => _mode = RiwayatCalendarMode.month)
-                    : null,
-                child: Text(
-                  '${DateFormat('MMMM', 'id_ID').format(_visibleMonth)} ${_visibleMonth.year}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF075985),
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: _allowModeSwitch
+                        ? () =>
+                              setState(() => _mode = RiwayatCalendarMode.month)
+                        : null,
+                    child: Text(
+                      DateFormat('MMMM', 'id_ID').format(_visibleMonth),
+                      style: const TextStyle(
+                        color: Color(0xFF2F3B69),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
+                  GestureDetector(
+                    onTap: _allowModeSwitch
+                        ? () => setState(() => _mode = RiwayatCalendarMode.year)
+                        : null,
+                    child: Text(
+                      '${_visibleMonth.year}',
+                      style: const TextStyle(
+                        color: Color(0xFF2F3B69),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             IconButton(
@@ -248,7 +293,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -257,13 +302,18 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
     switch (_mode) {
       case RiwayatCalendarMode.year:
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             TextButton(
               onPressed: () =>
                   setState(() => _mode = RiwayatCalendarMode.range),
               child: Text('${_visibleMonth.year}'),
             ),
-            Expanded(
+            // YearPicker butuh tinggi terbatas (internalnya ListView tanpa
+            // shrinkWrap), jadi tetap dikasih SizedBox — tapi ukurannya
+            // dihitung dari layar, bukan angka mati.
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.35,
               child: YearPicker(
                 firstDate: _firstDate,
                 lastDate: _lastDate,
@@ -278,64 +328,65 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
         );
       case RiwayatCalendarMode.month:
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             TextButton(
               onPressed: () =>
                   setState(() => _mode = RiwayatCalendarMode.range),
               child: Text('${_visibleMonth.year}'),
             ),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.all(8),
-                itemCount: 12,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 2.2,
-                ),
-                itemBuilder: (context, index) {
-                  final month = index + 1;
-                  final date = DateTime(_visibleMonth.year, month, 1);
-                  final disabled = date.isAfter(_lastDate);
-                  final isSelected = month == _visibleMonth.month;
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(8),
+              itemCount: 12,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.2,
+              ),
+              itemBuilder: (context, index) {
+                final month = index + 1;
+                final date = DateTime(_visibleMonth.year, month, 1);
+                final disabled = date.isAfter(_lastDate);
+                final isSelected = month == _visibleMonth.month;
 
-                  return GestureDetector(
-                    onTap: disabled
-                        ? null
-                        : () {
-                            _visibleMonth = date;
-                            _selectMonth(month);
-                          },
-                    child: Container(
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.rectangle,
-                        borderRadius: BorderRadius.circular(12),
-                        color: isSelected ? const Color(0xFF2F3B69) : null,
-                        border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFF2F3B69)
-                              : const Color(0xFFC9D1E3),
-                        ),
-                      ),
-                      child: Text(
-                        DateFormat('MMM', 'id_ID').format(date),
-                        style: TextStyle(
-                          color: disabled
-                              ? const Color(0xFF91A0BF)
-                              : isSelected
-                                  ? Colors.white
-                                  : const Color(0xFF202B4D),
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                        ),
+                return GestureDetector(
+                  onTap: disabled
+                      ? null
+                      : () {
+                          _visibleMonth = date;
+                          _selectMonth(month);
+                        },
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.rectangle,
+                      borderRadius: BorderRadius.circular(12),
+                      color: isSelected ? const Color(0xFF2F3B69) : null,
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFF2F3B69)
+                            : const Color(0xFFC9D1E3),
                       ),
                     ),
-                  );
-                },
-              ),
+                    child: Text(
+                      DateFormat('MMM', 'id_ID').format(date),
+                      style: TextStyle(
+                        color: disabled
+                            ? const Color(0xFF91A0BF)
+                            : isSelected
+                                ? Colors.white
+                                : const Color(0xFF202B4D),
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         );
@@ -376,10 +427,11 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
     }
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: ['S', 'S', 'R', 'K', 'J', 'S', 'M']
+          children: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
               .map(
                 (day) => SizedBox(
                   width: 36,
@@ -387,9 +439,8 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                     day,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xFF27364D),
+                      color: Color(0xFF4E62AF),
                       fontWeight: FontWeight.w600,
-                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -397,70 +448,72 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
               .toList(),
         ),
         const SizedBox(height: 6),
-        Expanded(
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: cells.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 4,
-            ),
-            itemBuilder: (context, index) {
-              final date = cells[index];
-              final disabled =
-                  date.isBefore(_firstDate) || date.isAfter(_lastDate);
-              final isPreview =
-                  date.month != _visibleMonth.month ||
-                  date.year != _visibleMonth.year;
-              final isStart =
-                  _rangeStart != null && _isSameDay(date, _rangeStart!);
-              final isEnd = _rangeEnd != null && _isSameDay(date, _rangeEnd!);
-              final inRange =
-                  _rangeStart != null &&
-                  _rangeEnd != null &&
-                  !date.isBefore(_rangeStart!) &&
-                  !date.isAfter(_rangeEnd!);
+        // shrinkWrap + NeverScrollableScrollPhysics: grid mengukur tingginya
+        // sendiri berdasarkan konten (6 baris x 7 kolom), jadi dialog tidak
+        // perlu tinggi tetap dan tidak akan crop baris terakhir lagi.
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: cells.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 4,
+          ),
+          itemBuilder: (context, index) {
+            final date = cells[index];
+            final disabled =
+                date.isBefore(_firstDate) || date.isAfter(_lastDate);
+            final isPreview =
+                date.month != _visibleMonth.month ||
+                date.year != _visibleMonth.year;
+            final isStart =
+                _rangeStart != null && _isSameDay(date, _rangeStart!);
+            final isEnd = _rangeEnd != null && _isSameDay(date, _rangeEnd!);
+            final inRange =
+                _rangeStart != null &&
+                _rangeEnd != null &&
+                !date.isBefore(_rangeStart!) &&
+                !date.isAfter(_rangeEnd!);
 
-              return GestureDetector(
-                onTap: disabled ? null : () => _selectRangeDate(date),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: inRange ? const Color(0xFFD7E6F5) : null,
-                    borderRadius: BorderRadius.horizontal(
-                      left: isStart ? const Radius.circular(20) : Radius.zero,
-                      right: isEnd ? const Radius.circular(20) : Radius.zero,
-                    ),
+            return GestureDetector(
+              onTap: disabled ? null : () => _selectRangeDate(date),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: inRange ? const Color(0xFFB7C0DF) : null,
+                  borderRadius: BorderRadius.horizontal(
+                    left: isStart ? const Radius.circular(20) : Radius.zero,
+                    right: isEnd ? const Radius.circular(20) : Radius.zero,
                   ),
+                ),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 32,
+                  height: 32,
                   alignment: Alignment.center,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isStart || isEnd ? const Color(0xFF0759B5) : null,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        color: disabled
-                            ? const Color(0xFF91A0BF)
-                            : isStart || isEnd
-                            ? Colors.white
-                            : const Color(
-                                0xFF202B4D,
-                              ).withValues(alpha: isPreview ? 0.45 : 1),
-                        fontSize: 14,
-                        fontWeight: isStart || isEnd
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
+                  decoration: BoxDecoration(
+                    color: isStart || isEnd ? const Color(0xFF2F3B69) : null,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${date.day}',
+                    style: TextStyle(
+                      color: disabled
+                          ? const Color(0xFF91A0BF)
+                          : isStart || isEnd
+                          ? Colors.white
+                          : const Color(
+                              0xFF202B4D,
+                            ).withValues(alpha: isPreview ? 0.45 : 1),
+                      fontSize: 14,
+                      fontWeight: isStart || isEnd
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -496,6 +549,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
     }
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -516,53 +570,52 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
               .toList(),
         ),
         const SizedBox(height: 6),
-        Expanded(
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: cells.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 4,
-            ),
-            itemBuilder: (context, index) {
-              final date = cells[index];
-              final disabled =
-                  date.isBefore(_firstDate) || date.isAfter(_lastDate);
-              final isPreview =
-                  date.month != _visibleMonth.month ||
-                  date.year != _visibleMonth.year;
-              final isSelected = _isSameDay(date, _selectedDate);
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: cells.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 4,
+          ),
+          itemBuilder: (context, index) {
+            final date = cells[index];
+            final disabled =
+                date.isBefore(_firstDate) || date.isAfter(_lastDate);
+            final isPreview =
+                date.month != _visibleMonth.month ||
+                date.year != _visibleMonth.year;
+            final isSelected = _isSameDay(date, _selectedDate);
 
-              return GestureDetector(
-                onTap: disabled ? null : () => _selectSingleDate(date),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF2F3B69) : null,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    '${date.day}',
-                    style: TextStyle(
-                      color: disabled
-                          ? const Color(0xFF91A0BF)
-                          : isSelected
-                          ? Colors.white
-                          : const Color(
-                              0xFF202B4D,
-                            ).withValues(alpha: isPreview ? 0.45 : 1),
-                      fontSize: 14,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
+            return GestureDetector(
+              onTap: disabled ? null : () => _selectSingleDate(date),
+              child: Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF2F3B69) : null,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    color: disabled
+                        ? const Color(0xFF91A0BF)
+                        : isSelected
+                        ? Colors.white
+                        : const Color(
+                            0xFF202B4D,
+                          ).withValues(alpha: isPreview ? 0.45 : 1),
+                    fontSize: 14,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.w400,
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
     );
