@@ -23,6 +23,7 @@ class RiwayatCalendarDialog extends StatefulWidget {
   final RiwayatCalendarMode initialMode;
   final DateTime? firstDate;
   final DateTime? lastDate;
+  final bool allowModeSwitch;
 
   const RiwayatCalendarDialog({
     super.key,
@@ -32,6 +33,7 @@ class RiwayatCalendarDialog extends StatefulWidget {
     this.initialMode = RiwayatCalendarMode.range,
     this.firstDate,
     this.lastDate,
+    this.allowModeSwitch = true,
   });
 
   @override
@@ -47,7 +49,9 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
 
   DateTime get _firstDate => widget.firstDate ?? DateTime(2000);
   DateTime get _lastDate => widget.lastDate ?? widget.today;
-  bool get _allowModeSwitch => widget.initialMode != RiwayatCalendarMode.single;
+  bool get _allowModeSwitch =>
+      widget.allowModeSwitch &&
+      widget.initialMode != RiwayatCalendarMode.single;
 
   @override
   void initState() {
@@ -377,8 +381,8 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                         color: disabled
                             ? const Color(0xFF91A0BF)
                             : isSelected
-                                ? Colors.white
-                                : const Color(0xFF202B4D),
+                            ? Colors.white
+                            : const Color(0xFF202B4D),
                         fontWeight: isSelected
                             ? FontWeight.w600
                             : FontWeight.w400,
@@ -608,9 +612,7 @@ class _RiwayatCalendarDialogState extends State<RiwayatCalendarDialog> {
                             0xFF202B4D,
                           ).withValues(alpha: isPreview ? 0.45 : 1),
                     fontSize: 14,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.w400,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ),

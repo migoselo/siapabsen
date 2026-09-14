@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:upsend_karyawan/core/widgets/kategori_bar_chart.dart';
 import 'package:upsend_karyawan/core/widgets/riwayat_calendar_dialog.dart';
 import 'package:upsend_karyawan/core/widgets/riwayat_periode_toggle.dart';
-import 'package:upsend_karyawan/core/widgets/riwayat_periode_strip.dart';
 import 'package:upsend_karyawan/features/izin/kategori_cuti.dart';
 import 'package:upsend_karyawan/features/izin/models/cuti_model.dart';
 
@@ -154,12 +153,9 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         final end = DateTime(anchor.year, anchor.month + 1, 0);
         return DateTimeRange(start: start, end: end);
       case PeriodeRiwayat.tahunan:
-        final start = DateTime(anchor.year, anchor.month, 1);
-        final end = DateTime(anchor.year, anchor.month + 1, 0);
-        return DateTimeRange(
-          start: start,
-          end: end,
-        );
+        final start = DateTime(anchor.year, 1, 1);
+        final end = DateTime(anchor.year, 12, 31);
+        return DateTimeRange(start: start, end: end);
     }
   }
 
@@ -171,6 +167,64 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       _selectedRange = null; // reset range manual tiap ganti toggle
       _selectedKategori = null;
     });
+  }
+
+  // Geser mundur satu unit waktu sesuai periode aktif.
+  void _goToPrevious() {
+    setState(() {
+      final anchor = _selectedDate ?? _today;
+      switch (_periode) {
+        case PeriodeRiwayat.mingguan:
+          _selectedDate = anchor.subtract(const Duration(days: 7));
+          break;
+        case PeriodeRiwayat.bulanan:
+          _selectedDate = DateTime(anchor.year, anchor.month - 1, 1);
+          break;
+        case PeriodeRiwayat.tahunan:
+          _selectedDate = DateTime(anchor.year - 1, anchor.month, 1);
+          break;
+      }
+      _selectedRange = null;
+      _selectedKategori = null;
+    });
+  }
+
+  // Geser maju satu unit waktu — dibatasi supaya tidak bisa lompat ke masa depan.
+  void _goToNext() {
+    if (!_canGoNext) return;
+    setState(() {
+      final anchor = _selectedDate ?? _today;
+      switch (_periode) {
+        case PeriodeRiwayat.mingguan:
+          _selectedDate = anchor.add(const Duration(days: 7));
+          break;
+        case PeriodeRiwayat.bulanan:
+          _selectedDate = DateTime(anchor.year, anchor.month + 1, 1);
+          break;
+        case PeriodeRiwayat.tahunan:
+          _selectedDate = DateTime(anchor.year + 1, anchor.month, 1);
+          break;
+      }
+      _selectedRange = null;
+      _selectedKategori = null;
+    });
+  }
+
+  // Tombol "next" mati kalau unit waktu berikutnya sudah melewati hari ini.
+  bool get _canGoNext {
+    final anchor = _selectedDate ?? _today;
+    switch (_periode) {
+      case PeriodeRiwayat.mingguan:
+        final nextWeekStart = anchor
+            .subtract(Duration(days: anchor.weekday - 1))
+            .add(const Duration(days: 7));
+        return !nextWeekStart.isAfter(_today);
+      case PeriodeRiwayat.bulanan:
+        final nextMonth = DateTime(anchor.year, anchor.month + 1, 1);
+        return !nextMonth.isAfter(DateTime(_today.year, _today.month, 1));
+      case PeriodeRiwayat.tahunan:
+        return anchor.year < _today.year;
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -222,10 +276,30 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       return '${DateFormat('d MMM', 'id_ID').format(start)} - '
           '${DateFormat('d MMM yyyy', 'id_ID').format(end)}';
     }
+
     final currentDate = _selectedDate ?? _today;
-    return _periode == PeriodeRiwayat.tahunan
-        ? DateFormat('yyyy', 'id_ID').format(currentDate)
-        : DateFormat('MMMM yyyy', 'id_ID').format(currentDate);
+    switch (_periode) {
+      case PeriodeRiwayat.tahunan:
+        return DateFormat('yyyy', 'id_ID').format(currentDate);
+      case PeriodeRiwayat.bulanan:
+        return DateFormat('MMMM yyyy', 'id_ID').format(currentDate);
+      case PeriodeRiwayat.mingguan:
+        final start = currentDate.subtract(
+          Duration(days: currentDate.weekday - 1),
+        );
+        final end = start.add(const Duration(days: 6));
+        final sameMonth = start.month == end.month && start.year == end.year;
+        if (sameMonth) {
+          return '${DateFormat('d', 'id_ID').format(start)} - '
+              '${DateFormat('d MMMM yyyy', 'id_ID').format(end)}';
+        }
+        final sameYear = start.year == end.year;
+        return sameYear
+            ? '${DateFormat('d MMM', 'id_ID').format(start)} - '
+                  '${DateFormat('d MMM yyyy', 'id_ID').format(end)}'
+            : '${DateFormat('d MMM yyyy', 'id_ID').format(start)} - '
+                  '${DateFormat('d MMM yyyy', 'id_ID').format(end)}';
+    }
   }
 
   @override
@@ -323,16 +397,49 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  _currentHeader,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1E1E1E),
+                if (_selectedRange == null)
+                  IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: _goToPrevious,
+                    icon: const Icon(
+                      Icons.chevron_left,
+                      color: Color(0xFF2E3A6E),
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    _currentHeader,
+                    textAlign: _selectedRange == null
+                        ? TextAlign.center
+                        : TextAlign.left,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E1E1E),
+                    ),
                   ),
                 ),
+                if (_selectedRange == null)
+                  IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: _canGoNext ? _goToNext : null,
+                    icon: Icon(
+                      Icons.chevron_right,
+                      color: _canGoNext
+                          ? const Color(0xFF2E3A6E)
+                          : const Color(0xFFC9D1E3),
+                    ),
+                  ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () => _selectDate(context),
                   child: SvgPicture.asset(
@@ -381,20 +488,6 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   ),
                 ),
               ),
-
-            if (_selectedRange == null) ...[
-              RiwayatPeriodeStrip(
-                periode: _periode,
-                anchorDate: _selectedDate ?? _today,
-                today: _today,
-                onSelected: (date) {
-                  setState(() {
-                    _selectedDate = date;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
 
             KategoriBarChart(
               title: 'Kategori Cuti',

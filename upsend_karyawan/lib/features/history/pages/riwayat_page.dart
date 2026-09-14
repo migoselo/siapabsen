@@ -184,10 +184,29 @@ class _RiwayatPageState extends State<RiwayatPage> {
       return '${DateFormat('d MMM', 'id_ID').format(start)} - '
           '${DateFormat('d MMM yyyy', 'id_ID').format(end)}';
     }
-    final headerFormat = _periode == PeriodeRiwayat.tahunan
-        ? DateFormat('yyyy', 'id_ID')
-        : DateFormat('MMMM yyyy', 'id_ID');
-    return headerFormat.format(_anchorDate);
+
+    switch (_periode) {
+      case PeriodeRiwayat.tahunan:
+        return DateFormat('yyyy', 'id_ID').format(_anchorDate);
+      case PeriodeRiwayat.bulanan:
+        return DateFormat('MMMM yyyy', 'id_ID').format(_anchorDate);
+      case PeriodeRiwayat.mingguan:
+        final start = _anchorDate.subtract(
+          Duration(days: _anchorDate.weekday - 1),
+        );
+        final end = start.add(const Duration(days: 6));
+        final sameMonth = start.month == end.month && start.year == end.year;
+        if (sameMonth) {
+          return '${DateFormat('d', 'id_ID').format(start)} - '
+              '${DateFormat('d MMMM yyyy', 'id_ID').format(end)}';
+        }
+        final sameYear = start.year == end.year;
+        return sameYear
+            ? '${DateFormat('d MMM', 'id_ID').format(start)} - '
+                  '${DateFormat('d MMM yyyy', 'id_ID').format(end)}'
+            : '${DateFormat('d MMM yyyy', 'id_ID').format(start)} - '
+                  '${DateFormat('d MMM yyyy', 'id_ID').format(end)}';
+    }
   }
 
   Map<String, List<AttendanceModel>> _groupByDate(
