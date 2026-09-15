@@ -32,6 +32,9 @@ watch(currentPage, (newPage) => {
 const showModal = ref(false)
 const saving = ref(false)
 const locations = ref([])
+const companies = ref([])
+const selectedCompany = ref(null)
+const selectedBranch = ref(null)
 const form = ref({
   name: '',
   email: '',
@@ -49,6 +52,181 @@ const filteredEmployees = computed(() => {
   return employees.value.filter(
     (e) => e.name.toLowerCase().includes(q) || e.email.toLowerCase().includes(q),
   )
+})
+
+const expandedNodes = ref({})
+
+function resetDrillDown() {
+  selectedCompany.value = null
+  selectedBranch.value = null
+}
+
+function goToCompany(node) {
+  selectedCompany.value = node
+  selectedBranch.value = null
+}
+
+function goToBranch(node) {
+  selectedBranch.value = node
+}
+
+function goBackToCompanies() {
+  resetDrillDown()
+}
+
+function goBackToCompany() {
+  selectedBranch.value = null
+}
+
+const currentLevelLabel = computed(() => {
+  if (!selectedCompany.value) return 'Daftar Perusahaan'
+  if (!selectedBranch.value && currentCompanyChildren.value.length) return 'Daftar Cabang / Anak Perusahaan'
+  return 'Daftar Karyawan'
+})
+
+const breadcrumb = computed(() => {
+  const items = []
+  if (selectedCompany.value) items.push(selectedCompany.value.name)
+  if (selectedBranch.value) items.push(selectedBranch.value.name)
+  return items
+})
+
+const currentCompanyChildren = computed(() => {
+  if (!selectedCompany.value) return companyTree.value
+  return selectedCompany.value.children || []
+})
+
+const currentEmployees = computed(() => {
+  if (selectedBranch.value) return selectedBranch.value.employees || []
+
+  if (selectedCompany.value) {
+    if ((selectedCompany.value.children || []).length) {
+      return []
+    }
+
+    return selectedCompany.value.employees || []
+  }
+
+  return []
+})
+
+function findNodeById(nodes, targetId) {
+  for (const node of nodes) {
+    if (node.id === targetId) return node
+    const childMatch = findNodeById(node.children || [], targetId)
+    if (childMatch) return childMatch
+  }
+
+  return null
+}
+
+function splitHierarchyLabel(label) {
+  const value = String(label || '').trim()
+  if (!value) return []
+
+  const separators = [' / ', ' > ', ' - ', ' | ']
+  for (const separator of separators) {
+    if (value.includes(separator)) {
+      return value
+        .split(separator)
+        .map((part) => part.trim())
+        .filter(Boolean)
+    }
+  }
+
+  return [value]
+}
+
+function toggleNode(nodeId) {
+  expandedNodes.value[nodeId] = !(expandedNodes.value[nodeId] ?? true)
+}
+
+function isNodeOpen(nodeId) {
+  return expandedNodes.value[nodeId] ?? true
+}
+
+const companyTree = computed(() => {
+  const roots = []
+  const nodes = new Map()
+
+  const addNode = (path) => {
+    let parent = null
+
+    path.forEach((segment, index) => {
+      const key = path.slice(0, index + 1).join(' / ')
+      if (!nodes.has(key)) {
+        const node = {
+          id: key,
+          name: segment,
+          children: [],
+          employees: [],
+          count: 0,
+        }
+
+        if (parent) {
+          parent.children.push(node)
+        } else {
+          roots.push(node)
+        }
+
+        nodes.set(key, node)
+      }
+
+      parent = nodes.get(key)
+    })
+
+    return parent
+  }
+
+  ;(companies.value || []).forEach((company) => {
+    const name = String(company?.name || '').trim()
+    if (!name) return
+    const path = splitHierarchyLabel(name)
+    const node = addNode(path)
+    if (node && company?.id) {
+      node.companyId = company.id
+    }
+  })
+
+  filteredEmployees.value.forEach((emp) => {
+    const employeeName = String(emp?.name || '').trim()
+    const companyName =
+      emp.homeLocation?.name ||
+      emp.home_location?.name ||
+      emp.location?.name ||
+      emp.home_location ||
+      ''
+
+    if (!companyName || !employeeName) return
+
+    const path = splitHierarchyLabel(companyName)
+    const exactKey = path.join(' / ')
+    const target = nodes.get(exactKey) || nodes.get(path[path.length - 1])
+
+    if (target) {
+      target.employees.push({
+        id: emp.id,
+        name: employeeName,
+        email: emp.email || '-',
+      })
+      target.count = target.employees.length
+    }
+  })
+
+  const assignCounts = (node) => {
+    if (node.employees.length) {
+      node.count = node.employees.length
+    }
+
+    node.children.forEach((child) => {
+      assignCounts(child)
+      node.count = (node.count || 0) + (child.count || 0)
+    })
+  }
+
+  roots.forEach(assignCounts)
+
+  return roots
 })
 
 function initials(name) {
@@ -119,6 +297,11 @@ function handleMissingBackendFeature(action) {
     `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia atau belum dihubungkan. ` +
     'Silakan sambungkan API dari backend teman Anda.'
   showToast(message, 'error')
+}
+
+function goToEmployeeDetail(employee) {
+  if (!employee?.id) return
+  router.push(`/dashboard/karyawan/${employee.id}`)
 }
 
 function openAddModal() {
@@ -274,7 +457,9 @@ async function deleteEmployee(employee) {
 async function fetchLocations() {
   try {
     const res = await api.get('/locations')
-    locations.value = res.data || []
+    const list = res.data || []
+    locations.value = list
+    companies.value = list
   } catch (err) {
     console.error('Gagal mengambil lokasi:', err)
   }
@@ -282,6 +467,7 @@ async function fetchLocations() {
 
 onMounted(() => {
   fetchEmployees()
+  fetchLocations()
 })
 
 onBeforeUnmount(() => {
@@ -304,6 +490,14 @@ onBeforeUnmount(() => {
 
     <section class="panel table-panel">
       <div class="table-head">
+        <div class="page-heading">
+          <span class="page-eyebrow">SUPER ADMIN</span>
+          <h1>{{ currentLevelLabel }}</h1>
+          <p v-if="!selectedCompany">Pilih perusahaan untuk melihat struktur dan data di dalamnya.</p>
+          <p v-else-if="!selectedBranch && currentCompanyChildren.length">Pilih cabang atau anak perusahaan untuk melanjutkan.</p>
+          <p v-else>Kelola dan lihat detail karyawan di lokasi ini.</p>
+        </div>
+
         <div class="search">
           <Icon icon="material-symbols:search-rounded" width="18" height="18" />
           <input
@@ -318,55 +512,128 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nama Karyawan</th>
-            <th>Email</th>
-            <th>Nomor HP</th>
-            <th>Lokasi Cabang</th>
-            <th class="action-column">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading && employees.length === 0">
-            <td colspan="6" class="empty-cell">Memuat data...</td>
-          </tr>
-          <tr v-else-if="filteredEmployees.length === 0">
-            <td colspan="6" class="empty-cell">Tidak ada karyawan ditemukan.</td>
-          </tr>
-          <tr v-for="emp in filteredEmployees" :key="emp.id">
-            <td class="emp-id-cell">{{ emp.id }}</td>
-            <td>
+      <div v-if="loading && employees.length === 0" class="empty-cell">Memuat data...</div>
+      <div v-else-if="companyTree.length === 0" class="empty-cell">Tidak ada perusahaan ditemukan.</div>
+
+      <div v-else class="company-list">
+        <div class="drilldown-header">
+          <div class="breadcrumb-wrap">
+            <button v-if="selectedCompany || selectedBranch" type="button" class="breadcrumb-back" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()">
+              <Icon icon="material-symbols:arrow-back-rounded" width="16" height="16" />
+              Kembali
+            </button>
+
+            <div class="breadcrumb">
+              <span class="breadcrumb-root" @click="goBackToCompanies()">Perusahaan</span>
+              <template v-if="selectedCompany">
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">{{ selectedCompany.name }}</span>
+              </template>
+              <template v-if="selectedBranch">
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current">{{ selectedBranch.name }}</span>
+              </template>
+            </div>
+          </div>
+
+          <h3 class="drilldown-title">{{ currentLevelLabel }}</h3>
+        </div>
+
+        <div v-if="!selectedCompany" class="company-list-stack">
+          <div v-for="node in companyTree" :key="node.id" class="company-card">
+            <button type="button" class="company-header" @click="goToCompany(node)">
+              <div class="company-header-main">
+                <div class="company-badge">
+                  <Icon icon="material-symbols:business-rounded" width="18" height="18" />
+                </div>
+                <span class="company-name">{{ node.name }}</span>
+              </div>
+
+              <span class="company-meta">
+                <span class="company-count">{{ node.count || 0 }} orang</span>
+                <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length" class="company-list-stack">
+          <div v-for="node in currentCompanyChildren" :key="node.id" class="company-card">
+            <button type="button" class="company-header" @click="goToBranch(node)">
+              <div class="company-header-main">
+                <div class="company-badge secondary">
+                  <Icon icon="material-symbols:account-tree-rounded" width="18" height="18" />
+                </div>
+                <span class="company-name">{{ node.name }}</span>
+              </div>
+
+              <span class="company-meta">
+                <span class="company-count">{{ node.count || 0 }} orang</span>
+                <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
+              </span>
+            </button>
+          </div>
+
+          <div v-if="!currentCompanyChildren.length && selectedCompany.employees.length" class="employee-list direct-list">
+            <div v-for="emp in selectedCompany.employees" :key="emp.id" class="employee-row">
               <div class="emp">
                 <div class="emp-avatar">{{ initials(emp.name) }}</div>
-                <div class="emp-name">{{ emp.name }}</div>
+                <div class="emp-meta">
+                  <div class="emp-name">{{ emp.name }}</div>
+                  <div class="emp-email">{{ emp.email }}</div>
+                </div>
               </div>
-            </td>
-            <td>{{ emp.email }}</td>
-            <td>{{ emp.no_hp || '-' }}</td>
-            <td>{{ emp.homeLocation?.name || emp.home_location?.name || emp.location?.name || emp.home_location || '-' }}</td>
-            <td class="action-cell">
-              <div class="action-actions">
-                <button type="button" class="action-btn edit-btn" @click="openEditModal(emp)">
-                  <Icon icon="material-symbols:edit-outline-rounded" width="16" height="16" />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  class="action-btn delete-btn"
-                  @click="deleteEmployee(emp)"
-                  :disabled="deletingId === emp.id"
-                >
-                  <Icon icon="material-symbols:delete-outline-rounded" width="16" height="16" />
-                  {{ deletingId === emp.id ? 'Menghapus...' : 'Delete' }}
-                </button>
+
+              <button type="button" class="action-btn detail-btn" @click="goToEmployeeDetail(emp)">
+                <Icon icon="material-symbols:visibility-rounded" width="16" height="16" />
+                Detail
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="selectedCompany && selectedBranch" class="employee-list direct-list">
+          <div v-if="currentEmployees.length">
+            <div v-for="emp in currentEmployees" :key="emp.id" class="employee-row">
+              <div class="emp">
+                <div class="emp-avatar">{{ initials(emp.name) }}</div>
+                <div class="emp-meta">
+                  <div class="emp-name">{{ emp.name }}</div>
+                  <div class="emp-email">{{ emp.email }}</div>
+                </div>
               </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+              <button type="button" class="action-btn detail-btn" @click="goToEmployeeDetail(emp)">
+                <Icon icon="material-symbols:visibility-rounded" width="16" height="16" />
+                Detail
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="empty-mini">Belum ada karyawan di cabang ini.</div>
+        </div>
+
+        <div v-else class="employee-list direct-list">
+          <div v-if="selectedCompany && selectedCompany.employees.length">
+            <div v-for="emp in selectedCompany.employees" :key="emp.id" class="employee-row">
+              <div class="emp">
+                <div class="emp-avatar">{{ initials(emp.name) }}</div>
+                <div class="emp-meta">
+                  <div class="emp-name">{{ emp.name }}</div>
+                  <div class="emp-email">{{ emp.email }}</div>
+                </div>
+              </div>
+
+              <button type="button" class="action-btn detail-btn" @click="goToEmployeeDetail(emp)">
+                <Icon icon="material-symbols:visibility-rounded" width="16" height="16" />
+                Detail
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="empty-mini">Belum ada karyawan di perusahaan ini.</div>
+        </div>
+      </div>
 
       <div class="table-footer">
         <div class="table-footer-content">
@@ -541,15 +808,41 @@ label.required::after {
   border-radius: 16px;
 }
 .table-panel {
-  padding: 22px 0 0;
+  padding: 0 0 0;
 }
 .table-head {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 10px;
-  padding: 0 24px 22px;
+  padding: 24px;
+  border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
+}
+.page-heading {
+  min-width: 220px;
+  flex: 1;
+}
+.page-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: #8b95aa;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+.page-heading h1 {
+  margin: 0;
+  color: var(--blue-900);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+.page-heading p {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
 }
 .action-column {
   width: 170px;
@@ -579,6 +872,13 @@ label.required::after {
   cursor: pointer;
   transition: 0.2s ease;
   white-space: nowrap;
+}
+.detail-btn {
+  background: #e8f5ec;
+  color: #1f7a42;
+}
+.detail-btn:hover {
+  background: #d9f0e1;
 }
 .edit-btn {
   background: #edf4ff;
@@ -702,11 +1002,209 @@ tbody tr:last-child td {
   font-size: 15px;
 }
 
+.company-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px 24px;
+}
+
+.company-list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drilldown-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 0 4px;
+}
+
+.breadcrumb-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.breadcrumb-root {
+  cursor: pointer;
+  color: var(--blue-900);
+  font-weight: 700;
+}
+
+.breadcrumb-current {
+  color: var(--blue-900);
+  font-weight: 700;
+}
+
+.breadcrumb-separator {
+  color: var(--ink-soft);
+}
+
+.breadcrumb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.drilldown-title {
+  margin: 0;
+  color: var(--blue-900);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.company-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 2px 7px rgba(33, 42, 67, 0.035);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.company-card:hover {
+  border-color: #b8c2d8;
+  box-shadow: 0 8px 18px rgba(33, 42, 67, 0.08);
+  transform: translateY(-1px);
+}
+
+.company-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.company-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eaf0ff;
+  color: var(--blue-900);
+}
+
+.company-badge.secondary {
+  background: #edf7f1;
+  color: #1f7a42;
+}
+
+.company-header {
+  width: 100%;
+  border: none;
+  background: transparent;
+  min-height: 76px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--blue-900);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+}
+
+.company-header:hover {
+  background: rgba(47, 59, 105, 0.02);
+}
+
+.company-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.company-name {
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.empty-mini {
+  padding: 16px 18px;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.company-count {
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: #e9edf7;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-weight: 700;
+}
+
+.company-employee-list {
+  border-top: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.employee-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  background: #fff;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.employee-row:last-child {
+  border-bottom: none;
+}
+
+.direct-list {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(33, 42, 67, 0.035);
+}
+
+.emp-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.emp-email {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
 .table-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 14px 24px;
   font-size: 13px;
   color: var(--ink-soft);
   border-top: 1px solid var(--line);
@@ -1075,11 +1573,71 @@ tbody tr:last-child td {
 
 @media (max-width: 700px) {
   .table-head {
+    padding: 18px;
+    align-items: stretch;
+  }
+  .page-heading {
+    flex-basis: 100%;
+  }
+  .page-heading h1 {
+    font-size: 19px;
+  }
+  .table-head {
     justify-content: stretch;
   }
   .search {
     min-width: 0;
     flex: 1;
+  }
+  .company-list {
+    padding: 16px;
+  }
+  .company-header {
+    min-height: 68px;
+    padding: 14px;
+  }
+  .company-name {
+    font-size: 14px;
+  }
+  .company-count {
+    padding: 4px 7px;
+    font-size: 11px;
+  }
+  .company-meta > .iconify {
+    display: none;
+  }
+  .breadcrumb-wrap {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+  }
+  .drilldown-title {
+    font-size: 16px;
+  }
+  .employee-row {
+    align-items: flex-start;
+    padding: 14px;
+  }
+  .employee-row .detail-btn {
+    padding: 7px;
+    font-size: 0;
+  }
+  .employee-row .detail-btn .iconify {
+    width: 18px;
+    height: 18px;
+  }
+  .table-footer {
+    padding: 12px 16px;
+  }
+  .table-footer-content {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .total-records-info {
+    order: 3;
+    width: 100%;
+    text-align: right;
   }
 }
 </style>
