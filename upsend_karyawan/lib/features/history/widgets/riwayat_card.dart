@@ -43,8 +43,8 @@ class RiwayatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasMissingCheckIn =
-        record.status.toLowerCase() == 'alpha' || record.checkInTime == null;
+    final isAlpha = record.status.toLowerCase() == 'alpha';
+    final hasMissingCheckIn = isAlpha || record.checkInTime == null;
     final checkIn = hasMissingCheckIn
         ? '--:--'
         : DateFormat('HH:mm').format(record.checkInTime!.toLocal());
@@ -53,7 +53,7 @@ class RiwayatCard extends StatelessWidget {
         : '--:--';
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: isAlpha ? null : onTap, // alpha tidak punya detail untuk dibuka
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(15),
@@ -68,21 +68,30 @@ class RiwayatCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: isAlpha
+                    ? const Color(0xFFFEF2F2)
+                    : const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(100),
               ),
-              padding: const EdgeInsets.all(
-                11,
-              ), // atur jarak SVG dari tepi container
-              child: SvgPicture.asset(
-                'assets/images/checkin.svg',
-                width: 16,
-                height: 16,
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFF16A34A),
-                  BlendMode.srcIn,
-                ),
-              ),
+              alignment: Alignment.center,
+              child: isAlpha
+                  ? const Icon(
+                      Icons.event_busy,
+                      size: 18,
+                      color: Color(0xFFDC2626),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.all(11),
+                      child: SvgPicture.asset(
+                        'assets/images/checkin.svg',
+                        width: 16,
+                        height: 16,
+                        colorFilter: const ColorFilter.mode(
+                          Color(0xFF16A34A),
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -90,21 +99,27 @@ class RiwayatCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    record.location?.name ?? '-',
-                    style: const TextStyle(
+                    isAlpha
+                        ? 'Tidak melakukan presensi'
+                        : (record.location?.name ?? '-'),
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
+                      color: isAlpha ? const Color(0xFF9A9A9A) : Colors.black,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    '$checkIn\u2013$checkOut',
-                    style: TextStyle(
-                      color: Color(0xFF9A9A9A),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
+                  // Jam tidak perlu ditampilkan sama sekali untuk alpha —
+                  // "--:--\u2013--:--" tidak menambah informasi apapun.
+                  if (!isAlpha)
+                    Text(
+                      '$checkIn\u2013$checkOut',
+                      style: const TextStyle(
+                        color: Color(0xFF9A9A9A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -129,7 +144,8 @@ class RiwayatCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFF9A9A9A)),
+            if (!isAlpha)
+              const Icon(Icons.chevron_right, color: Color(0xFF9A9A9A)),
           ],
         ),
       ),
