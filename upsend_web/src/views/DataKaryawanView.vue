@@ -1,7 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
+
+const router = useRouter()
 
 /*
   View ini cuma berisi KONTEN halaman (sidebar & topbar sudah ditangani
@@ -154,13 +157,21 @@ function closeModal(force = false) {
   editingEmployeeId.value = null
 }
 
+// Redirect ke halaman detail/biodata karyawan
+function goToDetail() {
+  if (editingEmployeeId.value) {
+    closeModal(true)
+    router.push(`/dashboard/karyawan/${editingEmployeeId.value}`)
+  }
+}
+
 async function submitNewEmployee() {
   const name = String(form.value.name || '').trim()
   const email = String(form.value.email || '').trim()
   const password = String(form.value.password || '')
   const no_hp = String(form.value.no_hp || '').trim()
 
-  // 🔹 REGEX & VALIDASI FORM
+  // REGEX & VALIDASI FORM
   const nameRegex = /^[a-zA-Z\s'.-]{2,100}$/
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,64}$/
@@ -477,6 +488,16 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="modal-footer">
+            <button
+              v-if="editingEmployeeId"
+              class="btn-detail"
+              type="button"
+              @click="goToDetail"
+              :disabled="saving"
+            >
+              <Icon icon="material-symbols:account-box-outline-rounded" width="18" height="18" />
+              Lihat Detail Biodata
+            </button>
             <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
             <button class="btn-save" type="button" @click="submitNewEmployee" :disabled="saving">
               <Icon icon="material-symbols:save-outline" width="18" height="18" />
@@ -500,14 +521,13 @@ onBeforeUnmount(() => {
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 .required {
-  color: #d92d20; /* Warna merah */
+  color: #d92d20;
   margin-left: 2px;
 }
 
-/* Styling otomatis jika menggunakan kelas di label */
 label.required::after {
   content: ' *';
-  color: #d92d20; /* Warna merah error */
+  color: #d92d20;
   font-weight: bold;
 }
 .karyawan * {
@@ -908,13 +928,24 @@ tbody tr:last-child td {
 }
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
   padding: 16px 24px 18px;
   border-top: 1.5px solid #cbd5e1;
   background: var(--bg);
   border-radius: 0 0 20px 20px;
   flex-shrink: 0;
+}
+.modal-footer .btn-detail {
+  order: 1;
+}
+.modal-footer .btn-cancel {
+  order: 2;
+  margin-left: auto;
+}
+.modal-footer .btn-save {
+  order: 3;
 }
 .btn-cancel {
   padding: 12px 20px;
@@ -930,6 +961,31 @@ tbody tr:last-child td {
 .btn-cancel:hover {
   background: #eef0f7;
 }
+
+.btn-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1.5px solid #edf4ff;
+  background: #edf4ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.btn-detail:hover {
+  background: #d4e8ff;
+  border-color: #d4e8ff;
+}
+.btn-detail:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-save {
   display: flex;
   align-items: center;

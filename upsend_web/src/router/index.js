@@ -33,6 +33,11 @@ const routes = [
         component: () => import('../views/DataKaryawanView.vue'),
       },
       {
+        path: 'karyawan/:id',
+        name: 'BiodataKaryawan',
+        component: () => import('../views/Biodata.vue'),
+      },
+      {
         path: 'role-akses',
         name: 'Role',
         component: () => import('../views/RoleAkses.vue'),
