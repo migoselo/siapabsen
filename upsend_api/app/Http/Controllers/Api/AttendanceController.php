@@ -26,7 +26,10 @@ class AttendanceController extends Controller
 
         $locations = Location::all()->map(function ($loc) use ($request) {
             $distance = DistanceHelper::haversine(
-                $request->lat, $request->lng, $loc->latitude, $loc->longitude
+                $request->lat,
+                $request->lng,
+                $loc->latitude,
+                $loc->longitude
             );
 
             return [
@@ -45,69 +48,72 @@ class AttendanceController extends Controller
         return response()->json($locations);
     }
 
-   public function checkIn(Request $request)
-{
-    $data = $request->validate([
-        'location_id' => 'required|exists:locations,id',
-        'lat' => 'required|numeric|between:-90,90',
-        'lng' => 'required|numeric|between:-180,180',
-        'photo' => 'required|image|max:5120',
-    ]);
+    public function checkIn(Request $request)
+    {
+        $data = $request->validate([
+            'location_id' => 'required|exists:locations,id',
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
+            'photo' => 'required|image|max:5120',
+        ]);
 
-    $employeeId = $request->user()->id;
+        $employeeId = $request->user()->id;
 
-    // Sesi yang terbawa ke hari berikutnya dianggap lupa checkout.
-    $this->closeOverdueSessions($employeeId);
+        // Sesi yang terbawa ke hari berikutnya dianggap lupa checkout.
+        $this->closeOverdueSessions($employeeId);
 
-    $openSession = Attendance::where('employee_id', $employeeId)
-        ->whereNull('check_out_time')
-        ->exists();
+        $openSession = Attendance::where('employee_id', $employeeId)
+            ->whereNull('check_out_time')
+            ->exists();
 
-    if ($openSession) {
-        return response()->json([
-            'message' => 'Masih ada sesi check-in yang belum check-out. Check-out dulu sebelum absen baru.',
-        ], 422);
-    }
+        if ($openSession) {
+            return response()->json([
+                'message' => 'Masih ada sesi check-in yang belum check-out. Check-out dulu sebelum absen baru.',
+            ], 422);
+        }
 
-    $location = Location::findOrFail($data['location_id']);
+        $location = Location::findOrFail($data['location_id']);
 
-    $distance = DistanceHelper::haversine(
-        $data['lat'], $data['lng'], $location->latitude, $location->longitude
-    );
+        $distance = DistanceHelper::haversine(
+            $data['lat'],
+            $data['lng'],
+            $location->latitude,
+            $location->longitude
+        );
 
-    // TEGAS: tolak kalau di luar radius
-    if ($distance > $location->radius_meter) {
-        return response()->json([
-            'message' => "Anda berada di luar radius absen (jarak: " . round($distance) . "m, maksimal: {$location->radius_meter}m).",
-        ], 422);
-    }
+        // TEGAS: tolak kalau di luar radius
+        if ($distance > $location->radius_meter) {
+            return response()->json([
+                'message' => "Anda berada di luar radius absen (jarak: " . round($distance) . "m, maksimal: {$location->radius_meter}m).",
+            ], 422);
+        }
 
-    $photoPath = $request->file('photo')->store('attendance-photos', 'public');
+        $photoPath = $request->file('photo')->store('attendance-photos', 'public');
 
-    $attendance = Attendance::create([
-        'employee_id' => $employeeId,
-        'user_id' => $employeeId,
-        'location_id' => $location->id,
-        'check_in_time' => now(),
-        'check_in_lat' => $data['lat'],
-        'check_in_long' => $data['lng'],
-        'check_in_distance' => $distance,
-        'check_in_photo' => $photoPath,
+        $attendance = Attendance::create([
+            'employee_id' => $employeeId,
+            'user_id' => $employeeId,
+            'location_id' => $location->id,
+            'check_in_time' => now(),
+            'check_in_lat' => $data['lat'],
+            'check_in_long' => $data['lng'],
+            'check_in_distance' => $distance,
+            'check_in_photo' => $photoPath,
             'status' => 'pending',
-    ]);
+        ]);
 
         $attendance->update([
             'status' => $this->attendanceStatusService->determine($attendance),
         ]);
 
-    return response()->json($attendance->load('location'), 201);
-}
+        return response()->json($attendance->load('location'), 201);
+    }
 
     public function checkOut(Request $request, Attendance $attendance)
-{
-    if ((int) $attendance->employee_id !== (int) $request->user()->id) {
-        return response()->json(['message' => 'Bukan sesi absen kamu.'], 403);
-    }
+    {
+        if ((int) $attendance->employee_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Bukan sesi absen kamu.'], 403);
+        }
         if ($attendance->check_out_time) {
             return response()->json(['message' => 'Sesi ini sudah check-out.'], 422);
         }
@@ -121,7 +127,10 @@ class AttendanceController extends Controller
         $location = $attendance->location;
 
         $distance = DistanceHelper::haversine(
-            $data['lat'], $data['lng'], $location->latitude, $location->longitude
+            $data['lat'],
+            $data['lng'],
+            $location->latitude,
+            $location->longitude
         );
 
         $checkOutPhotoPath = null;
@@ -192,6 +201,8 @@ class AttendanceController extends Controller
             ->get();
         $records->transform(function (Attendance $attendance): Attendance {
             $attendance->status = $this->attendanceStatusService->determine($attendance);
+            $attendance->date = $attendance->check_in_time
+                ?->copy()->setTimezone(config('app.timezone'))->toDateString();
 
             if (in_array($attendance->status, ['lupa_absen', 'alpha'], true)) {
                 $attendance->check_out_time = null;
@@ -205,7 +216,7 @@ class AttendanceController extends Controller
         });
 
         $attendedDates = $records
-            ->map(fn (Attendance $attendance): string => $attendance->check_in_time
+            ->map(fn(Attendance $attendance): string => $attendance->check_in_time
                 ->copy()->setTimezone($timezone)->toDateString())
             ->unique()
             ->all();
@@ -230,7 +241,7 @@ class AttendanceController extends Controller
             $records->push(new Attendance($this->makeAlphaRecord($request->user()->id, $date, $timezone)));
         }
 
-        $records = $records->sortByDesc('check_in_time')->values();
+        $records = $records->sortByDesc(fn (Attendance $r) => $r->date)->values();
         $page = (int) $request->query('page', 1);
         $perPage = 20;
         $total = $records->count();
@@ -262,6 +273,7 @@ class AttendanceController extends Controller
             'id' => -abs(crc32("alpha:$userId:$date")),
             'employee_id' => $userId,
             'location_id' => 0,
+            'date' => $date,
             'check_in_time' => null,
             'check_in_lat' => 0,
             'check_in_long' => 0,

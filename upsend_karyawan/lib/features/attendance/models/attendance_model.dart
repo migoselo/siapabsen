@@ -16,6 +16,7 @@ class AttendanceModel {
   final double? checkOutDistance; // BARU
   final String status;
   final LocationModel? location;
+  final DateTime? date;
 
   AttendanceModel({
     required this.id,
@@ -33,6 +34,7 @@ class AttendanceModel {
     this.checkOutDistance, // BARU
     required this.status,
     this.location,
+    this.date,
   });
 
   bool get hasCheckIn => checkInTime != null;
@@ -71,6 +73,9 @@ class AttendanceModel {
       status: json['status']?.toString() ?? 'pending',
       location: json['location'] != null
           ? LocationModel.fromJson(json['location'])
+          : null,
+      date: json['date'] != null 
+          ? DateTime.tryParse(json['date'].toString())
           : null,
     );
   }
