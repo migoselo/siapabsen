@@ -7,8 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:upsend_karyawan/core/widgets/kategori_bar_chart.dart';
 import 'package:upsend_karyawan/core/widgets/riwayat_calendar_dialog.dart';
 import 'package:upsend_karyawan/core/widgets/riwayat_periode_toggle.dart';
-import 'package:upsend_karyawan/features/izin/kategori_cuti.dart';
-import 'package:upsend_karyawan/features/izin/models/cuti_model.dart';
+import 'package:upsend_karyawan/features/formulir/kategori_cuti.dart';
+import 'package:upsend_karyawan/features/formulir/models/cuti_model.dart';
 
 import '../../../../core/api/api.dart';
 import '../../../../core/widgets/custom_bottom_navbar.dart';
@@ -519,7 +519,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
-                          color: Colors.grey.shade600,
+                          color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -536,34 +536,28 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  _cutiHistory.isEmpty
-                      ? 'Belum ada riwayat cuti. Ajukan cuti untuk melihat progres di sini.'
-                      : 'Tidak ada cuti untuk rentang/kategori ini.',
+                  'Belum ada pengajuan.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: Color(0xFF9A9A9A),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              )
+            else if (filteredCuti.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'Belum ada pengajuan pada periode ini.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    color: Color(0xFF9A9A9A),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               )
             else
-              ...filteredCuti.map((cuti) {
-                return GestureDetector(
-                  onTap: () => _openDetailCuti(context, cuti),
-                  child: _buildCutiCard(
-                    svgPath: cuti.svgPath,
-                    iconData: cuti.iconData,
-                    iconBgColor: cuti.iconBgColor,
-                    iconColor: cuti.iconColor,
-                    title: cuti.title,
-                    subtitle: cuti.subtitle,
-                    statusText: cuti.statusText,
-                    statusColor: cuti.statusColor,
-                    statusTextColor: cuti.statusTextColor,
-                    dateRange: cuti.dateRange,
-                    duration: cuti.duration,
-                  ),
-                );
-              }),
+              ..._buildGroupedCutiList(filteredCuti),
             const SizedBox(height: 80),
           ],
         ),
@@ -659,6 +653,67 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         );
       }
     }
+  }
+
+  Map<String, List<CutiModel>> _groupByCreatedDate(List<CutiModel> records) {
+    final Map<String, List<CutiModel>> grouped = {};
+    for (final r in records) {
+      final createdAt = r.createdAt?.toLocal();
+      final key = createdAt != null
+          ? DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(createdAt)
+          : 'Tanggal pengajuan tidak diketahui';
+      grouped.putIfAbsent(key, () => []).add(r);
+    }
+    return grouped;
+  }
+
+  List<Widget> _buildGroupedCutiList(List<CutiModel> records) {
+    final sorted = [...records]
+      ..sort((a, b) {
+        final aDate = a.createdAt ?? DateTime(0);
+        final bDate = b.createdAt ?? DateTime(0);
+        return bDate.compareTo(aDate);
+      });
+    final grouped = _groupByCreatedDate(sorted);
+
+    final widgets = <Widget>[];
+    for (final entry in grouped.entries) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8, top: 4),
+          child: Text(
+            entry.key,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF000000),
+            ),
+          ),
+        ),
+      );
+      for (final cuti in entry.value) {
+        widgets.add(
+          GestureDetector(
+            onTap: () => _openDetailCuti(context, cuti),
+            child: _buildCutiCard(
+              svgPath: cuti.svgPath,
+              iconData: cuti.iconData,
+              iconBgColor: cuti.iconBgColor,
+              iconColor: cuti.iconColor,
+              title: cuti.title,
+              subtitle: cuti.subtitle,
+              statusText: cuti.statusText,
+              statusColor: cuti.statusColor,
+              statusTextColor: cuti.statusTextColor,
+              dateRange: cuti.dateRange,
+              duration: cuti.duration,
+            ),
+          ),
+        );
+      }
+      widgets.add(const SizedBox(height: 12));
+    }
+    return widgets;
   }
 
   Widget _buildCutiCard({

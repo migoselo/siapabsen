@@ -13,7 +13,7 @@ import '../../../core/widgets/custom_bottom_navbar.dart';
 import '../../attendance/pages/checkin_location_page.dart';
 import '../../attendance/pages/checkout_location_page.dart';
 import '../../history/pages/riwayat_page.dart';
-import '../../izin/presentation/pages/riwayat_cuti_screen.dart';
+import '../../formulir/presentation/pages/riwayat_cuti_screen.dart';
 import '../../profile/pages/profile_page.dart';
 
 const Color kDanger = Color(0xFFE11D48);

@@ -12,7 +12,7 @@ class RiwayatCard extends StatelessWidget {
   String _statusLabel(String status) {
     switch (status.toLowerCase()) {
       case 'lupa_absen':
-        return 'Lupa Absen';
+        return 'Lupa Checkout';
       case 'alpha':
         return 'Alpha';
       case 'telat':

@@ -470,16 +470,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
                 ),
                 const SizedBox(height: 20),
 
-                const Text(
-                  'Data Presensi',
-                  style: TextStyle(
-                    fontFamily: 'PlusJakartaSans',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
                 if (filteredRecords.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
@@ -502,7 +492,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                             fontFamily: 'PlusJakartaSans',
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF9A9A9A),
+                            color: Color(0xFF000000),
                           ),
                         ),
                         const SizedBox(height: 8),
