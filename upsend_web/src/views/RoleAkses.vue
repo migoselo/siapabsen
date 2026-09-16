@@ -1,6 +1,7 @@
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import api from '../api'
 
 /* ================= Data Dummy Roles ================= */
 const roles = ref([
@@ -40,10 +41,50 @@ const roles = ref([
 
 /* ================= State Tabel & Pagination ================= */
 const searchQuery = ref('')
+const officeSearchQuery = ref('')
 const currentPage = ref(1)
 const perPage = ref(20)
 const pageInput = ref(1)
 const editingRoleId = ref(null)
+const offices = ref([])
+const officesLoading = ref(false)
+const selectedOffice = ref(null)
+
+const filteredOffices = computed(() => {
+  const query = officeSearchQuery.value.trim().toLowerCase()
+  if (!query) return offices.value
+  return offices.value.filter((office) => {
+    const name = String(office.name || '').toLowerCase()
+    const address = String(office.address || office.alamat || '').toLowerCase()
+    return name.includes(query) || address.includes(query)
+  })
+})
+
+async function fetchOffices() {
+  officesLoading.value = true
+  try {
+    const response = await api.get('/locations')
+    offices.value = Array.isArray(response.data) ? response.data : []
+  } catch (error) {
+    console.error('Gagal mengambil daftar kantor:', error)
+    showToast('Daftar kantor tidak dapat dimuat.', 'error')
+  } finally {
+    officesLoading.value = false
+  }
+}
+
+function selectOffice(office) {
+  selectedOffice.value = office
+  currentPage.value = 1
+  pageInput.value = 1
+}
+
+function backToOfficeList() {
+  selectedOffice.value = null
+  searchQuery.value = ''
+  currentPage.value = 1
+  pageInput.value = 1
+}
 
 watch(currentPage, (newPage) => {
   pageInput.value = newPage
@@ -237,6 +278,8 @@ function deleteRole(role) {
   roles.value = roles.value.filter((r) => r.id !== role.id)
   showToast('Role berhasil dihapus.')
 }
+
+onMounted(fetchOffices)
 </script>
 
 <template>
@@ -253,8 +296,59 @@ function deleteRole(role) {
       </div>
     </Teleport>
 
-    <!-- TABEL UTAMA ROLE -->
-    <section class="panel table-panel">
+    <!-- PILIH KANTOR TERLEBIH DAHULU -->
+    <section v-if="!selectedOffice" class="panel table-panel office-panel">
+      <div class="office-head">
+        <div>
+          <h2>Pilih Kantor</h2>
+          <p>Pilih kantor terlebih dahulu untuk mengatur role dan hak akses.</p>
+        </div>
+        <div class="search office-search">
+          <Icon icon="material-symbols:search-rounded" width="18" height="18" />
+          <input v-model="officeSearchQuery" type="text" placeholder="Cari kantor ..." />
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Nama Kantor</th>
+            <th>Alamat</th>
+            <th class="action-column">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="officesLoading">
+            <td colspan="3" class="empty-cell">Memuat data kantor...</td>
+          </tr>
+          <tr v-else-if="filteredOffices.length === 0">
+            <td colspan="3" class="empty-cell">Tidak ada kantor ditemukan.</td>
+          </tr>
+          <tr v-for="office in filteredOffices" v-else :key="office.id">
+            <td><strong>{{ office.name }}</strong></td>
+            <td>{{ office.address || office.alamat || '-' }}</td>
+            <td class="action-cell">
+              <button type="button" class="detail-link-btn" @click="selectOffice(office)">
+                Atur Role
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- TABEL ROLE SETELAH KANTOR DIPILIH -->
+    <section v-else class="panel table-panel">
+      <div class="role-location-bar">
+        <button type="button" class="back-btn" @click="backToOfficeList" title="Kembali ke daftar kantor">
+          <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
+        </button>
+        <div>
+          <span class="breadcrumb-label">Kantor terpilih</span>
+          <h2>{{ selectedOffice.name }}</h2>
+        </div>
+      </div>
+
       <div class="table-head">
         <div class="search">
           <Icon icon="material-symbols:search-rounded" width="18" height="18" />
@@ -264,7 +358,7 @@ function deleteRole(role) {
             placeholder="Cari role ..."
           />
         </div>
-        <button class="icon-btn-solid" @click="openAddModal">
+        <button class="icon-btn-solid" @click="openAddModal" title="Tambah Role">
           <Icon icon="material-symbols:add-rounded" width="20" height="20" />
         </button>
       </div>
@@ -601,6 +695,69 @@ function deleteRole(role) {
 
 .table-panel { padding: 22px 0 0; }
 
+.office-panel { padding-top: 0; }
+
+.office-head,
+.role-location-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.office-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.office-head h2,
+.role-location-bar h2 {
+  margin: 0;
+  color: var(--blue-900);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.office-head p {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.office-search {
+  min-width: 260px;
+}
+
+.role-location-bar {
+  background: var(--bg);
+}
+
+.breadcrumb-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.back-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  border-color: var(--blue-900);
+  color: var(--blue-900);
+}
+
 .table-head {
   display: flex;
   justify-content: flex-end;
@@ -718,6 +875,17 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .action-cell { text-align: center; }
+
+.detail-link-btn {
+  border: none;
+  background: none;
+  color: var(--blue-900);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.detail-link-btn:hover { text-decoration: underline; }
 
 .action-actions {
   display: flex;

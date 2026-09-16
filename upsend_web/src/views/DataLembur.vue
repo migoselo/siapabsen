@@ -94,59 +94,6 @@ function departmentName(id) {
 const apiLoading = ref(false)
 const apiError = ref('')
 
-const fallbackOvertimeRequests = [
-  mkReq(
-    'Bambang Kusuma',
-    'Senior Developer',
-    'd1',
-    '2023-10-12',
-    '18:00',
-    '22:00',
-    4,
-    'Critical deployment for the Q4 release candidate.',
-  ),
-  mkReq(
-    'Dewi Sartika',
-    'Marketing Specialist',
-    'd2',
-    '2023-10-14',
-    '17:00',
-    '20:00',
-    3,
-    'Menyelesaikan laporan kampanye marketing bulanan.',
-  ),
-  mkReq(
-    'Budi Santoso',
-    'Finance Staff',
-    'd3',
-    '2023-10-15',
-    '16:00',
-    '22:00',
-    6,
-    'Audit penutupan buku keuangan bulanan.',
-  ),
-  mkReq(
-    'Andi Saputra',
-    'Accountant',
-    'd3',
-    '2023-10-18',
-    '18:30',
-    '21:30',
-    3,
-    'Rekonsiliasi data keuangan kuartal ketiga.',
-  ),
-  mkReq(
-    'Siti Aminah',
-    'Lead Designer',
-    'd4',
-    '2023-10-25',
-    '17:00',
-    '21:00',
-    4,
-    'Revisi aset UI/UX untuk klien prioritas.',
-  ),
-]
-
 const requests = reactive([])
 
 function mkReq(
@@ -280,14 +227,10 @@ async function fetchOvertimeRequests() {
 
     const overtimeRows = rows.filter((row) => isOvertimeRow(row))
     requests.splice(0, requests.length, ...overtimeRows.map(normalizeOvertimeApiRequest))
-
-    if (requests.length === 0 && overtimeRows.length === 0) {
-      requests.splice(0, requests.length, ...fallbackOvertimeRequests.map((item) => ({ ...item })))
-    }
   } catch (error) {
     console.error('Gagal memuat data lembur dari API:', error)
-    apiError.value = 'Gagal memuat data lembur dari server. Menampilkan data cadangan.'
-    requests.splice(0, requests.length, ...fallbackOvertimeRequests.map((item) => ({ ...item })))
+    apiError.value = 'Gagal memuat data lembur dari server.'
+    requests.splice(0, requests.length)
   } finally {
     apiLoading.value = false
   }
