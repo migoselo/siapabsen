@@ -50,7 +50,7 @@ const navigation = [
   {
     id: 'absensi',
     text: 'Data Absensi',
-    icon: 'material-symbols:history',
+    icon: 'material-symbols:history-outline',
     activeIcon: 'material-symbols:history',
     path: '/dashboard/absensi',
   },
@@ -64,7 +64,7 @@ const navigation = [
   {
     id: 'lembur',
     text: 'Data Lembur',
-    icon: 'material-symbols:more-time',
+    icon: 'material-symbols:more-time-outline',
     activeIcon: 'material-symbols:more-time',
     path: '/dashboard/lembur',
   },
@@ -74,7 +74,7 @@ const navigation = [
     icon: gajiIcon,
     activeIcon: gajiIcon,
     path: '/dashboard/gaji',
-  }
+  },
 ]
 
 function isActive(item) {
@@ -105,7 +105,12 @@ function handleLogout() {
 
 function initials(name) {
   if (!name) return ''
-  return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 }
 
 // Responsif & Manajemen Status Sidebar
@@ -114,14 +119,12 @@ const isSidebarMinimized = ref(false)
 const isSidebarOpen = ref(false)
 
 function toggleSidebar() {
-  if (isSidebarOpen.value) {
+  if (isMobile.value) {
     isSidebarOpen.value = !isSidebarOpen.value
   } else {
     isSidebarMinimized.value = !isSidebarMinimized.value
   }
 }
-
-
 
 // Menutup sidebar otomatis saat rute berubah di mode mobile
 router.afterEach(() => {
@@ -159,23 +162,19 @@ onUnmounted(() => {
     ></div>
 
     <!-- Sidebar: Di mode desktop posisinya statis, di mode mobile posisinya absolute/fixed off-canvas -->
-    <aside 
-    class="sidebar" 
-    :class="{ 
-      'sidebar-open': !isMobile && isSidebarOpen,
-      'sidebar-collapsed': !isMobile && isSidebarMinimized
-
-     }">
+    <aside
+      class="sidebar"
+      :class="{
+        'sidebar-open': isMobile && isSidebarOpen,
+        'sidebar-minimized': !isMobile && isSidebarMinimized,
+      }"
+    >
       <div class="brand">
         <img :src="logoUrl" alt="SiapHadir" class="brand-mark" />
         <div class="brand-text" v-if="!isSidebarMinimized">
           <strong>SiapHadir</strong>
           <span>HR ADMINISTRATION</span>
         </div>
-        <!-- Tombol Tutup Sidebar di dalam menu (Opsional, untuk Mobile) -->
-        <button v-if="isMobile" class="close-sidebar-btn" @click="isSidebarOpen = false">
-          <Icon icon="material-symbols:close" width="24" />
-        </button>
       </div>
 
       <nav class="nav">
@@ -284,11 +283,12 @@ onUnmounted(() => {
   height: 100vh;
   overflow-y: auto;
   z-index: 40;
-  
+
   /* Efek melipat seperti panel AI */
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              border-color 0.3s ease;
+  transition:
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s ease;
   overflow-x: hidden;
 }
 /* --- KONDISI SAAT SIDEBAR DIMINIMIZE DI DESKTOP --- */
@@ -454,7 +454,8 @@ onUnmounted(() => {
 }
 
 .nav-item.active .menu-icon-image {
-  filter: brightness(0) saturate(100%) invert(23%) sepia(18%) saturate(1360%) hue-rotate(192deg) brightness(85%) contrast(110%);
+  filter: brightness(0) saturate(100%) invert(23%) sepia(18%) saturate(1360%) hue-rotate(192deg)
+    brightness(85%) contrast(110%);
 }
 
 .logout {
@@ -580,7 +581,6 @@ onUnmounted(() => {
   .sidebar {
     position: fixed;
     transform: translateX(-100%);
-    box-shadow: 4px 0 24px rgba(20, 25, 45, 0.15);
   }
 
   /* Kelas untuk menggeser sidebar masuk ke dalam layar */
