@@ -68,6 +68,7 @@ class UserController extends Controller
             'no_hp' => 'nullable|string|max:255',
             'role' => 'required|in:admin,karyawan',
             'home_location_id' => 'nullable|exists:locations,id',
+            ...$this->biodataRules(),
         ]);
 
         // pastikan client tidak bisa menulis tenant_id langsung (kami set via middleware/trait)
@@ -118,11 +119,44 @@ class UserController extends Controller
             'no_hp' => 'nullable|string|max:255',
             'role' => 'sometimes|required|in:admin,karyawan',
             'is_active' => 'sometimes|boolean',
+            ...$this->biodataRules(),
         ]);
 
         $user->update($data);
 
         return response()->json($user->load('homeLocation'));
+    }
+
+    protected function biodataRules(): array
+    {
+        return [
+            'department' => 'nullable|string|max:255',
+            'grade' => 'nullable|string|max:255',
+            'employee_type' => 'nullable|string|max:255',
+            'joined_at' => 'nullable|date',
+            'nik' => 'nullable|string|max:255',
+            'birth_place' => 'nullable|string|max:255',
+            'birth_date' => 'nullable|date',
+            'gender' => 'nullable|string|max:50',
+            'religion' => 'nullable|string|max:100',
+            'blood_type' => 'nullable|string|max:3',
+            'marital_status' => 'nullable|string|max:100',
+            'address' => 'nullable|string',
+            'emergency_contact' => 'nullable|string|max:255',
+            'bank_name' => 'nullable|string|max:255',
+            'bank_account_number' => 'nullable|string|max:255',
+            'bank_account_name' => 'nullable|string|max:255',
+            'tax_number' => 'nullable|string|max:255',
+            'bpjs_employment' => 'nullable|string|max:255',
+            'bpjs_health' => 'nullable|string|max:255',
+            'last_education' => 'nullable|string|max:255',
+            'education_institution' => 'nullable|string|max:255',
+            'certification' => 'nullable|string',
+            'spouse_name' => 'nullable|string|max:255',
+            'father_name' => 'nullable|string|max:255',
+            'mother_name' => 'nullable|string|max:255',
+            'children_count' => 'nullable|integer|min:0|max:255',
+        ];
     }
 
     public function transfer(Request $request, User $user)
