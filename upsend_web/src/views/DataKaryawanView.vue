@@ -195,13 +195,16 @@ const companyTree = computed(() => {
       emp.home_location?.name ||
       emp.location?.name ||
       emp.home_location ||
-      ''
+      'Tanpa Perusahaan'
 
-    if (!companyName || !employeeName) return
+    if (!employeeName) return
 
     const path = splitHierarchyLabel(companyName)
     const exactKey = path.join(' / ')
-    const target = nodes.get(exactKey) || nodes.get(path[path.length - 1])
+    const target =
+      nodes.get(exactKey) ||
+      nodes.get(path[path.length - 1]) ||
+      addNode(path)
 
     if (target) {
       target.employees.push({

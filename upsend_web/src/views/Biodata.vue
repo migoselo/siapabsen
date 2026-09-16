@@ -25,7 +25,7 @@ const employee = reactive({
   email: '-',
   jabatan_header: '-',
   lokasi_header: '-',
-  avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=300&h=300',
+  avatar_url: null,
   pekerjaan: {
     id_karyawan: '-',
     nama_panggilan: '-',
@@ -51,8 +51,8 @@ const employee = reactive({
     kontak_darurat: '-',
   },
   rekening: {
-      no_hp: '-',
-      email: '-',
+    nama_bank: '-',
+    no_rekening: '-',
     atas_nama: '-',
     kode_ptkp: '-',
     bpjs_tk: '-',
@@ -126,28 +126,85 @@ function goBack() {
   router.back()
 }
 
+function displayValue(value) {
+  return value === null || value === undefined || value === '' ? '-' : String(value)
+}
+
+function roleLabel(role) {
+  return role === 'admin' ? 'Admin' : role === 'karyawan' ? 'Karyawan' : displayValue(role)
+}
+
+function birthInfo(data) {
+  const place = displayValue(data.birth_place)
+  const date = displayValue(data.birth_date)
+  if (place === '-' && date === '-') return '-'
+  if (date === '-') return place
+  if (place === '-') return date
+  return `${place}, ${date}`
+}
+
+function initials(name) {
+  return displayValue(name)
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
 function mapEmployee(data) {
   const locationName = data.homeLocation?.name || data.home_location?.name || '-'
-  const name = data.name || '-'
-  const role = data.role === 'admin' ? 'Admin' : data.role === 'karyawan' ? 'Karyawan' : '-'
+  const name = displayValue(data.name)
+  const role = roleLabel(data.role)
 
   Object.assign(employee, {
-    id: data.id ?? route.params.id ?? '-',
+    id: displayValue(data.id ?? route.params.id),
     name,
-    email: data.email || '-',
+    email: displayValue(data.email),
     jabatan_header: role,
-    lokasi_header: locationName,
+    lokasi_header: displayValue(locationName),
+    avatar_url: data.avatar_url || data.avatar || null,
     pekerjaan: {
-      ...employee.pekerjaan,
-      id_karyawan: data.employee_id || data.id || '-',
+      id_karyawan: displayValue(data.employee_id || data.id),
       nama_panggilan: name,
+      departemen: displayValue(data.department),
       jabatan: role,
-      cabang: locationName,
+      golongan: displayValue(data.grade),
+      cabang: displayValue(locationName),
+      tipe_karyawan: displayValue(data.employee_type),
+      tanggal_bergabung: displayValue(data.joined_at),
+    },
+    pribadi: {
+      nik: displayValue(data.nik),
+      tempat_tanggal_lahir: birthInfo(data),
+      jenis_kelamin: displayValue(data.gender),
+      agama: displayValue(data.religion),
+      golongan_darah: displayValue(data.blood_type),
+      status_pernikahan: displayValue(data.marital_status),
     },
     kontak: {
-      ...employee.kontak,
-      no_hp: data.no_hp || '-',
-      email: data.email || '-',
+      no_hp: displayValue(data.no_hp),
+      email: displayValue(data.email),
+      alamat_lengkap: displayValue(data.address),
+      kontak_darurat: displayValue(data.emergency_contact),
+    },
+    rekening: {
+      nama_bank: displayValue(data.bank_name),
+      no_rekening: displayValue(data.bank_account_number),
+      atas_nama: displayValue(data.bank_account_name),
+      kode_ptkp: displayValue(data.tax_number),
+      bpjs_tk: displayValue(data.bpjs_employment),
+      bpjs_kes: displayValue(data.bpjs_health),
+    },
+    pendidikan: {
+      pendidikan_terakhir: displayValue(data.last_education),
+      institusi: displayValue(data.education_institution),
+      sertifikasi: displayValue(data.certification),
+      nama_pasangan: displayValue(data.spouse_name),
+      nama_ayah: displayValue(data.father_name),
+      nama_ibu: displayValue(data.mother_name),
+      jumlah_anak: displayValue(data.children_count),
     },
   })
 }
@@ -155,8 +212,23 @@ function mapEmployee(data) {
 async function fetchEmployee() {
   loading.value = true
   try {
-    const res = await api.get(`/users/${route.params.id}`)
-    mapEmployee(res.data)
+    try {
+      const res = await api.get(`/users/${route.params.id}`)
+      mapEmployee(res.data)
+    } catch (err) {
+      if (err.response?.status !== 404) throw err
+
+      const listRes = await api.get('/users', { params: { per_page: 100 } })
+      const users = Array.isArray(listRes.data?.data) ? listRes.data.data : []
+      const employee = users.find(
+        (item) =>
+          String(item.id) === String(route.params.id) ||
+          String(item.employee_id) === String(route.params.id),
+      )
+
+      if (!employee) throw err
+      mapEmployee(employee)
+    }
   } catch (err) {
     console.error('Gagal mengambil data karyawan:', err)
     showToast('Data karyawan tidak dapat dimuat.', 'error')
@@ -194,7 +266,8 @@ onMounted(fetchEmployee)
     <div class="biodata-container">
       <!-- Card Banner Profile Atas -->
       <div class="profile-card">
-        <img :src="employee.avatar_url" alt="Avatar" class="profile-avatar" />
+        <img v-if="employee.avatar_url" :src="employee.avatar_url" alt="Avatar" class="profile-avatar" />
+        <div v-else class="profile-avatar profile-initials">{{ initials(employee.name) }}</div>
         <div class="profile-info">
           <h3>{{ employee.name }}</h3>
           <p class="profile-email">{{ employee.email }}</p>
@@ -645,6 +718,16 @@ onMounted(fetchEmployee)
   border: 3px solid rgba(255, 255, 255, 0.2);
 }
 
+.profile-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+}
+
 .profile-info h3 {
   margin: 0 0 4px 0;
   font-size: 22px;
@@ -703,21 +786,8 @@ onMounted(fetchEmployee)
 .section-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.btn-sec-edit {
-  display: inline-flex;
-  align-items: center;
   gap: 4px;
-  border: none;
-  background: #edf4ff;
-  color: #1d4ed8;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  gap: 8px;
 }
 
 .btn-sec-edit:hover {
