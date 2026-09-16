@@ -126,6 +126,7 @@ class AuthRepository {
         'role': user.role,
         'home_location_id': user.homeLocationId,
         'is_active': user.isActive,
+        ...user.biodata,
       }),
     );
   }

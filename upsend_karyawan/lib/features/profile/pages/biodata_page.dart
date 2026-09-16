@@ -8,6 +8,15 @@ const Color kTextSecondary = Color(0xFF6B7280);
 const Color kBorder = Color(0xFFE5E7EB);
 const String kFontFamily = 'PlusJakartaSans';
 
+String _birthInfo(UserModel user) {
+  final place = user.biodataValue('birth_place');
+  final date = user.biodataValue('birth_date');
+  if (place == '-' && date == '-') return '-';
+  if (date == '-') return place;
+  if (place == '-') return date;
+  return '$place, $date';
+}
+
 class BiodataPage extends StatelessWidget {
   final UserModel user;
 
@@ -126,24 +135,27 @@ class BiodataPage extends StatelessWidget {
                     rows: [
                       ('ID Karyawan', user.employeeCode),
                       ('Nama Lengkap', user.name),
-                      ('Departemen', '-'),
+                      ('Departemen', user.biodataValue('department')),
                       ('Jabatan', user.role.isNotEmpty ? user.role : '-'),
-                      ('Golongan', '-'),
+                      ('Golongan', user.biodataValue('grade')),
                       ('Cabang (Branch)', user.homeLocationName ?? '-'),
-                      ('Tipe Karyawan', '-'),
-                      ('Tanggal Bergabung', '-'),
+                      ('Tipe Karyawan', user.biodataValue('employee_type')),
+                      ('Tanggal Bergabung', user.biodataValue('joined_at')),
                     ],
                   ),
                   const SizedBox(height: 20),
                   _SectionCard(
                     title: 'Data Pribadi',
-                    rows: const [
-                      ('NIK', '-'),
-                      ('Tempat, Tanggal Lahir', '-'),
-                      ('Jenis Kelamin', '-'),
-                      ('Agama', '-'),
-                      ('Golongan Darah', '-'),
-                      ('Status Pernikahan', '-'),
+                    rows: [
+                      ('NIK', user.biodataValue('nik')),
+                      ('Tempat, Tanggal Lahir', _birthInfo(user)),
+                      ('Jenis Kelamin', user.biodataValue('gender')),
+                      ('Agama', user.biodataValue('religion')),
+                      ('Golongan Darah', user.biodataValue('blood_type')),
+                      (
+                        'Status Pernikahan',
+                        user.biodataValue('marital_status'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -152,33 +164,51 @@ class BiodataPage extends StatelessWidget {
                     rows: [
                       ('No. Hp / Telepon', user.noHp),
                       ('Email', user.email),
-                      ('Alamat Lengkap', '-'),
-                      ('Kontak Darurat', '-'),
+                      ('Alamat Lengkap', user.biodataValue('address')),
+                      (
+                        'Kontak Darurat',
+                        user.biodataValue('emergency_contact'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   _SectionCard(
                     title: 'Rekening & BPJS',
-                    rows: const [
-                      ('Nama Bank', '-'),
-                      ('No. Rekening', '-'),
-                      ('Atas Nama Rekening', '-'),
-                      ('Kode PTKP / NPWP', '-'),
-                      ('BPJS Ketenagakerjaan', '-'),
-                      ('BPJS Kesehatan', '-'),
+                    rows: [
+                      ('Nama Bank', user.biodataValue('bank_name')),
+                      (
+                        'No. Rekening',
+                        user.biodataValue('bank_account_number'),
+                      ),
+                      (
+                        'Atas Nama Rekening',
+                        user.biodataValue('bank_account_name'),
+                      ),
+                      ('Kode PTKP / NPWP', user.biodataValue('tax_number')),
+                      (
+                        'BPJS Ketenagakerjaan',
+                        user.biodataValue('bpjs_employment'),
+                      ),
+                      ('BPJS Kesehatan', user.biodataValue('bpjs_health')),
                     ],
                   ),
                   const SizedBox(height: 20),
                   _SectionCard(
                     title: 'Pendidikan & Keluarga',
-                    rows: const [
-                      ('Pendidikan Terakhir', '-'),
-                      ('Institusi / Sekolah', '-'),
-                      ('Sertifikasi', '-'),
-                      ('Nama Pasangan', '-'),
-                      ('Nama Ayah', '-'),
-                      ('Nama Ibu', '-'),
-                      ('Jumlah Anak', '-'),
+                    rows: [
+                      (
+                        'Pendidikan Terakhir',
+                        user.biodataValue('last_education'),
+                      ),
+                      (
+                        'Institusi / Sekolah',
+                        user.biodataValue('education_institution'),
+                      ),
+                      ('Sertifikasi', user.biodataValue('certification')),
+                      ('Nama Pasangan', user.biodataValue('spouse_name')),
+                      ('Nama Ayah', user.biodataValue('father_name')),
+                      ('Nama Ibu', user.biodataValue('mother_name')),
+                      ('Jumlah Anak', user.biodataValue('children_count')),
                     ],
                   ),
                   const SizedBox(height: 24),

@@ -17,6 +17,12 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'password', 'no_hp', 'role', 'home_location_id', 'is_active',
         'employee_id',
+        'department', 'grade', 'employee_type', 'joined_at', 'nik', 'birth_place',
+        'birth_date', 'gender', 'religion', 'blood_type', 'marital_status', 'address',
+        'emergency_contact', 'bank_name', 'bank_account_number', 'bank_account_name',
+        'tax_number', 'bpjs_employment', 'bpjs_health', 'last_education',
+        'education_institution', 'certification', 'spouse_name', 'father_name',
+        'mother_name', 'children_count',
         // tenant_id ditambahkan supaya bisa di-set oleh migration/bootHasTenant
         'tenant_id',
     ];
@@ -25,6 +31,9 @@ class User extends Authenticatable
 
     protected $casts = [
         'is_active' => 'boolean',
+        'joined_at' => 'date:Y-m-d',
+        'birth_date' => 'date:Y-m-d',
+        'children_count' => 'integer',
     ];
 
     public function homeLocation()
