@@ -790,8 +790,24 @@ onMounted(fetchEmployee)
   gap: 8px;
 }
 
+.btn-sec-edit {
+  border: 1px solid #2f3b69;
+  background: #eef6ff;
+  color: var(--blue-900);
+  padding: 6px 12px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
 .btn-sec-edit:hover {
   background: #dfeeff;
+  border-color: #2f3b69;
 }
 
 .btn-sec-cancel {
