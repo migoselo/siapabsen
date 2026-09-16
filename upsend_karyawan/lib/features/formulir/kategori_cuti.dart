@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:upsend_karyawan/core/widgets/kategori_bar_chart.dart';
-import 'package:upsend_karyawan/features/izin/models/cuti_model.dart';
+import 'package:upsend_karyawan/features/formulir/models/cuti_model.dart';
 
 const List<KategoriChartItem> kategoriCutiList = [
   KategoriChartItem('semua', 'Semua', Color(0xFF7D7C7C)),

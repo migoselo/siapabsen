@@ -28,6 +28,40 @@ class RiwayatDetailPage extends StatelessWidget {
     return '$origin/storage/$normalized';
   }
 
+  // Sama persis dengan label & warna di RiwayatCard — biar konsisten
+  // di seluruh app untuk status yang sama.
+  String _statusLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'lupa_absen':
+        return 'Lupa Checkout';
+      case 'alpha':
+        return 'Alpha';
+      case 'telat':
+        return 'Telat';
+      case 'lembur':
+        return 'Lembur';
+      case 'tepat_waktu':
+        return 'Tepat Waktu';
+      default:
+        return status;
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'lupa_absen':
+        return const Color(0xFF0284C7);
+      case 'alpha':
+        return const Color(0xFFDC2626);
+      case 'telat':
+        return const Color(0xFFF59E0B);
+      case 'lembur':
+        return const Color(0xFF7C3AED);
+      default:
+        return const Color(0xFF16A34A);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAbsent =
@@ -73,13 +107,38 @@ class RiwayatDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              dateText,
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    dateText,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _statusColor(record.status).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _statusLabel(record.status),
+                    style: TextStyle(
+                      color: _statusColor(record.status),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
 
@@ -109,7 +168,7 @@ class RiwayatDetailPage extends StatelessWidget {
                               width: 22,
                               height: 22,
                               colorFilter: const ColorFilter.mode(
-                                Color(0xFF1DB677), // hijau
+                                Color(0xFF1DB677),
                                 BlendMode.srcIn,
                               ),
                             ),
@@ -277,7 +336,7 @@ class RiwayatDetailPage extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFDBEAFE), // biru muda
+                              color: const Color(0xFFDBEAFE),
                               shape: BoxShape.circle,
                             ),
                             child: SvgPicture.asset(
@@ -285,7 +344,7 @@ class RiwayatDetailPage extends StatelessWidget {
                               width: 22,
                               height: 22,
                               colorFilter: const ColorFilter.mode(
-                                Color(0xFF2F3B69), // biru
+                                Color(0xFF2F3B69),
                                 BlendMode.srcIn,
                               ),
                             ),
