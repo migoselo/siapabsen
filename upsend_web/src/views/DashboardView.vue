@@ -370,8 +370,7 @@ onBeforeUnmount(() => {
                 class="tick-tooltip"
               >
                 <template v-if="item.date === new Date().toLocaleDateString('sv-SE')">
-                  <span>Hari</span>
-                  <span>Ini</span>
+                  <span>Hari ini</span>
                 </template>
                 <template v-else>
                   <span>{{ item.date }}</span>
@@ -406,55 +405,59 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Nama Karyawan</th>
-            <th>Lokasi Cabang</th>
-            <th>Jam Check In</th>
-            <th>Jam Check Out</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="5" style="text-align: center; color: var(--ink-soft); padding: 32px">
-              Memuat data...
-            </td>
-          </tr>
-          <tr v-else-if="filteredEmployees.length === 0">
-            <td colspan="5" style="text-align: center; color: var(--ink-soft); padding: 32px">
-              Tidak ada karyawan ditemukan.
-            </td>
-          </tr>
-          <tr v-for="emp in filteredEmployees" :key="emp.id">
-            <td>
-              <div class="emp">
-                <div class="emp-avatar">{{ initials(emp.name) }}</div>
-                <div>
-                  <div class="emp-name">{{ emp.name }}</div>
-                  <div class="emp-id">ID: {{ emp.id }}</div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Nama Karyawan</th>
+              <th>Lokasi Cabang</th>
+              <th>Jam Check In</th>
+              <th>Jam Check Out</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td colspan="5" style="text-align: center; color: var(--ink-soft); padding: 32px">
+                Memuat data...
+              </td>
+            </tr>
+            <tr v-else-if="filteredEmployees.length === 0">
+              <td colspan="5" style="text-align: center; color: var(--ink-soft); padding: 32px">
+                Tidak ada karyawan ditemukan.
+              </td>
+            </tr>
+            <tr v-for="emp in filteredEmployees" :key="emp.id">
+              <td data-label="Nama Karyawan">
+                <div class="emp">
+                  <div class="emp-avatar">{{ initials(emp.name) }}</div>
+                  <div>
+                    <div class="emp-name">{{ emp.name }}</div>
+                    <div class="emp-id">ID: {{ emp.id }}</div>
+                  </div>
                 </div>
-              </div>
-            </td>
-            <td>{{ emp.location }}</td>
-            <td>
-              <span v-if="emp.checkIn">{{ emp.checkIn }}</span>
-              <span v-else class="dash">--:--</span>
-            </td>
-            <td>
-              <span v-if="emp.status === 'working'" class="badge working dot">Sedang Bekerja</span>
-              <span v-else-if="emp.checkOut">{{ emp.checkOut }}</span>
-              <span v-else class="dash">--:--</span>
-            </td>
-            <td>
-              <span class="badge" :class="statusMeta[emp.status]?.cls">{{
-                statusMeta[emp.status]?.label
-              }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </td>
+              <td data-label="Lokasi Cabang">{{ emp.location }}</td>
+              <td data-label="Jam Check In">
+                <span v-if="emp.checkIn">{{ emp.checkIn }}</span>
+                <span v-else class="dash">--:--</span>
+              </td>
+              <td data-label="Jam Check Out">
+                <span v-if="emp.status === 'working'" class="badge working dot"
+                  >Sedang Bekerja</span
+                >
+                <span v-else-if="emp.checkOut">{{ emp.checkOut }}</span>
+                <span v-else class="dash">--:--</span>
+              </td>
+              <td data-label="Status">
+                <span class="badge" :class="statusMeta[emp.status]?.cls">{{
+                  statusMeta[emp.status]?.label
+                }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="table-footer">
         <div class="table-footer-content">
@@ -880,6 +883,13 @@ onBeforeUnmount(() => {
   gap: 10px;
   align-items: center;
 }
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll table {
+  min-width: 720px;
+}
 .search {
   display: flex;
   align-items: center;
@@ -1143,8 +1153,95 @@ tbody tr:last-child td {
   }
 }
 @media (max-width: 600px) {
-  .stats {
-    grid-template-columns: 1fr;
+  .table-head {
+    padding: 0 16px 14px;
+  }
+
+  .table-head h2 {
+    font-size: 15px;
+  }
+
+  .search {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .table-footer {
+    padding: 12px 16px;
+  }
+
+  .table-footer-content {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .table-scroll {
+    overflow-x: visible;
+    padding: 0 16px;
+  }
+
+  .table-scroll table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .table-scroll thead {
+    display: none;
+  }
+
+  .table-scroll tbody,
+  .table-scroll tr,
+  .table-scroll td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-scroll tr {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 4px 14px;
+  }
+
+  .table-scroll tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .table-scroll td {
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 13px;
+  }
+
+  .table-scroll td:last-child {
+    border-bottom: none;
+  }
+
+  .table-scroll td:first-child::before {
+    content: none;
+  }
+
+  .table-scroll td:first-child {
+    padding-top: 12px;
+  }
+
+  .table-scroll td:not(:first-child) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .table-scroll td:not(:first-child)::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    flex-shrink: 0;
   }
 }
 </style>
