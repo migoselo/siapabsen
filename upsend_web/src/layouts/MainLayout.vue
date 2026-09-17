@@ -3,8 +3,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { useAuthStore } from '../stores/auth'
-import gajiIcon from '../assets/gaji.svg'
-import roleIcon from '../assets/role.svg'
+// import gajiIcon from '../assets/gaji.svg'
+// import roleIcon from '../assets/role.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -43,8 +43,8 @@ const navigation = [
   {
     id: 'role',
     text: 'Role dan Akses',
-    icon: roleIcon,
-    activeIcon: roleIcon,
+    icon: 'material-symbols:admin-panel-settings-outline',
+    activeIcon: 'material-symbols:admin-panel-settings',
     path: '/dashboard/role-akses',
   },
   {
@@ -71,8 +71,8 @@ const navigation = [
   {
     id: 'gaji',
     text: 'Kelola Gaji',
-    icon: gajiIcon,
-    activeIcon: gajiIcon,
+    icon: 'material-symbols:payments-outline',
+    activeIcon: 'material-symbols:payments',
     path: '/dashboard/gaji',
   },
 ]
@@ -83,13 +83,13 @@ function isActive(item) {
 }
 
 function iconFor(item) {
-  if (item.id === 'role') {
-    return isActive(item) ? roleIcon : item.icon
-  }
+  // if (item.id === 'role') {
+  //   return isActive(item) ? roleIcon : item.icon
+  // }
 
-  if (item.id === 'gaji') {
-    return isActive(item) ? gajiIcon : item.icon
-  }
+  // if (item.id === 'gaji') {
+  //   return isActive(item) ? gajiIcon : item.icon
+  // }
 
   return isActive(item) ? item.activeIcon : item.icon
 }
@@ -186,13 +186,7 @@ onUnmounted(() => {
           :class="{ active: isActive(item) }"
           :title="isSidebarMinimized ? item.text : ''"
         >
-          <template v-if="item.id === 'role'">
-            <img :src="roleIcon" alt="Kelola Role" class="menu-icon menu-icon-image" />
-          </template>
-          <template v-else-if="item.id === 'gaji'">
-            <img :src="gajiIcon" alt="Kelola Gaji" class="menu-icon menu-icon-image" />
-          </template>
-          <Icon v-else :icon="iconFor(item)" class="menu-icon" />
+          <Icon :icon="iconFor(item)" class="menu-icon" />
           <span class="nav-label" v-if="!isSidebarMinimized">{{ item.text }}</span>
         </router-link>
       </nav>
@@ -445,17 +439,6 @@ onUnmounted(() => {
   height: 22px;
   color: currentColor;
   flex-shrink: 0;
-}
-
-.menu-icon-image {
-  display: block;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
-}
-
-.nav-item.active .menu-icon-image {
-  filter: brightness(0) saturate(100%) invert(23%) sepia(18%) saturate(1360%) hue-rotate(192deg)
-    brightness(85%) contrast(110%);
 }
 
 .logout {
