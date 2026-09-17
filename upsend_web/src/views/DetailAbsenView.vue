@@ -44,9 +44,12 @@ const formattedDate = computed(() => {
 
 const statusLabel = computed(() => {
   const status = String(attendance.value?.status || '').toLowerCase()
+  if (status === 'lupa_absen') return 'Lupa Checkout'
+  if (status === 'alpha') return 'Alpha'
   if (status === 'lembur' || status === 'overtime') return 'Lembur'
+  if (status === 'telat' || status === 'terlambat') return 'Terlambat'
   if (!attendance.value?.check_in_time) return 'Lupa Absen'
-  return new Date(attendance.value.check_in_time).getHours() >= 9 ? 'Terlambat' : 'Tepat Waktu'
+  return 'Tepat Waktu'
 })
 
 const statusClass = computed(() => statusLabel.value.toLowerCase().replace(' ', '-'))

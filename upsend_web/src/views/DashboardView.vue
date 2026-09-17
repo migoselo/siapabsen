@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
@@ -29,12 +30,15 @@ const weeklyAverageLabel = ref('Data tren belum tersedia')
 const chartData = ref([])
 const employees = ref([])
 const loading = ref(false)
+const router = useRouter()
 
 const statusMeta = {
   checkout: { label: 'Check Out', cls: 'checkout' },
   checkin: { label: 'Check In', cls: 'checkin' },
   working: { label: 'Sedang Bekerja', cls: 'working dot' },
   absent: { label: 'Belum Hadir', cls: 'absent' },
+  lupa_absen: { label: 'Lupa Checkout', cls: 'lupa-absen' },
+  alpha: { label: 'Alpha', cls: 'absent' },
 }
 
 const chartDayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
@@ -105,6 +109,11 @@ function initials(name) {
     .slice(0, 2)
     .join('')
     .toUpperCase()
+}
+
+function openAttendanceDetail(employee) {
+  if (!employee?.attendanceId) return
+  router.push({ name: 'DetailAbsen', params: { id: employee.attendanceId } })
 }
 
 function formatCurrentDate() {
@@ -427,7 +436,14 @@ onBeforeUnmount(() => {
                 Tidak ada karyawan ditemukan.
               </td>
             </tr>
-            <tr v-for="emp in filteredEmployees" :key="emp.id">
+            <tr
+              v-for="emp in filteredEmployees"
+              :key="emp.id"
+              :class="{ 'attendance-row-clickable': emp.attendanceId }"
+              :tabindex="emp.attendanceId ? 0 : undefined"
+              @click="openAttendanceDetail(emp)"
+              @keydown.enter="openAttendanceDetail(emp)"
+            >
               <td data-label="Nama Karyawan">
                 <div class="emp">
                   <div class="emp-avatar">{{ initials(emp.name) }}</div>
@@ -963,6 +979,16 @@ tbody td {
 tbody tr:last-child td {
   border-bottom: none;
 }
+.attendance-row-clickable {
+  cursor: pointer;
+}
+.attendance-row-clickable:hover td {
+  background: var(--blue-50);
+}
+.attendance-row-clickable:focus-visible {
+  outline: 2px solid var(--blue-900);
+  outline-offset: -2px;
+}
 .emp {
   display: flex;
   align-items: center;
@@ -1016,6 +1042,10 @@ tbody tr:last-child td {
 .badge.checkin {
   background: var(--mint-bg);
   color: var(--mint-text);
+}
+.badge.lupa-absen {
+  background: #e0f2fe;
+  color: #0284c7;
 }
 .badge.working {
   background: var(--amber-bg);
