@@ -18,9 +18,9 @@ class DashboardController extends Controller
         $usersQuery = User::whereNotIn('role', ['admin', 'super_admin'])
             ->where('is_active', true);
         $attendanceQuery = Attendance::whereBetween('check_in_time', [
-                $startDate . ' 00:00:00',
-                $endDate . ' 23:59:59',
-            ])
+            $startDate . ' 00:00:00',
+            $endDate . ' 23:59:59',
+        ])
             ->whereHas('employee', function ($query) {
                 $query->whereNotIn('role', ['admin', 'super_admin'])
                     ->where('is_active', true);
@@ -41,11 +41,12 @@ class DashboardController extends Controller
 
     public function weeklyTrend(Request $request)
     {
-        $startDate = now()->subDays(6)->toDateString();
+        $days = $request->input('period') === 'bulan' ? 30 : 7;
+        $startDate = now()->subDays($days - 1)->toDateString();
 
         $attendanceQuery = Attendance::selectRaw(
-                'CAST(check_in_time AS date) as attendance_date, COUNT(DISTINCT employee_id) as total'
-            )
+            'CAST(check_in_time AS date) as attendance_date, COUNT(DISTINCT employee_id) as total'
+        )
             ->whereDate('check_in_time', '>=', $startDate)
             ->whereHas('employee', function ($query) {
                 $query->whereNotIn('role', ['admin', 'super_admin'])
@@ -61,7 +62,7 @@ class DashboardController extends Controller
         $chartData = [];
         $totalCount = 0;
 
-        for ($i = 6; $i >= 0; $i--) {
+        for ($i = $days - 1; $i >= 0; $i--) {
             $day = now()->subDays($i);
             $dayKey = $day->format('Y-m-d');
             $count = (int) ($attendances->get($dayKey)?->total ?? 0);
@@ -74,10 +75,10 @@ class DashboardController extends Controller
             ];
         }
 
-        $weeklyAverage = $totalCount > 0 ? round($totalCount / 7) : 0;
+        $average = $totalCount > 0 ? round($totalCount / $days) : 0;
 
         return response()->json([
-            'weeklyAverageLabel' => "Rata-rata $weeklyAverage hadir per hari",
+            'weeklyAverageLabel' => "Rata-rata $average hadir per hari",
             'chartData' => $chartData,
         ]);
     }
@@ -93,6 +94,11 @@ class DashboardController extends Controller
                 'check_in_time',
                 'check_out_time',
             )
+            'employee_id',
+            'location_id',
+            'check_in_time',
+            'check_out_time',
+        )
             ->whereBetween('check_in_time', [
                 $startDate . ' 00:00:00',
                 $endDate . ' 23:59:59',
@@ -210,11 +216,11 @@ class DashboardController extends Controller
     public function byLocation(Request $request)
     {
         $query = Attendance::select(
-                'location_id',
-                DB::raw('COUNT(DISTINCT employee_id) as total_hadir'),
-                DB::raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as total_pending"),
-                DB::raw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as total_rejected")
-            )
+            'location_id',
+            DB::raw('COUNT(DISTINCT employee_id) as total_hadir'),
+            DB::raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as total_pending"),
+            DB::raw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as total_rejected")
+        )
             ->with('location:id,name')
             ->groupBy('location_id');
 

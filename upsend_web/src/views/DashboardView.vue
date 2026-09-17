@@ -44,12 +44,7 @@ const statusMeta = {
 const chartDayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 const selectedTrendDate = ref('')
 
-const highlightIndex = computed(() => {
-  const todayStr = new Date().toLocaleDateString('sv-SE')
-  const todayIndex = chartData.value.findIndex((item) => item.date === todayStr)
-
-  return todayIndex >= 0 ? todayIndex : chartData.value.length - 1
-})
+const highlightIndex = computed(() => chartData.value.length - 1)
 
 const selectedIndex = computed(() => {
   if (!selectedTrendDate.value) return -1
@@ -61,22 +56,26 @@ const chartMax = computed(() => {
   return values.length ? Math.max(...values, 1) : 1
 })
 
-const periods = [
-  { key: 'hari', label: 'Hari Ini' },
-  { key: 'minggu', label: 'Minggu Ini' },
-  { key: 'bulan', label: 'Bulan Ini' },
-]
-const activePeriod = ref('hari')
-const activityPeriodLabel = computed(() => {
-  if (selectedTrendDate.value) {
-    const todayStr = new Date().toLocaleDateString('sv-SE')
-    if (selectedTrendDate.value === todayStr) {
-      return 'Hari Ini'
-    }
-    return selectedTrendDate.value
-  }
+const trendTitle = computed(() => {
+  return activePeriod.value === 'bulan'
+    ? 'Tren Kehadiran 30 Hari Terakhir'
+    : 'Tren Kehadiran 7 Hari Terakhir'
+})
 
-  return periods.find((period) => period.key === activePeriod.value)?.label ?? 'Hari Ini'
+const periods = [
+  { key: 'minggu', label: 'Mingguan' },
+  { key: 'bulan', label: 'Bulanan' },
+]
+const activePeriod = ref('minggu')
+const activityPeriodLabel = computed(() => {
+  const dateStr = selectedTrendDate.value || new Date().toLocaleDateString('sv-SE')
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 })
 
 const searchQuery = ref('')
@@ -125,6 +124,14 @@ function formatCurrentDate() {
   })
 }
 
+function formatTickDate(dateStr) {
+  const date = new Date(dateStr)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}-${month}-${year}`
+}
+
 async function fetchLocations() {
   try {
     const res = await api.get('/locations')
@@ -141,9 +148,13 @@ async function fetchDashboard() {
       period: activePeriod.value,
       ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
     }
+    const todayParams = {
+      date: new Date().toLocaleDateString('sv-SE'),
+      ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
+    }
     const [summaryRes, attendanceRes, trendRes] = await Promise.all([
       api.get('/dashboard/summary', { params }),
-      api.get('/dashboard/today-attendance', { params }),
+      api.get('/dashboard/today-attendance', { params: todayParams }),
       api.get('/dashboard/weekly-trend', { params }),
     ])
 
@@ -357,7 +368,7 @@ onBeforeUnmount(() => {
       <div class="panel trend-panel">
         <div class="panel-head">
           <div>
-            <h2>Tren Kehadiran 7 Hari Terakhir</h2>
+            <h2>{{ trendTitle }}</h2>
             <p>{{ weeklyAverageLabel }}</p>
           </div>
         </div>
@@ -378,11 +389,11 @@ onBeforeUnmount(() => {
                 v-if="idx === selectedIndex || (selectedIndex === -1 && idx === highlightIndex)"
                 class="tick-tooltip"
               >
-                <template v-if="item.date === new Date().toLocaleDateString('sv-SE')">
-                  <span>Hari ini</span>
+                <template v-if="idx === highlightIndex">
+                  <span>Hari Ini</span>
                 </template>
                 <template v-else>
-                  <span>{{ item.date }}</span>
+                  <span>{{ formatTickDate(item.date) }}</span>
                 </template>
               </div>
               <div class="tick-value">{{ item.count ?? 0 }}</div>
