@@ -119,9 +119,11 @@ function initials(name) {
 }
 
 function statusFor(record) {
-  if (!record.check_in_time) return { label: 'Lupa Absen', className: 'missed' }
-  if (isOvertime(record)) return { label: 'Lembur', className: 'overtime' }
-  if (isLate(record)) return { label: 'Terlambat', className: 'late' }
+  const status = String(record.status || '').toLowerCase()
+  if (status === 'lupa_absen') return { label: 'Lupa Checkout', className: 'missed' }
+  if (status === 'alpha' || !record.check_in_time) return { label: 'Alpha', className: 'missed' }
+  if (status === 'lembur' || status === 'overtime') return { label: 'Lembur', className: 'overtime' }
+  if (status === 'telat' || status === 'terlambat') return { label: 'Terlambat', className: 'late' }
   return { label: 'Tepat Waktu', className: 'on-time' }
 }
 

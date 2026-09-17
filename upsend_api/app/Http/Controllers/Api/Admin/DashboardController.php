@@ -88,6 +88,12 @@ class DashboardController extends Controller
         [$startDate, $endDate] = $this->periodDates($request);
 
         $attendanceQuery = Attendance::select(
+            'id',
+                'employee_id',
+                'location_id',
+                'check_in_time',
+                'check_out_time',
+            )
             'employee_id',
             'location_id',
             'check_in_time',
@@ -109,18 +115,20 @@ class DashboardController extends Controller
         }
 
         $attendanceRecords = $attendanceQuery->get();
-        $attendances = $attendanceRecords->keyBy('employee_id');
+        $attendances = $attendanceRecords->keyBy(fn ($attendance) => (string) $attendance->employee_id);
 
         $isPeriodView = !$request->filled('date') && $request->input('period', 'hari') !== 'hari';
         if ($isPeriodView) {
-            $data = $attendanceRecords->map(function ($attendance) {
+            $today = now()->toDateString();
+            $data = $attendanceRecords->map(function ($attendance) use ($today) {
                 return [
                     'id' => $attendance->employee_id,
+                    'attendanceId' => $attendance->id,
                     'name' => $attendance->employee?->name ?? '-',
                     'location' => $attendance->location?->name ?? '-',
                     'checkIn' => optional($attendance->check_in_time)->format('H:i'),
                     'checkOut' => optional($attendance->check_out_time)->format('H:i'),
-                    'status' => $attendance->check_out_time ? 'checkout' : 'working',
+                    'status' => $this->attendanceDisplayStatus($attendance, $today),
                 ];
             })->values();
 
@@ -144,16 +152,17 @@ class DashboardController extends Controller
 
         $employees = $employeesQuery->get();
 
-        $data = $employees->map(function ($emp) use ($attendances) {
-            $att = $attendances->get($emp->id);
-            $status = 'absent';
-
-            if ($att) {
-                $status = $att->check_out_time ? 'checkout' : 'working';
-            }
+        $today = now()->toDateString();
+        $isToday = $startDate === $today;
+        $data = $employees->map(function ($emp) use ($attendances, $isToday, $today, $startDate) {
+            $att = $attendances->get((string) $emp->id);
+            $status = $att
+                ? $this->attendanceDisplayStatus($att, $today)
+                : ($isToday ? 'absent' : 'alpha');
 
             return [
                 'id' => $emp->id,
+                'attendanceId' => $att?->id,
                 'name' => $emp->name,
                 'location' => $att?->location?->name ?? $emp->homeLocation?->name ?? '-',
                 'checkIn' => optional($att?->check_in_time)->format('H:i'),
@@ -166,6 +175,22 @@ class DashboardController extends Controller
             'date' => $startDate === $endDate ? $startDate : "$startDate - $endDate",
             'employees' => $data,
         ]);
+    }
+
+    private function attendanceDisplayStatus(Attendance $attendance, string $today): string
+    {
+        $checkInDate = $attendance->check_in_time?->toDateString();
+
+        if ($attendance->check_out_time &&
+            $attendance->check_out_time->toDateString() !== $checkInDate) {
+            return 'lupa_absen';
+        }
+
+        if ($attendance->check_out_time) {
+            return 'checkout';
+        }
+
+        return $checkInDate === $today ? 'working' : 'lupa_absen';
     }
 
     private function periodDates(Request $request): array

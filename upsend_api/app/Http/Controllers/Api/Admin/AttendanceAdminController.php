@@ -3,12 +3,17 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\AttendanceStatusService;
 use App\Models\Attendance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class AttendanceAdminController extends Controller
 {
+    public function __construct(
+        protected AttendanceStatusService $attendanceStatusService,
+    ) {}
+
     public function index(Request $request)
     {
         $query = Attendance::with(['employee', 'location']);
@@ -29,18 +34,37 @@ class AttendanceAdminController extends Controller
             $query->whereDate('check_in_time', $request->date);
         }
 
-        return response()->json($query->orderByDesc('check_in_time')->paginate(20));
+        $result = $query->orderByDesc('check_in_time')->paginate($request->integer('per_page', 20));
+        $result->getCollection()->transform(fn (Attendance $attendance) => $this->withMobileStatus($attendance));
+
+        return response()->json($result);
     }
 
     public function show(Attendance $attendance)
     {
         $attendance->load(['employee', 'location']);
+        $attendance = $this->withMobileStatus($attendance);
         $attendance->photo_available = (bool) $attendance->check_in_photo
             && Storage::disk('public')->exists($attendance->check_in_photo);
         $attendance->checkout_photo_available = (bool) $attendance->check_out_photo
             && Storage::disk('public')->exists($attendance->check_out_photo);
 
         return response()->json($attendance);
+    }
+
+    private function withMobileStatus(Attendance $attendance): Attendance
+    {
+        $attendance->status = $this->attendanceStatusService->determine($attendance);
+
+        if (in_array($attendance->status, ['lupa_absen', 'alpha'], true)) {
+            $attendance->check_out_time = null;
+            $attendance->check_out_lat = null;
+            $attendance->check_out_long = null;
+            $attendance->check_out_distance = null;
+            $attendance->check_out_photo = null;
+        }
+
+        return $attendance;
     }
 
     public function photo(Attendance $attendance)
