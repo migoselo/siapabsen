@@ -741,21 +741,21 @@ onMounted(fetchOffices)
 }
 
 .back-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--ink);
-  display: inline-flex;
+  background: #ffffff;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  color: #2c3345;
+  transition: background 0.2s;
 }
 
 .back-btn:hover {
-  border-color: var(--blue-900);
-  color: var(--blue-900);
+  background: #f4f5f8;
 }
 
 .table-head {

@@ -281,6 +281,28 @@ const currentPage = ref(1)
 const perPage = ref(20)
 const pageInput = ref(1)
 
+/* --- Control Custom Dropdown --- */
+const showDepartmentMenu = ref(false)
+
+const selectedDepartmentLabel = computed(() => {
+  if (!departmentFilter.value) return 'Semua Departemen'
+  const found = departments.find((d) => d.id === departmentFilter.value)
+  return found ? found.name : 'Semua Departemen'
+})
+
+function toggleDepartmentMenu() {
+  showDepartmentMenu.value = !showDepartmentMenu.value
+}
+
+function selectDepartment(id) {
+  departmentFilter.value = id
+  showDepartmentMenu.value = false
+}
+
+function closeFilterMenus() {
+  showDepartmentMenu.value = false
+}
+
 watch(currentPage, (newPage) => {
   pageInput.value = newPage
 })
@@ -474,6 +496,7 @@ const showManageModal = ref(false)
 
 function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
+  if (!e.target.closest?.('.custom-select')) closeFilterMenus()
 }
 onMounted(() => {
   fetchOvertimeRequests()
@@ -579,10 +602,33 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
         <div class="filters-row">
           <div class="filters">
-            <select v-model="departmentFilter" class="select">
-              <option value="">Semua Departemen</option>
-              <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
-            </select>
+            <!-- Custom Dropdown Departemen -->
+            <div class="custom-select" @click.stop="toggleDepartmentMenu">
+              <span>{{ selectedDepartmentLabel }}</span>
+              <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+              <div v-if="showDepartmentMenu" class="select-menu">
+                <button
+                  type="button"
+                  class="select-item"
+                  :class="{ active: departmentFilter === '' }"
+                  @click.stop="selectDepartment('')"
+                >
+                  Semua Departemen
+                </button>
+                <button
+                  v-for="d in departments"
+                  :key="d.id"
+                  type="button"
+                  class="select-item"
+                  :class="{ active: departmentFilter === d.id }"
+                  @click.stop="selectDepartment(d.id)"
+                >
+                  {{ d.name }}
+                </button>
+              </div>
+            </div>
+
             <button class="btn-ghost" @click="showManageModal = true">
               <Icon icon="material-symbols:tune" width="16" /> Kelola Departemen
             </button>
@@ -633,7 +679,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                 </td>
                 <td class="col-actions">
                   <div class="actions">
-                    <!-- URUTAN AKSI: Reject (Tolak) -> Accept (Terima) -> View (Lihat Detail) -->
                     <template v-if="req.status === 'pending'">
                       <button
                         class="icon-btn icon-btn-reject separator-right"
@@ -907,77 +952,12 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .summary-card .blue-text {
   color: #2f3b69;
 }
-.trend {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 999px;
-}
-.trend-up {
-  color: #c05621;
-  background: #fff3e6;
-}
-.trend-down {
-  color: #2a4365;
-  background: #eaf0ff;
-}
-.stat-label {
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: 0.6px;
-  color: var(--ink-soft);
-  margin: 0 0 4px;
-}
-.stat-value {
-  font-size: 32px;
-  font-weight: 800;
-  margin: 0 0 4px;
-}
-.stat-sub {
-  font-size: 13px;
-  color: var(--ink-soft);
-  margin: 0;
-}
-
-.top-employee-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-}
-.avatar-fallback-green {
-  background: #e6f7f6;
-  color: #0f766e;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.top-employee-name {
-  margin: 0 0 2px 0;
-  font-weight: 700;
-  color: var(--ink-dark);
-  font-size: 15px;
-}
-.top-employee-sub {
-  margin: 0;
-  font-size: 13px;
-  color: var(--ink-soft);
-}
 
 .card {
   background: #fff;
   border: 1px solid #eaecf0;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 1px 2px rgba(16, 24, 20, 0.05);
 }
 .card-toolbar {
@@ -1109,6 +1089,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   background: #f4f5f8;
 }
 
+/* Filters & Custom Select Styles */
 .filters-row {
   display: flex;
   flex-wrap: wrap;
@@ -1123,20 +1104,69 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   gap: 10px;
   flex-wrap: wrap;
 }
-.select {
-  font-size: 15px;
+
+.custom-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
   border: 1px solid var(--line);
+  padding: 8px 14px;
   border-radius: 8px;
-  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--ink-dark);
-  background: #fff;
-}
-.pagination-label {
-  font-size: 13px;
-  color: var(--ink-soft);
-  margin: 0;
+  cursor: pointer;
+  min-width: 180px;
+  user-select: none;
 }
 
+.custom-select svg,
+.custom-select .iconify {
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.select-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 220px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.select-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--ink-dark);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.select-item:hover {
+  background: #f4f5f8;
+}
+
+.select-item.active {
+  background: #f4f5f8;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Table */
 .table-wrap {
   overflow-x: auto;
   border-top: 1px solid #eaecf0;
