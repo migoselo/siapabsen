@@ -153,7 +153,7 @@ async function fetchDashboard() {
       ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
     }
     const [summaryRes, attendanceRes, trendRes] = await Promise.all([
-      api.get('/dashboard/summary', { params }),
+      api.get('/dashboard/summary', { params: todayParams }),
       api.get('/dashboard/today-attendance', { params: todayParams }),
       api.get('/dashboard/weekly-trend', { params }),
     ])
@@ -198,8 +198,28 @@ async function selectTrendDay(item) {
       date: item.date,
       ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
     }
-    const response = await api.get('/dashboard/today-attendance', { params })
-    employees.value = response.data.employees || []
+    const [summaryRes, attendanceRes] = await Promise.all([
+      api.get('/dashboard/summary', { params }),
+      api.get('/dashboard/today-attendance', { params }),
+    ])
+
+    const summary = summaryRes.data
+    const emps = attendanceRes.data.employees
+    const total = summary.total_karyawan_aktif
+    const checkedIn = summary.hadir_hari_ini
+    const checkedOutList = emps.filter((e) => e.status === 'checkout')
+
+    stats.value = {
+      totalEmployees: total,
+      totalGrowthLabel: `${summary.total_lokasi} lokasi aktif`,
+      checkedIn,
+      checkedInPercent: total > 0 ? Math.round((checkedIn / total) * 100) : 0,
+      notCheckedIn: Math.max(total - checkedIn, 0),
+      notCheckedInNote: `${summary.pending_review} menunggu review`,
+      checkedOut: checkedOutList.length,
+      checkedOutExtraCount: Math.max(checkedOutList.length - 3, 0),
+    }
+    employees.value = emps
   } catch (err) {
     console.error('Gagal mengambil data kehadiran tanggal terpilih:', err)
   } finally {

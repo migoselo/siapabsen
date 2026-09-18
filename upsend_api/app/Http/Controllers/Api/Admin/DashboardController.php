@@ -31,11 +31,14 @@ class DashboardController extends Controller
             $attendanceQuery->where('location_id', $request->location_id);
         }
 
+        $hadirHariIni = (clone $attendanceQuery)->distinct('employee_id')->count('employee_id');
+        $pendingReview = (clone $attendanceQuery)->where('status', 'pending')->count();
+
         return response()->json([
             'total_karyawan_aktif' => $usersQuery->count(),
             'total_lokasi' => Location::count(),
-            'hadir_hari_ini' => $attendanceQuery->distinct('employee_id')->count('employee_id'),
-            'pending_review' => $attendanceQuery->where('status', 'pending')->count(),
+            'hadir_hari_ini' => $hadirHariIni,
+            'pending_review' => $pendingReview,
         ]);
     }
 
@@ -89,11 +92,6 @@ class DashboardController extends Controller
 
         $attendanceQuery = Attendance::select(
             'id',
-                'employee_id',
-                'location_id',
-                'check_in_time',
-                'check_out_time',
-            )
             'employee_id',
             'location_id',
             'check_in_time',
@@ -115,7 +113,7 @@ class DashboardController extends Controller
         }
 
         $attendanceRecords = $attendanceQuery->get();
-        $attendances = $attendanceRecords->keyBy(fn ($attendance) => (string) $attendance->employee_id);
+        $attendances = $attendanceRecords->keyBy(fn($attendance) => (string) $attendance->employee_id);
 
         $isPeriodView = !$request->filled('date') && $request->input('period', 'hari') !== 'hari';
         if ($isPeriodView) {
@@ -181,8 +179,10 @@ class DashboardController extends Controller
     {
         $checkInDate = $attendance->check_in_time?->toDateString();
 
-        if ($attendance->check_out_time &&
-            $attendance->check_out_time->toDateString() !== $checkInDate) {
+        if (
+            $attendance->check_out_time &&
+            $attendance->check_out_time->toDateString() !== $checkInDate
+        ) {
             return 'lupa_absen';
         }
 
