@@ -89,11 +89,6 @@ class DashboardController extends Controller
 
         $attendanceQuery = Attendance::select(
             'id',
-                'employee_id',
-                'location_id',
-                'check_in_time',
-                'check_out_time',
-            )
             'employee_id',
             'location_id',
             'check_in_time',

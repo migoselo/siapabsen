@@ -8,16 +8,9 @@ use Illuminate\Http\Request;
 
 class LocationController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $tenantId = $request->user()->tenant_id ?? 1;
-
-        return response()->json(
-            Location::query()
-                ->where('tenant_id', $tenantId)
-                ->orderBy('name')
-                ->get()
-        );
+        return response()->json(Location::orderBy('name')->get());
     }
 
     public function store(Request $request)
