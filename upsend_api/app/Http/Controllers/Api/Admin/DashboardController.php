@@ -28,7 +28,9 @@ class DashboardController extends Controller
 
         if ($request->filled('location_id')) {
             $usersQuery->where('home_location_id', $request->location_id);
-            $attendanceQuery->where('location_id', $request->location_id);
+            $attendanceQuery->whereHas('employee', function ($query) use ($request) {
+                $query->where('home_location_id', $request->location_id);
+            });
         }
 
         $hadirHariIni = (clone $attendanceQuery)->distinct('employee_id')->count('employee_id');
@@ -194,7 +196,9 @@ class DashboardController extends Controller
             });
 
         if ($request->filled('location_id')) {
-            $attendanceQuery->where('location_id', $request->location_id);
+            $attendanceQuery->whereHas('employee', function ($query) use ($request) {
+                $query->where('home_location_id', $request->location_id);
+            });
         }
 
         $attendanceRecords = $attendanceQuery->get();
@@ -227,10 +231,8 @@ class DashboardController extends Controller
             ->with('homeLocation:id,name')
             ->orderBy('name');
 
-        // With a location filter, activity means employees who actually
-        // checked in at that location on the selected date.
         if ($request->filled('location_id')) {
-            $employeesQuery->whereIn('id', $attendances->keys());
+            $employeesQuery->where('home_location_id', $request->location_id);
         }
 
         $employees = $employeesQuery->get();

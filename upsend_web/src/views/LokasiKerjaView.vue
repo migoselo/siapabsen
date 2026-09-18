@@ -113,6 +113,7 @@ let markerInstance = null
 
 const form = ref({
   name: '',
+  address: '',
   latitude: '',
   longitude: '',
   radius: 25,
@@ -176,7 +177,7 @@ function destroyMap() {
 
 function openAddModal() {
   editingLocationId.value = null
-  form.value = { name: '', latitude: '', longitude: '', radius: 25 }
+  form.value = { name: '', address: '', latitude: '', longitude: '', radius: 25 }
   showModal.value = true
   nextTick(() => initMap())
 }
@@ -185,6 +186,7 @@ function openEditModal(location) {
   editingLocationId.value = location?.id ?? null
   form.value = {
     name: location?.name || '',
+    address: location?.address || '',
     latitude: location?.latitude ?? '',
     longitude: location?.longitude ?? '',
     radius: Number(location?.radius_meter ?? location?.radius ?? 100),
@@ -317,6 +319,7 @@ async function submitLocation() {
   try {
     const payload = {
       name: trimmedName,
+      address: String(form.value.address || '').trim() || null,
       latitude,
       longitude,
       radius_meter: Math.round(radius),
@@ -568,12 +571,20 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
+          <div class="field-row">
+            <div class="field">
+              <label>Alamat</label>
+              <div class="input-suffix">
+                <input type="text" v-model="form.address" placeholder="Contoh: Jl. Raya Bogor No. 123" />
+              </div>
+            </div>
             <div class="field">
               <label>Radius Absensi (Meter)</label>
               <div class="input-suffix">
                 <input type="number" v-model="form.radius" min="1" placeholder="25" />
               </div>
             </div>
+          </div>
 
             <div class="field">
               <label>Pilih Lokasi di Peta</label>
