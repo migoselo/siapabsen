@@ -78,7 +78,7 @@ const navigation = [
   {
     id: 'shift-divisi',
     text: 'Kelola Shift Divisi',
-    icon: 'material-symbols:calendar-month-outline',
+    icon: 'material-symbols:domain-rounded',
     activeIcon: 'material-symbols:domain-rounded',
     path: '/dashboard/shift-divisi',
   },
