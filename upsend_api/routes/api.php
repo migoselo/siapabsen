@@ -46,6 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ==== Khusus admin ====
     Route::middleware('role:admin,super_admin')->group(function () {
+        Route::get('/payrolls', [PayrollController::class, 'index']);
+        Route::post('/payrolls', [PayrollController::class, 'store']);
+        Route::put('/payrolls/{payroll}', [PayrollController::class, 'update']);
+
         Route::get('/admin/leave-requests', [LeaveRequestController::class, 'adminIndex']);
         Route::patch('/admin/leave-requests/{leaveRequest}/status', [LeaveRequestController::class, 'updateStatus']);
 

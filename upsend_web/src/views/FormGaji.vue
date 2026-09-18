@@ -8,6 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const employees = ref([])
 const loading = ref(false)
+const saving = ref(false)
 
 const isEdit = computed(() => Boolean(route.params.employeeId))
 const selectedEmployeeId = ref(route.params.employeeId ? String(route.params.employeeId) : '')
@@ -25,6 +26,10 @@ const bpjsHealth = ref(true)
 const loan = ref(0)
 const customComponents = ref([])
 const money = (value) => `Rp ${Math.round(value || 0).toLocaleString('id-ID')}`
+const payrollPeriod = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+}
 
 async function fetchEmployees() {
   loading.value = true
@@ -42,16 +47,43 @@ async function fetchEmployees() {
   }
 }
 
+async function loadExistingPayroll(employee) {
+  basic.value = 0
+  positionAllowance.value = 0
+  internetAllowance.value = 0
+  mealAllowance.value = 0
+  loan.value = 0
+  customComponents.value = []
+
+  if (!employee) return
+
+  try {
+    const response = await api.get('/payrolls', {
+      params: { user_id: employee.id, month: payrollPeriod().slice(0, 7), per_page: 1 },
+    })
+    const payroll = response.data?.data?.[0]
+    if (!payroll?.id) return
+
+    basic.value = Number(payroll.basic_salary || 0)
+    positionAllowance.value = Number(payroll.transport_allowance || 0)
+    internetAllowance.value = Number(payroll.attendance_allowance || 0)
+    mealAllowance.value = Number(payroll.meal_allowance || 0)
+    loan.value = Number(payroll.other_deduction || 0)
+    if (Number(payroll.other_allowance || 0) > 0) {
+      customComponents.value = [
+        { id: Date.now(), name: 'Tunjangan Lainnya', amount: Number(payroll.other_allowance) },
+      ]
+    }
+  } catch (error) {
+    console.error('Gagal mengambil data payroll:', error)
+  }
+}
+
 watch(
   selectedEmployee,
   (employee) => {
     if (!employee) return
-    basic.value = Number(employee.gaji_pokok ?? employee.basic_salary ?? employee.basic ?? 0)
-    positionAllowance.value = Number(employee.tunjangan_jabatan ?? employee.transport_allowance ?? 0)
-    internetAllowance.value = Number(employee.allowance_variable ?? employee.attendance_allowance ?? 0)
-    mealAllowance.value = Number(employee.meal_allowance ?? 0)
-    loan.value =
-      Number(employee.potongan ?? employee.other_deduction ?? employee.loan_deduction ?? 0)
+    loadExistingPayroll(employee)
   },
   { immediate: true },
 )
@@ -66,9 +98,10 @@ async function handleSave() {
     return
   }
 
+  saving.value = true
   const payload = {
     user_id: Number(selectedEmployeeId.value),
-    payroll_period: new Date().toISOString().slice(0, 10),
+    payroll_period: payrollPeriod(),
     basic_salary: Number(basic.value || 0),
     transport_allowance: Number(positionAllowance.value || 0),
     meal_allowance: Number(mealAllowance.value || 0),
@@ -83,7 +116,9 @@ async function handleSave() {
 
   try {
     if (isEdit.value) {
-      const existing = await api.get('/payrolls', { params: { user_id: payload.user_id, per_page: 1 } })
+      const existing = await api.get('/payrolls', {
+        params: { user_id: payload.user_id, month: payload.payroll_period.slice(0, 7), per_page: 1 },
+      })
       const payroll = Array.isArray(existing.data?.data) ? existing.data.data[0] : null
       if (payroll?.id) {
         await api.put(`/payrolls/${payroll.id}`, payload)
@@ -99,6 +134,8 @@ async function handleSave() {
   } catch (error) {
     console.error('Gagal menyimpan payroll:', error)
     window.alert(error.response?.data?.message || 'Gagal menyimpan data gaji.')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -227,8 +264,10 @@ onMounted(() => {
           ><label>Potongan Kasbon<input v-model.number="loan" type="number" min="0" /></label>
         </section>
         <div class="actions">
-          <button class="back" type="button" @click="handleBack">Batal</button
-          ><button class="save" type="button" @click="handleSave">Simpan Perubahan</button>
+          <button class="back" type="button" @click="handleBack" :disabled="saving">Batal</button
+          ><button class="save" type="button" @click="handleSave" :disabled="saving">
+            {{ saving ? 'Menyimpan...' : 'Simpan Perubahan' }}
+          </button>
         </div>
       </div>
       <aside class="preview">

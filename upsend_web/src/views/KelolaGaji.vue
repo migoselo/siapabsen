@@ -161,15 +161,13 @@ const initials = (name) =>
     .toUpperCase()
 
 const normalizeEmployee = (item) => {
-  const potongan =
-    Number(item.tax_deduction || 0) +
-    Number(item.other_deduction || 0) +
-    Number(item.absence_deduction || 0) +
-    Number(item.late_deduction || 0) +
-    Number(item.loan_deduction || 0)
+  const potongan = Number(item.total_deduction || 0)
+  const totalIncome = Number(item.total_income || 0)
+  const netSalary = Number(item.net_salary ?? totalIncome - potongan)
 
   return {
-    id: item.id,
+    id: item.user_id || item.user?.id || item.id,
+    payrollId: item.id,
     name: item.user?.name || 'Karyawan',
     code: item.user?.employee_id || item.employee_id || '-',
     position: item.user?.role || 'Karyawan',
@@ -180,6 +178,7 @@ const normalizeEmployee = (item) => {
     tetap: Number(item.transport_allowance || 0) + Number(item.attendance_allowance || 0),
     variabel: Number(item.meal_allowance || 0) + Number(item.other_allowance || 0),
     potongan,
+    netSalary,
     status: 'Aktif',
     period: item.payroll_period || item.period || '',
   }
@@ -205,9 +204,7 @@ const filtered = computed(() =>
     const matchesStatus = status.value === 'Semua Status' || employee.status === status.value
     const matchesGrade =
       grade.value === 'Semua Level' || grade.value === 'Grade 0' || employee.position != null
-    const matchesMonth = !employee.period || String(employee.period).slice(0, 7) === selectedMonth.value
-
-    return matchesSearch && matchesDivisi && matchesLokasi && matchesStatus && matchesGrade && matchesMonth
+    return matchesSearch && matchesDivisi && matchesLokasi && matchesStatus && matchesGrade
   }),
 )
 
@@ -219,7 +216,7 @@ const pageItems = computed(() =>
 
 const totalBudget = computed(() =>
   employees.value.reduce(
-    (sum, employee) => sum + employee.pokok + employee.tetap + employee.variabel - employee.potongan,
+    (sum, employee) => sum + employee.netSalary,
     0,
   ),
 )
@@ -538,9 +535,7 @@ onBeforeUnmount(() => {
             <td>{{ rupiah(employee.variabel) }}</td>
             <td class="red-text">- {{ rupiah(employee.potongan) }}</td>
             <td>
-              <strong class="pay-text">
-                {{ rupiah(employee.pokok + employee.tetap + employee.variabel - employee.potongan) }}
-              </strong>
+              <strong class="pay-text">{{ rupiah(employee.netSalary) }}</strong>
             </td>
             <td>
               <span class="status-badge" :class="statusBadgeClass(employee.status)">
