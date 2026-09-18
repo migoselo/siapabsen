@@ -44,50 +44,133 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function weeklyTrend(Request $request)
+    public function trend(Request $request)
     {
-        $days = $request->input('period') === 'bulan' ? 30 : 7;
-        $startDate = now()->subDays($days - 1)->toDateString();
+        return match ($request->input('period', 'hari')) {
+            'minggu' => $this->weeklyBucketTrend($request),
+            'bulan' => $this->monthlyBucketTrend($request),
+            default => $this->dailyBucketTrend($request),
+        };
+    }
 
-        $attendanceQuery = Attendance::selectRaw(
-            'CAST(check_in_time AS date) as attendance_date, COUNT(DISTINCT employee_id) as total'
-        )
-            ->whereDate('check_in_time', '>=', $startDate)
-            ->whereHas('employee', function ($query) {
-                $query->whereNotIn('role', ['admin', 'super_admin'])
-                    ->where('is_active', true);
-            })
-            ->groupByRaw('CAST(check_in_time AS date)');
-        if ($request->filled('location_id')) {
-            $attendanceQuery->whereHas('employee', function ($query) use ($request) {
-                $query->where('home_location_id', $request->location_id);
-            });
-        }
-
-        $attendances = $attendanceQuery->get()->keyBy('attendance_date');
+    private function dailyBucketTrend(Request $request)
+    {
+        $days = 7;
+        $rangeStart = now()->subDays($days - 1)->startOfDay();
+        $counts = $this->attendanceDailyCounts($rangeStart, now()->endOfDay(), $request);
 
         $chartData = [];
         $totalCount = 0;
+        $today = now()->toDateString();
 
         for ($i = $days - 1; $i >= 0; $i--) {
             $day = now()->subDays($i);
             $dayKey = $day->format('Y-m-d');
-            $count = (int) ($attendances->get($dayKey)?->total ?? 0);
+            $count = (int) ($counts[$dayKey] ?? 0);
             $totalCount += $count;
 
             $chartData[] = [
-                'date' => $dayKey,
                 'label' => $day->translatedFormat('D'),
                 'count' => $count,
+                'start_date' => $dayKey,
+                'end_date' => $dayKey,
+                'isCurrent' => $dayKey === $today,
             ];
         }
 
-        $average = $totalCount > 0 ? round($totalCount / $days) : 0;
-
         return response()->json([
-            'weeklyAverageLabel' => "Rata-rata $average hadir per hari",
+            'averageLabel' => "Rata-rata " . ($totalCount > 0 ? round($totalCount / $days) : 0) . " hadir per hari",
             'chartData' => $chartData,
         ]);
+    }
+
+    private function weeklyBucketTrend(Request $request)
+    {
+        $weeks = 8;
+        $rangeStart = now()->subWeeks($weeks - 1)->startOfWeek();
+        $counts = $this->attendanceDailyCounts($rangeStart, now()->endOfWeek(), $request);
+
+        $chartData = [];
+        $totalCount = 0;
+        $currentWeekKey = now()->startOfWeek()->toDateString();
+
+        for ($i = $weeks - 1; $i >= 0; $i--) {
+            $weekStart = now()->subWeeks($i)->startOfWeek();
+            $weekEnd = $weekStart->copy()->endOfWeek();
+
+            $weekTotal = 0;
+            for ($d = $weekStart->copy(); $d->lte($weekEnd); $d->addDay()) {
+                $weekTotal += (int) ($counts[$d->format('Y-m-d')] ?? 0);
+            }
+            $totalCount += $weekTotal;
+
+            $chartData[] = [
+                'label' => $weekStart->format('d/m') . '-' . $weekEnd->format('d/m'),
+                'count' => $weekTotal,
+                'start_date' => $weekStart->toDateString(),
+                'end_date' => $weekEnd->toDateString(),
+                'isCurrent' => $weekStart->toDateString() === $currentWeekKey,
+            ];
+        }
+
+        return response()->json([
+            'averageLabel' => "Rata-rata " . ($totalCount > 0 ? round($totalCount / $weeks) : 0) . " hadir per minggu",
+            'chartData' => $chartData,
+        ]);
+    }
+
+    private function monthlyBucketTrend(Request $request)
+    {
+        $months = 12;
+        $rangeStart = now()->startOfMonth()->subMonths($months - 1); 
+        $counts = $this->attendanceDailyCounts($rangeStart, now()->endOfMonth(), $request);
+
+        $chartData = [];
+        $totalCount = 0;
+        $currentMonthKey = now()->format('Y-m');
+
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $monthStart = now()->startOfMonth()->subMonths($i); 
+            $monthEnd = $monthStart->copy()->endOfMonth();
+            $monthKey = $monthStart->format('Y-m');
+
+            $monthTotal = 0;
+            for ($d = $monthStart->copy(); $d->lte($monthEnd); $d->addDay()) {
+                $monthTotal += (int) ($counts[$d->format('Y-m-d')] ?? 0);
+            }
+            $totalCount += $monthTotal;
+
+            $chartData[] = [
+                'label' => $monthStart->translatedFormat('M'),
+                'count' => $monthTotal,
+                'start_date' => $monthStart->toDateString(),
+                'end_date' => $monthEnd->toDateString(),
+                'isCurrent' => $monthKey === $currentMonthKey,
+            ];
+        }
+
+        return response()->json([
+            'averageLabel' => "Rata-rata " . ($totalCount > 0 ? round($totalCount / $months) : 0) . " hadir per bulan",
+            'chartData' => $chartData,
+        ]);
+    }
+
+    private function attendanceDailyCounts($rangeStart, $rangeEnd, Request $request): array
+    {
+        $query = Attendance::selectRaw(
+            'CAST(check_in_time AS date) as attendance_date, COUNT(DISTINCT employee_id) as total'
+        )
+            ->whereBetween('check_in_time', [$rangeStart->toDateTimeString(), $rangeEnd->toDateTimeString()])
+            ->whereHas('employee', function ($q) {
+                $q->whereNotIn('role', ['admin', 'super_admin'])->where('is_active', true);
+            })
+            ->groupByRaw('CAST(check_in_time AS date)');
+
+        if ($request->filled('location_id')) {
+            $query->where('location_id', $request->location_id);
+        }
+
+        return $query->pluck('total', 'attendance_date')->toArray();
     }
 
     public function todayAttendance(Request $request)
@@ -121,7 +204,7 @@ class DashboardController extends Controller
         $attendanceRecords = $attendanceQuery->get();
         $attendances = $attendanceRecords->keyBy(fn($attendance) => (string) $attendance->employee_id);
 
-        $isPeriodView = !$request->filled('date') && $request->input('period', 'hari') !== 'hari';
+        $isPeriodView = $startDate !== $endDate;
         if ($isPeriodView) {
             $today = now()->toDateString();
             $data = $attendanceRecords->map(function ($attendance) use ($today) {
@@ -199,6 +282,10 @@ class DashboardController extends Controller
 
     private function periodDates(Request $request): array
     {
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            return [$request->start_date, $request->end_date];
+        }
+
         if ($request->filled('date')) {
             return [$request->date, $request->date];
         }

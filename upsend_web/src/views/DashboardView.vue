@@ -26,7 +26,7 @@ const stats = ref({
 })
 
 const currentDate = ref('')
-const weeklyAverageLabel = ref('Data tren belum tersedia')
+const averageLabel = ref('Data tren belum tersedia')
 const chartData = ref([])
 const employees = ref([])
 const loading = ref(false)
@@ -42,13 +42,13 @@ const statusMeta = {
 }
 
 const chartDayLabels = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
-const selectedTrendDate = ref('')
+const selectedTrendItem = ref(null)
 
-const highlightIndex = computed(() => chartData.value.length - 1)
+const highlightIndex = computed(() => chartData.value.findIndex((item) => item.isCurrent))
 
 const selectedIndex = computed(() => {
-  if (!selectedTrendDate.value) return -1
-  return chartData.value.findIndex((item) => item.date === selectedTrendDate.value)
+  if (!selectedTrendItem.value) return -1
+  return chartData.value.findIndex((item) => item.start_date === selectedTrendItem.value.start_date)
 })
 
 const chartMax = computed(() => {
@@ -57,20 +57,49 @@ const chartMax = computed(() => {
 })
 
 const trendTitle = computed(() => {
-  return activePeriod.value === 'bulan'
-    ? 'Tren Kehadiran 30 Hari Terakhir'
-    : 'Tren Kehadiran 7 Hari Terakhir'
+  return {
+    hari: 'Tren Kehadiran 7 Hari Terakhir',
+    minggu: 'Tren Kehadiran 8 Minggu Terakhir',
+    bulan: 'Tren Kehadiran 12 Bulan Terakhir',
+  }[activePeriod.value]
 })
 
 const periods = [
+  { key: 'hari', label: 'Harian' },
   { key: 'minggu', label: 'Mingguan' },
   { key: 'bulan', label: 'Bulanan' },
 ]
-const activePeriod = ref('minggu')
+const activePeriod = ref('hari')
 const activityPeriodLabel = computed(() => {
-  const dateStr = selectedTrendDate.value || new Date().toLocaleDateString('sv-SE')
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('id-ID', {
+  if (selectedTrendItem.value) {
+    const { start_date, end_date } = selectedTrendItem.value
+    if (start_date === end_date) {
+      return new Date(start_date).toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    }
+    const startLabel = new Date(start_date).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+    })
+    const endLabel = new Date(end_date).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+    return `${startLabel} - ${endLabel}`
+  }
+  const today = new Date()
+  if (activePeriod.value === 'bulan') {
+    return today.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+  }
+  if (activePeriod.value === 'minggu') {
+    return 'Minggu ini'
+  }
+  return today.toLocaleDateString('id-ID', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -150,14 +179,10 @@ async function fetchDashboard() {
       period: activePeriod.value,
       ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
     }
-    const todayParams = {
-      date: new Date().toLocaleDateString('sv-SE'),
-      ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
-    }
     const [summaryRes, attendanceRes, trendRes] = await Promise.all([
-      api.get('/dashboard/summary', { params: todayParams }),
-      api.get('/dashboard/today-attendance', { params: todayParams }),
-      api.get('/dashboard/weekly-trend', { params }),
+      api.get('/dashboard/summary', { params }),
+      api.get('/dashboard/today-attendance', { params }),
+      api.get('/dashboard/trend', { params }),
     ])
 
     const summary = summaryRes.data
@@ -179,10 +204,10 @@ async function fetchDashboard() {
       checkedOutExtraCount: Math.max(checkedOutList.length - 3, 0),
     }
 
-    weeklyAverageLabel.value = trend.weeklyAverageLabel
+    averageLabel.value = trend.averageLabel
     chartData.value = trend.chartData
     employees.value = emps
-    selectedTrendDate.value = ''
+    selectedTrendItem.value = 'null'
   } catch (err) {
     console.error('Gagal mengambil data dashboard:', err)
   } finally {
@@ -190,14 +215,15 @@ async function fetchDashboard() {
   }
 }
 
-async function selectTrendDay(item) {
-  if (!item?.date) return
+async function selectTrendItem(item) {
+  if (!item?.start_date) return
 
-  selectedTrendDate.value = item.date
+  selectedTrendItem.value = item
   loading.value = true
   try {
     const params = {
-      date: item.date,
+      start_date: item.start_date,
+      end_date: item.end_date,
       ...(selectedLocationId.value ? { location_id: selectedLocationId.value } : {}),
     }
     const [summaryRes, attendanceRes] = await Promise.all([
@@ -275,7 +301,7 @@ function changePerPage() {
   pageInput.value = 1
 }
 
-watch([selectedTrendDate, selectedLocationId, searchQuery], () => {
+watch([selectedTrendItem, selectedLocationId, searchQuery], () => {
   currentPage.value = 1
   pageInput.value = 1
 })
@@ -391,31 +417,33 @@ onBeforeUnmount(() => {
         <div class="panel-head">
           <div>
             <h2>{{ trendTitle }}</h2>
-            <p>{{ weeklyAverageLabel }}</p>
+            <p>{{ averageLabel }}</p>
           </div>
         </div>
         <div class="chart-wrap">
           <div class="chart-ticks">
             <div
               v-for="(item, idx) in chartData"
-              :key="item.date"
+              :key="item.start_date"
               class="tick-col clickable"
               role="button"
               tabindex="0"
               :aria-label="`Lihat kehadiran ${item.label}`"
-              @click="selectTrendDay(item)"
-              @keydown.enter="selectTrendDay(item)"
-              @keydown.space.prevent="selectTrendDay(item)"
+              @click="selectTrendItem(item)"
+              @keydown.enter="selectTrendItem(item)"
+              @keydown.space.prevent="selectTrendItem(item)"
             >
               <div
                 v-if="idx === selectedIndex || (selectedIndex === -1 && idx === highlightIndex)"
                 class="tick-tooltip"
               >
-                <template v-if="idx === highlightIndex">
-                  <span>Hari Ini</span>
+                <template v-if="item.isCurrent">
+                  <span>{{
+                    { hari: 'Hari Ini', minggu: 'Minggu Ini', bulan: 'Bulan Ini' }[activePeriod]
+                  }}</span>
                 </template>
                 <template v-else>
-                  <span>{{ formatTickDate(item.date) }}</span>
+                  <span>{{ formatTickDate(item.start_date) }}</span>
                 </template>
               </div>
               <div class="tick-value">{{ item.count ?? 0 }}</div>

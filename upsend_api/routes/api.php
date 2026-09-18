@@ -63,7 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::prefix('dashboard')->group(function () {
             Route::get('/summary', [DashboardController::class, 'summary']);
-            Route::get('/weekly-trend', [DashboardController::class, 'weeklyTrend']);
+            Route::get('/trend', [DashboardController::class, 'trend']);
             Route::get('/today-attendance', [DashboardController::class, 'todayAttendance']); // baru
             Route::get('/by-location', [DashboardController::class, 'byLocation']);
             Route::get('/anomalies', [DashboardController::class, 'anomalies']);
