@@ -75,6 +75,13 @@ const navigation = [
     activeIcon: 'material-symbols:payments',
     path: '/dashboard/gaji',
   },
+  {
+    id: 'shift-divisi',
+    text: 'Kelola Shift Divisi',
+    icon: 'material-symbols:calendar-month-outline',
+    activeIcon: 'material-symbols:domain-rounded',
+    path: '/dashboard/shift-divisi',
+  },
 ]
 
 function isActive(item) {
