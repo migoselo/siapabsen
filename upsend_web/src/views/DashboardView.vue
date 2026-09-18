@@ -73,38 +73,26 @@ const activePeriod = ref('hari')
 const activityPeriodLabel = computed(() => {
   if (selectedTrendItem.value) {
     const { start_date, end_date } = selectedTrendItem.value
-    if (start_date === end_date) {
-      return new Date(start_date).toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
+    if (activePeriod.value === 'bulan') {
+      return formatMonthYear(start_date)
     }
-    const startLabel = new Date(start_date).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-    })
-    const endLabel = new Date(end_date).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-    return `${startLabel} - ${endLabel}`
+    if (activePeriod.value === 'minggu') {
+      return formatDateRange(start_date, end_date) 
+    }
+    return formatFullDate(start_date)
   }
-  const today = new Date()
+
+  const todayStr = new Date().toLocaleDateString('sv-SE')
   if (activePeriod.value === 'bulan') {
-    return today.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+    return formatMonthYear(todayStr)
   }
   if (activePeriod.value === 'minggu') {
-    return 'Minggu ini'
+    const currentItem = chartData.value.find((item) => item.isCurrent)
+    return currentItem
+      ? formatDateRange(currentItem.start_date, currentItem.end_date) 
+      : 'Minggu ini'
   }
-  return today.toLocaleDateString('id-ID', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return formatFullDate(todayStr)
 })
 
 const searchQuery = ref('')
@@ -161,6 +149,53 @@ function formatTickDate(dateStr) {
   return `${day}-${month}-${year}`
 }
 
+const shortMonthNames = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des',
+]
+
+function formatShortDate(dateStr) {
+  const date = new Date(dateStr)
+  const day = date.getDate()
+  const month = shortMonthNames[date.getMonth()]
+  return `${day} ${month}`
+}
+
+function formatMonthYear(dateStr) {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+}
+
+function formatFullDate(dateStr) {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function formatDateRange(startStr, endStr) {
+  const start = new Date(startStr)
+  const end = new Date(endStr)
+
+  const startDay = start.getDate()
+  const endDay = end.getDate()
+  const startMonth = start.toLocaleDateString('id-ID', { month: 'long' })
+  const endMonth = end.toLocaleDateString('id-ID', { month: 'long' })
+  const startYear = start.getFullYear()
+  const endYear = end.getFullYear()
+
+  if (startYear !== endYear) {
+    return `${startDay} ${startMonth} ${startYear} - ${endDay} ${endMonth} ${endYear}`
+  }
+  if (startMonth !== endMonth) {
+    return `${startDay} ${startMonth} - ${endDay} ${endMonth} ${endYear}`
+  }
+  return `${startDay} - ${endDay} ${startMonth} ${endYear}`
+}
+
 async function fetchLocations() {
   try {
     const res = await api.get('/locations')
@@ -207,7 +242,7 @@ async function fetchDashboard() {
     averageLabel.value = trend.averageLabel
     chartData.value = trend.chartData
     employees.value = emps
-    selectedTrendItem.value = 'null'
+    selectedTrendItem.value = null
   } catch (err) {
     console.error('Gagal mengambil data dashboard:', err)
   } finally {
@@ -441,6 +476,15 @@ onBeforeUnmount(() => {
                   <span>{{
                     { hari: 'Hari Ini', minggu: 'Minggu Ini', bulan: 'Bulan Ini' }[activePeriod]
                   }}</span>
+                </template>
+                <template v-else-if="activePeriod === 'bulan'">
+                  <span>{{ formatMonthYear(item.start_date) }}</span>
+                </template>
+                <template v-else-if="activePeriod === 'minggu'">
+                  <span
+                    >{{ formatShortDate(item.start_date) }} -
+                    {{ formatShortDate(item.end_date) }}</span
+                  >
                 </template>
                 <template v-else>
                   <span>{{ formatTickDate(item.start_date) }}</span>
