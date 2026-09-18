@@ -17,6 +17,7 @@ class LocationController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:1000',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
             'radius_meter' => 'nullable|integer|min:1',
@@ -40,6 +41,7 @@ class LocationController extends Controller
     {
         $data = $request->validate([
             'name' => 'sometimes|required|string|max:255',
+            'address' => 'sometimes|nullable|string|max:1000',
             'latitude' => 'sometimes|required|numeric|between:-90,90',
             'longitude' => 'sometimes|required|numeric|between:-180,180',
             'radius_meter' => 'sometimes|nullable|integer|min:1',
