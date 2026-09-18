@@ -42,12 +42,6 @@ const defaultDepartments = [
   { id: 'd6', name: 'Operations' },
 ]
 
-/* FIX: cek ketersediaan localStorage SEKALI di awal, bukan berasumsi selalu ada.
-   Di beberapa environment (mode private browsing, iframe sandbox/preview, storage
-   dimatikan di pengaturan browser) localStorage bisa melempar error bahkan saat
-   hanya diakses. Sebelumnya error ini ditelan diam-diam oleh try/catch sehingga
-   data yang baru ditambahkan terlihat "hilang" setelah reload/remount tanpa
-   ada pemberitahuan apa pun ke pengguna. */
 const storageAvailable = (() => {
   try {
     const testKey = '__siaphadir_test__'
@@ -77,11 +71,6 @@ const leaveTypes = reactive(
 )
 const departments = reactive(loadFromStorage('siaphadir_departments', defaultDepartments))
 
-/* FIX: beri tahu pengguna (banner kecil) kalau penyimpanan gagal, alih-alih
-   hanya console.error yang tidak terlihat oleh pengguna. Perubahan tetap
-   langsung tampil di layar karena state reactive sudah diperbarui duluan
-   sebelum persistSettings() dipanggil — hanya penyimpanan permanennya yang
-   mungkin gagal. */
 const storageWarning = ref(
   !storageAvailable
     ? 'Penyimpanan lokal browser tidak tersedia. Perubahan hanya berlaku selama sesi ini dan tidak akan tersimpan setelah halaman dimuat ulang.'
@@ -112,9 +101,6 @@ function applyColor(lt) {
   persistSettings()
 }
 
-/* FIX: id generator yang tidak bisa bentrok walau tombol "Tambah" diklik
-   berkali-kali secara berurutan dalam milidetik yang sama (Date.now() saja
-   bisa menghasilkan id yang identik dalam kasus itu). */
 let idCounter = 0
 function nextId(prefix) {
   idCounter += 1
@@ -271,7 +257,7 @@ function mkReq(
     endDate: end,
     workDaysLabel: workDays === 1 ? '1 Hari' : `${workDays} Hari Kerja`,
     reason,
-    status, // 'pending' | 'approved' | 'rejected'
+    status,
     createdAt,
   })
 }
@@ -374,6 +360,47 @@ const currentPage = ref(1)
 const perPage = ref(20)
 const pageInput = ref(1)
 
+/* --- Kontrol Custom Dropdown --- */
+const showLeaveTypeMenu = ref(false)
+const showDepartmentMenu = ref(false)
+
+const selectedLeaveTypeLabel = computed(() => {
+  if (!leaveTypeFilter.value) return 'Semua Jenis Cuti'
+  const found = leaveTypes.find((lt) => lt.id === leaveTypeFilter.value)
+  return found ? found.name : 'Semua Jenis Cuti'
+})
+
+const selectedDepartmentLabel = computed(() => {
+  if (!departmentFilter.value) return 'Semua Departemen'
+  const found = departments.find((d) => d.id === departmentFilter.value)
+  return found ? found.name : 'Semua Departemen'
+})
+
+function toggleLeaveTypeMenu() {
+  showLeaveTypeMenu.value = !showLeaveTypeMenu.value
+  showDepartmentMenu.value = false
+}
+
+function toggleDepartmentMenu() {
+  showDepartmentMenu.value = !showDepartmentMenu.value
+  showLeaveTypeMenu.value = false
+}
+
+function selectLeaveType(id) {
+  leaveTypeFilter.value = id
+  showLeaveTypeMenu.value = false
+}
+
+function selectDepartment(id) {
+  departmentFilter.value = id
+  showDepartmentMenu.value = false
+}
+
+function closeFilterMenus() {
+  showLeaveTypeMenu.value = false
+  showDepartmentMenu.value = false
+}
+
 watch(currentPage, (newPage) => {
   pageInput.value = newPage
 })
@@ -428,18 +455,16 @@ function changePerPage() {
 function approveRequest(id, comment = '') {
   const r = requests.find((x) => x.id === id)
   if (r) r.status = 'approved'
-  // TODO: panggil API PATCH /leave-requests/:id { status: 'approved', comment }
   if (selectedRequest.value?.id === id) closeDetail()
 }
 function rejectRequest(id, comment = '') {
   const r = requests.find((x) => x.id === id)
   if (r) r.status = 'rejected'
-  // TODO: panggil API PATCH /leave-requests/:id { status: 'rejected', comment }
   if (selectedRequest.value?.id === id) closeDetail()
 }
 
 /* ------------------------------------------------------------------ */
-/* Tampilan detail — dibuka lewat tombol "Lihat Detail" di kolom Aksi  */
+/* Tampilan detail                                                     */
 /* ------------------------------------------------------------------ */
 const selectedRequest = ref(null)
 function openDetail(req) {
@@ -448,9 +473,7 @@ function openDetail(req) {
 function closeDetail() {
   selectedRequest.value = null
 }
-/* Menyesuaikan bentuk data `req` di tabel ini ke bentuk yang diharapkan
-   oleh <DetailIzinCuti>. Field employeeId/email/attachments/leaveBalance
-   belum ada di data list — isi dari API sesungguhnya kalau sudah tersedia. */
+
 const detailRequestForView = computed(() => {
   const r = selectedRequest.value
   if (!r) return null
@@ -475,9 +498,6 @@ const detailRequestForView = computed(() => {
   }
 })
 
-/* ------------------------------------------------------------------ */
-/* Helper tampilan                                                     */
-/* ------------------------------------------------------------------ */
 function initials(name) {
   return name
     .split(' ')
@@ -499,9 +519,6 @@ function formatDuration(req) {
   return `${start} — ${end}`
 }
 
-/* ------------------------------------------------------------------ */
-/* Ekspor CSV & PDF (mengekspor data pada tab & filter yang aktif)     */
-/* ------------------------------------------------------------------ */
 function exportRows() {
   return filteredRequests.value.map((r) => ({
     Pemohon: r.requester.name,
@@ -536,14 +553,6 @@ async function exportPDF() {
   if (rows.length === 0) return
   exportError.value = ''
   try {
-    /* FIX: versi jspdf-autotable saat ini (v3+) tidak lagi otomatis menempelkan
-       .autoTable ke instance jsPDF hanya dengan mengimpornya sebagai side-effect
-       (`await import('jspdf-autotable')`). Library ini sekarang mengekspor
-       fungsi `autoTable` secara terpisah dan harus dipanggil sebagai
-       `autoTable(doc, options)`, bukan `doc.autoTable(options)`. Memanggil
-       `doc.autoTable(...)` yang lama akan melempar
-       "doc.autoTable is not a function" dan gagal tanpa pesan yang jelas
-       ke pengguna karena tidak dibungkus try/catch sebelumnya. */
     const { default: jsPDF } = await import('jspdf')
     const { default: autoTable } = await import('jspdf-autotable')
 
@@ -560,7 +569,7 @@ async function exportPDF() {
       body,
       startY: 26,
       styles: { fontSize: 12, cellPadding: 2 },
-      headStyles: { fillColor: [37, 47, 88] }, // samakan dengan --sidebar-accent
+      headStyles: { fillColor: [37, 47, 88] },
     })
 
     doc.save(`data-izin-cuti-${activeTab.value}-${todayStamp()}.pdf`)
@@ -586,16 +595,15 @@ function todayStamp() {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
 }
 
-/* ------------------------------------------------------------------ */
-/* Menu ekspor & modal kelola                                          */
-/* ------------------------------------------------------------------ */
 const showExportMenu = ref(false)
 const showManageModal = ref(false)
 const manageTab = ref('leaveTypes')
 
 function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
+  if (!e.target.closest?.('.custom-select')) closeFilterMenus()
 }
+
 onMounted(() => {
   fetchLeaveRequests()
   document.addEventListener('click', handleOutsideClick)
@@ -605,7 +613,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
 <template>
   <div class="izin-cuti">
-    <!-- Tampilan detail — muncul menggantikan daftar saat tombol "Lihat Detail" diklik -->
     <DetailIzinCuti
       v-if="selectedRequest"
       :request="detailRequestForView"
@@ -615,9 +622,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
     />
 
     <template v-else>
-      <!-- FIX: banner peringatan bila localStorage tidak tersedia / gagal, supaya
-           pengguna tahu kenapa perubahan tidak "tersimpan" alih-alih dibiarkan
-           gagal diam-diam -->
       <div v-if="storageWarning" class="storage-warning">
         <Icon icon="material-symbols:warning-outline" width="18" />
         {{ storageWarning }}
@@ -686,19 +690,65 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
           </div>
         </div>
 
-        <!-- FIX: tampilkan pesan error ekspor PDF ke pengguna, bukan hanya di console -->
         <p v-if="exportError" class="export-error">{{ exportError }}</p>
 
+        <!-- FILTERS ROW WITH CUSTOM DROPDOWN -->
         <div class="filters-row">
           <div class="filters">
-            <select v-model="leaveTypeFilter" class="select">
-              <option value="">Semua Jenis Cuti</option>
-              <option v-for="lt in leaveTypes" :key="lt.id" :value="lt.id">{{ lt.name }}</option>
-            </select>
-            <select v-model="departmentFilter" class="select">
-              <option value="">Semua Departemen</option>
-              <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
-            </select>
+            <!-- Custom Dropdown Jenis Cuti -->
+            <div class="custom-select" @click.stop="toggleLeaveTypeMenu">
+              <span>{{ selectedLeaveTypeLabel }}</span>
+              <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+              <div v-if="showLeaveTypeMenu" class="select-menu">
+                <button
+                  type="button"
+                  class="select-item"
+                  :class="{ active: leaveTypeFilter === '' }"
+                  @click.stop="selectLeaveType('')"
+                >
+                  Semua Jenis Cuti
+                </button>
+                <button
+                  v-for="lt in leaveTypes"
+                  :key="lt.id"
+                  type="button"
+                  class="select-item"
+                  :class="{ active: leaveTypeFilter === lt.id }"
+                  @click.stop="selectLeaveType(lt.id)"
+                >
+                  {{ lt.name }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom Dropdown Departemen -->
+            <div class="custom-select" @click.stop="toggleDepartmentMenu">
+              <span>{{ selectedDepartmentLabel }}</span>
+              <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+              <div v-if="showDepartmentMenu" class="select-menu">
+                <button
+                  type="button"
+                  class="select-item"
+                  :class="{ active: departmentFilter === '' }"
+                  @click.stop="selectDepartment('')"
+                >
+                  Semua Departemen
+                </button>
+                <button
+                  v-for="d in departments"
+                  :key="d.id"
+                  type="button"
+                  class="select-item"
+                  :class="{ active: departmentFilter === d.id }"
+                  @click.stop="selectDepartment(d.id)"
+                >
+                  {{ d.name }}
+                </button>
+              </div>
+            </div>
+
             <button class="btn-ghost" @click="showManageModal = true">
               <Icon icon="material-symbols:tune" width="16" /> Kelola Jenis & Departemen
             </button>
@@ -757,7 +807,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                 </td>
                 <td>
                   <div class="actions">
-                    <!-- 1. Tombol Tolak & Terima (Hanya muncul jika status masih 'pending') -->
                     <template v-if="req.status === 'pending'">
                       <button
                         class="icon-btn icon-btn-reject separator-right"
@@ -775,7 +824,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                       </button>
                     </template>
 
-                    <!-- Status badge jika sudah disetujui/ditolak -->
                     <span
                       v-else
                       class="badge"
@@ -788,7 +836,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                       {{ req.status === 'approved' ? 'Diterima' : 'Ditolak' }}
                     </span>
 
-                    <!-- 2. Tombol Lihat Detail (Selalu berada di urutan paling kanan) -->
                     <button
                       class="icon-btn icon-btn-view"
                       title="Lihat Detail"
@@ -950,9 +997,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   color: var(--ink-dark);
 }
 
-/* Browser tidak mewariskan font-family ke elemen form secara default (button,
-   input, select punya font sistem sendiri) — dipaksa ikut di sini supaya semua
-   teks di halaman ini, termasuk tombol dan dropdown, konsisten Plus Jakarta Sans. */
 .izin-cuti button,
 .izin-cuti input,
 .izin-cuti select {
@@ -1061,12 +1105,13 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .summary-card .red-text {
   color: #c91f2d;
 }
+
 /* Main card */
 .card {
   background: #fff;
   border: 1px solid #eaecf0;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
 }
 .card-toolbar {
@@ -1198,6 +1243,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   background: #f4f5f8;
 }
 
+/* Filters & Custom Select Styles */
 .filters-row {
   display: flex;
   flex-wrap: wrap;
@@ -1212,18 +1258,66 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
   gap: 10px;
   flex-wrap: wrap;
 }
-.select {
-  font-size: 15px;
+
+.custom-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
   border: 1px solid var(--line);
+  padding: 8px 14px;
   border-radius: 8px;
-  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--ink-dark);
-  background: #fff;
+  cursor: pointer;
+  min-width: 180px;
+  user-select: none;
 }
-.pagination-label {
-  font-size: 13px;
+
+.custom-select svg,
+.custom-select .iconify {
   color: var(--ink-soft);
-  margin: 0;
+  flex-shrink: 0;
+}
+
+.select-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 220px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.select-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--ink-dark);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.select-item:hover {
+  background: #f4f5f8;
+}
+
+.select-item.active {
+  background: #f4f5f8;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 /* Table */

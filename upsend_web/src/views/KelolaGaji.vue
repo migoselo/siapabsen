@@ -1,13 +1,13 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
-
 const router = useRouter()
 
 const employees = ref([])
+const officeLocations = ref([])
 const loading = ref(false)
 const search = ref('')
 const lokasiKerja = ref('Semua Kantor')
@@ -19,6 +19,138 @@ const page = ref(1)
 const perPage = ref(20)
 const pageInput = ref(1)
 
+/* ------------------------------------------------------------------ */
+/* Kontrol Custom Dropdown & Custom Month Picker                       */
+/* ------------------------------------------------------------------ */
+const showMonthMenu = ref(false)
+const showLokasiMenu = ref(false)
+const showDivisiMenu = ref(false)
+const showGradeMenu = ref(false)
+const showStatusMenu = ref(false)
+
+const pickerYear = ref(Number(selectedMonth.value.split('-')[0]))
+
+const monthList = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+]
+
+const formattedMonthLabel = computed(() => {
+  if (!selectedMonth.value) return 'Pilih Bulan'
+  const [y, m] = selectedMonth.value.split('-')
+  const monthName = monthList[Number(m) - 1] || ''
+  return `${monthName} ${y}`
+})
+
+function toggleMonthMenu() {
+  showMonthMenu.value = !showMonthMenu.value
+  showLokasiMenu.value = false
+  showDivisiMenu.value = false
+  showGradeMenu.value = false
+  showStatusMenu.value = false
+}
+
+function toggleLokasiMenu() {
+  showLokasiMenu.value = !showLokasiMenu.value
+  showMonthMenu.value = false
+  showDivisiMenu.value = false
+  showGradeMenu.value = false
+  showStatusMenu.value = false
+}
+
+function toggleDivisiMenu() {
+  showDivisiMenu.value = !showDivisiMenu.value
+  showMonthMenu.value = false
+  showLokasiMenu.value = false
+  showGradeMenu.value = false
+  showStatusMenu.value = false
+}
+
+function toggleGradeMenu() {
+  showGradeMenu.value = !showGradeMenu.value
+  showMonthMenu.value = false
+  showLokasiMenu.value = false
+  showDivisiMenu.value = false
+  showStatusMenu.value = false
+}
+
+function toggleStatusMenu() {
+  showStatusMenu.value = !showStatusMenu.value
+  showMonthMenu.value = false
+  showLokasiMenu.value = false
+  showDivisiMenu.value = false
+  showGradeMenu.value = false
+}
+
+function closeAllMenus() {
+  showMonthMenu.value = false
+  showLokasiMenu.value = false
+  showDivisiMenu.value = false
+  showGradeMenu.value = false
+  showStatusMenu.value = false
+}
+
+function handleOutsideClick(e) {
+  if (!e.target.closest('.custom-select')) {
+    closeAllMenus()
+  }
+}
+
+/* Logika Kalender Custom */
+function changeYear(delta) {
+  pickerYear.value += delta
+}
+
+function isCurrentSelectedMonth(monthIdx) {
+  const [y, m] = selectedMonth.value.split('-')
+  return Number(y) === pickerYear.value && Number(m) === monthIdx + 1
+}
+
+function selectMonth(monthIdx) {
+  const mStr = String(monthIdx + 1).padStart(2, '0')
+  selectedMonth.value = `${pickerYear.value}-${mStr}`
+  showMonthMenu.value = false
+  applyMonthFilter()
+}
+
+function selectThisMonth() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  pickerYear.value = y
+  selectedMonth.value = `${y}-${m}`
+  showMonthMenu.value = false
+  applyMonthFilter()
+}
+
+/* Logika Pilihan Filter Dropdown */
+function selectLokasi(val) {
+  lokasiKerja.value = val
+  showLokasiMenu.value = false
+  resetPage()
+}
+
+function selectDivisi(val) {
+  divisi.value = val
+  showDivisiMenu.value = false
+  resetPage()
+}
+
+function selectGrade(val) {
+  grade.value = val
+  showGradeMenu.value = false
+  resetPage()
+}
+
+function selectStatus(val) {
+  status.value = val
+  showStatusMenu.value = false
+  resetPage()
+}
+
+/* ------------------------------------------------------------------ */
+/* Helper & Data Formatting                                            */
+/* ------------------------------------------------------------------ */
 const rupiah = (value) => `Rp ${Math.round(Number(value || 0)).toLocaleString('id-ID')}`
 const initials = (name) =>
   (name || '')
@@ -56,7 +188,7 @@ const normalizeEmployee = (item) => {
 const divisions = computed(() => ['Semua Divisi', ...new Set(employees.value.map((e) => e.divisi))])
 const locations = computed(() => [
   'Semua Kantor',
-  ...new Set(employees.value.map((employee) => employee.lokasiKerja).filter(Boolean)),
+  ...officeLocations.value.map((location) => location.name).filter(Boolean),
 ])
 
 const filtered = computed(() =>
@@ -69,7 +201,7 @@ const filtered = computed(() =>
       )
     const matchesLokasi =
       lokasiKerja.value === 'Semua Kantor' || employee.lokasiKerja === lokasiKerja.value
-       const matchesDivisi = divisi.value === 'Semua Divisi' || employee.divisi === divisi.value
+    const matchesDivisi = divisi.value === 'Semua Divisi' || employee.divisi === divisi.value
     const matchesStatus = status.value === 'Semua Status' || employee.status === status.value
     const matchesGrade =
       grade.value === 'Semua Level' || grade.value === 'Grade 0' || employee.position != null
@@ -111,6 +243,16 @@ async function fetchPayrolls() {
     employees.value = []
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchLocations() {
+  try {
+    const res = await api.get('/locations')
+    officeLocations.value = Array.isArray(res.data) ? res.data : []
+  } catch (error) {
+    console.error('Gagal mengambil data lokasi kerja:', error)
+    officeLocations.value = []
   }
 }
 
@@ -166,6 +308,12 @@ function handleEditSalary(employeeId) {
 
 onMounted(() => {
   fetchPayrolls()
+  fetchLocations()
+  document.addEventListener('click', handleOutsideClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick)
 })
 </script>
 
@@ -215,27 +363,126 @@ onMounted(() => {
       <!-- Filter Bar -->
       <div class="filter-bar">
         <div class="filters">
-          <label class="month-filter">
-            <input v-model="selectedMonth" type="month" @change="applyMonthFilter" />
-          </label>
-           <select v-model="lokasiKerja" @change="resetPage">
-            <option v-for="item in locations" :key="item" :value="item">{{ item }}</option>
-          </select>
-          <select v-model="divisi" @change="resetPage">
-            <option v-for="item in divisions" :key="item" :value="item">{{ item }}</option>
-          </select>
-          <select v-model="grade" @change="resetPage">
-            <option value="Semua Level">Semua Level</option>
-            <option v-for="item in [3, 4, 5, 6]" :key="item" :value="`Grade ${item}`">
-              Grade {{ item }}
-            </option>
-          </select>
-          <select v-model="status" @change="resetPage">
-            <option value="Semua Status">Semua Status</option>
-            <option value="Aktif">Aktif</option>
-            <option value="Menunggu Review">Menunggu Review</option>
-            <option value="Perlu Update">Perlu Update</option>
-          </select>
+          <!-- Custom Month Picker -->
+          <div class="custom-select month-picker" @click.stop="toggleMonthMenu">
+            <Icon icon="material-symbols:calendar-month-outline-rounded" width="18" height="18" />
+            <span>{{ formattedMonthLabel }}</span>
+            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+            <!-- Pop-up Month Picker Custom -->
+            <div v-if="showMonthMenu" class="month-picker-menu" @click.stop>
+              <div class="month-picker-header">
+                <button type="button" class="nav-btn" @click="changeYear(-1)">
+                  <Icon icon="material-symbols:chevron-left-rounded" width="20" height="20" />
+                </button>
+                <span class="year-label">{{ pickerYear }}</span>
+                <button type="button" class="nav-btn" @click="changeYear(1)">
+                  <Icon icon="material-symbols:chevron-right-rounded" width="20" height="20" />
+                </button>
+              </div>
+
+              <div class="month-grid">
+                <button
+                  v-for="(m, idx) in monthList"
+                  :key="m"
+                  type="button"
+                  class="month-item"
+                  :class="{ active: isCurrentSelectedMonth(idx) }"
+                  @click="selectMonth(idx)"
+                >
+                  {{ m }}
+                </button>
+              </div>
+
+              <div class="month-picker-footer">
+                <button type="button" class="btn-text" @click="selectThisMonth">Bulan Ini</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Custom Dropdown Lokasi Kerja -->
+          <div class="custom-select" @click.stop="toggleLokasiMenu">
+            <span>{{ lokasiKerja }}</span>
+            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+            <div v-if="showLokasiMenu" class="select-menu">
+              <button
+                v-for="item in locations"
+                :key="item"
+                type="button"
+                class="select-item"
+                :class="{ active: lokasiKerja === item }"
+                @click.stop="selectLokasi(item)"
+              >
+                {{ item }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom Dropdown Divisi -->
+          <div class="custom-select" @click.stop="toggleDivisiMenu">
+            <span>{{ divisi }}</span>
+            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+            <div v-if="showDivisiMenu" class="select-menu">
+              <button
+                v-for="item in divisions"
+                :key="item"
+                type="button"
+                class="select-item"
+                :class="{ active: divisi === item }"
+                @click.stop="selectDivisi(item)"
+              >
+                {{ item }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom Dropdown Level / Grade -->
+          <div class="custom-select" @click.stop="toggleGradeMenu">
+            <span>{{ grade }}</span>
+            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+            <div v-if="showGradeMenu" class="select-menu">
+              <button
+                type="button"
+                class="select-item"
+                :class="{ active: grade === 'Semua Level' }"
+                @click.stop="selectGrade('Semua Level')"
+              >
+                Semua Level
+              </button>
+              <button
+                v-for="item in [3, 4, 5, 6]"
+                :key="item"
+                type="button"
+                class="select-item"
+                :class="{ active: grade === `Grade ${item}` }"
+                @click.stop="selectGrade(`Grade ${item}`)"
+              >
+                Grade {{ item }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Custom Dropdown Status -->
+          <div class="custom-select" @click.stop="toggleStatusMenu">
+            <span>{{ status }}</span>
+            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+            <div v-if="showStatusMenu" class="select-menu">
+              <button
+                v-for="st in ['Semua Status', 'Aktif', 'Menunggu Review', 'Perlu Update']"
+                :key="st"
+                type="button"
+                class="select-item"
+                :class="{ active: status === st }"
+                @click.stop="selectStatus(st)"
+              >
+                {{ st }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="search">
@@ -502,41 +749,167 @@ onMounted(() => {
   align-items: center;
   flex-wrap: wrap;
 }
-.month-filter {
+
+/* Custom Select & Month Picker Styles */
+.custom-select {
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   height: 40px;
-  margin: 0;
-  padding: 0 10px 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
   background: var(--card);
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.month-filter input {
-  width: 135px;
-  padding: 0;
-  border: 0;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  outline: none;
-  background: transparent;
-}
-.filters select {
-  height: 40px;
+  border: 1px solid var(--line);
   padding: 0 12px;
-  border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--card);
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
-  outline: none;
+  cursor: pointer;
+  min-width: 150px;
+  user-select: none;
+}
+
+.custom-select.month-picker {
+  min-width: 170px;
+  gap: 10px;
+}
+
+.custom-select svg,
+.custom-select .iconify {
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.select-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 200px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.select-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.select-item:hover {
+  background: #f4f5f8;
+}
+
+.select-item.active {
+  background: #f4f5f8;
+  color: var(--blue-900);
+  font-weight: 700;
+}
+
+/* Custom Month Picker Menu */
+.month-picker-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  padding: 14px;
+}
+
+.month-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.year-label {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+
+.nav-btn:hover {
+  background: #f4f5f8;
+  color: var(--blue-900);
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.month-item {
+  border: none;
+  background: #f7f8fa;
+  padding: 8px 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.month-item:hover {
+  background: #e8ebf5;
+  color: var(--blue-900);
+}
+
+.month-item.active {
+  background: var(--blue-900);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.month-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--blue-900);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.btn-text:hover {
+  text-decoration: underline;
 }
 
 .search {
@@ -675,7 +1048,6 @@ tbody tr:last-child td {
   font-size: 14px;
 }
 
-/* Status Badges */
 .status-badge {
   display: inline-flex;
   padding: 6px 12px;
@@ -712,7 +1084,6 @@ tbody tr:last-child td {
   color: var(--blue-900);
 }
 
-/* Table Footer / Pagination */
 .table-footer {
   display: flex;
   justify-content: flex-end;

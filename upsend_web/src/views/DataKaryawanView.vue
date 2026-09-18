@@ -386,17 +386,13 @@ onBeforeUnmount(() => {
           <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
             <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
           </button>
-
-          <div class="breadcrumb">
-            <span class="breadcrumb-root" @click="goBackToCompanies()">Perusahaan</span>
-            <template v-if="selectedCompany">
-              <span class="breadcrumb-separator">/</span>
-              <span class="breadcrumb-current">{{ selectedCompany.name }}</span>
-            </template>
-            <template v-if="selectedBranch">
-              <span class="breadcrumb-separator">/</span>
-              <span class="breadcrumb-current">{{ selectedBranch.name }}</span>
-            </template>
+          <div v-if="!selectedCompany" class="table-heading">
+            <h2>Pilih Kantor</h2>
+            <p>Pilih kantor terlebih dahulu untuk melihat data karyawan.</p>
+          </div>
+          <div v-else class="selected-office-heading">
+            <span>Kantor terpilih</span>
+            <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
           </div>
         </div>
 
@@ -406,7 +402,7 @@ onBeforeUnmount(() => {
             type="text"
             v-model="searchQuery"
             @input="onSearchInput"
-            placeholder="Cari nama perusahaan ..."
+            placeholder="Cari kantor..."
           />
         </div>
 
@@ -690,6 +686,29 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
 }
+.table-heading h2 {
+  margin: 0;
+  color: var(--blue-900);
+  font-size: 18px;
+  font-weight: 700;
+}
+.table-heading p {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.selected-office-heading span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.selected-office-heading h2 {
+  margin: 0;
+  color: var(--blue-900);
+  font-size: 18px;
+  font-weight: 700;
+}
 .breadcrumb {
   display: flex;
   align-items: center;
@@ -712,13 +731,21 @@ onBeforeUnmount(() => {
 
 /* Tombol Back Persis DetailAbsenView */
 .back-btn {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  display: grid;
-  place-items: center;
+  background: #ffffff;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  color: var(--ink);
+  color: #2c3345;
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: #f4f5f8;
 }
 
 .search {
@@ -784,7 +811,7 @@ thead th {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-align: left;
-  padding: 13px 24px;
+  padding: 14px 24px;
   text-transform: uppercase;
 }
 tbody td {
@@ -818,7 +845,7 @@ tbody tr:last-child td {
 }
 
 .action-column {
-  width: 120px;
+  width: 170px;
   text-align: center;
 }
 .action-cell {
