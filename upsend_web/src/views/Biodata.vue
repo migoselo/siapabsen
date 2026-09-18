@@ -157,6 +157,7 @@ function mapEmployee(data) {
   const locationName = data.homeLocation?.name || data.home_location?.name || '-'
   const name = displayValue(data.name)
   const role = roleLabel(data.role)
+  const division = displayValue(data.division ?? data.divisi)
 
   Object.assign(employee, {
     id: displayValue(data.id ?? route.params.id),
@@ -169,6 +170,7 @@ function mapEmployee(data) {
       id_karyawan: displayValue(data.employee_id || data.id),
       nama_panggilan: name,
       departemen: displayValue(data.department),
+      divisi: division,
       jabatan: role,
       golongan: displayValue(data.grade),
       cabang: displayValue(locationName),
@@ -326,6 +328,13 @@ onMounted(fetchEmployee)
               <span class="separator">:</span>
               <input v-if="isEditing.pekerjaan" v-model="tempForm.pekerjaan.departemen" class="edit-input" />
               <span v-else class="value">{{ employee.pekerjaan.departemen }}</span>
+            </div>
+
+            <div class="detail-row">
+              <span class="label">Divisi</span>
+              <span class="separator">:</span>
+              <input v-if="isEditing.pekerjaan" v-model="tempForm.pekerjaan.divisi" class="edit-input" />
+              <span v-else class="value">{{ employee.pekerjaan.divisi }}</span>
             </div>
 
             <div class="detail-row">

@@ -77,6 +77,11 @@ const routes = [
         name: 'GajiForm',
         component: () => import('@/views/FormGaji.vue'),
       },
+      {
+        path: 'shift-divisi',
+        name: 'ShiftDivisi',
+        component: () => import('@/views/KelolaShiftDivisi.vue'),
+      },
     ],
   },
 ]
