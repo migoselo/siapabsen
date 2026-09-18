@@ -21,7 +21,7 @@ class _Payroll {
   _Payroll(this.data);
 
   String? text(String key) => data[key] as String?;
-  int money(String key) => (data[key] as num?)?.round() ?? 0;
+  int money(String key) => data[key] == null ? -1 : (data[key] as num).round();
 }
 
 class SlipGajiPage extends StatefulWidget {
@@ -67,6 +67,7 @@ class _SlipGajiPageState extends State<SlipGajiPage> {
   }
 
   String _formatRupiah(int value) {
+    if (value < 0) return '-';
     final str = value.toString();
     final buffer = StringBuffer();
     for (int i = 0; i < str.length; i++) {
