@@ -135,7 +135,9 @@ function formatTickDate(dateStr) {
 async function fetchLocations() {
   try {
     const res = await api.get('/locations')
-    locations.value = res.data
+    locations.value = (Array.isArray(res.data) ? res.data : []).sort((a, b) =>
+      String(a.name ?? '').localeCompare(String(b.name ?? ''), 'id'),
+    )
   } catch (err) {
     console.error('Gagal mengambil daftar lokasi:', err)
   }

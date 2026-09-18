@@ -568,12 +568,20 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
+          <div class="field-row">
+            <div class="field">
+              <label>Alamat</label>
+              <div class="input-suffix">
+                <input type="text" v-model="form.address" placeholder="Contoh: Jl. Raya Bogor No. 123" />
+              </div>
+            </div>
             <div class="field">
               <label>Radius Absensi (Meter)</label>
               <div class="input-suffix">
                 <input type="number" v-model="form.radius" min="1" placeholder="25" />
               </div>
             </div>
+          </div>
 
             <div class="field">
               <label>Pilih Lokasi di Peta</label>
