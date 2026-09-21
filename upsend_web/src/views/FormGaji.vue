@@ -16,10 +16,9 @@ const selectedEmployee = computed(() =>
   employees.value.find((item) => String(item.id) === selectedEmployeeId.value),
 )
 const basic = ref(0)
-const positionAllowance = ref(0)
-const certificationAllowance = ref(0)
-const internetAllowance = ref(0)
+const transportAllowance = ref(0)
 const mealAllowance = ref(0)
+const attendanceAllowance = ref(0)
 const taxMethod = ref('TER Bulanan')
 const bpjsEmployment = ref(true)
 const bpjsHealth = ref(true)
@@ -49,9 +48,9 @@ async function fetchEmployees() {
 
 async function loadExistingPayroll(employee) {
   basic.value = 0
-  positionAllowance.value = 0
-  internetAllowance.value = 0
+  transportAllowance.value = 0
   mealAllowance.value = 0
+  attendanceAllowance.value = 0
   loan.value = 0
   customComponents.value = []
 
@@ -65,9 +64,9 @@ async function loadExistingPayroll(employee) {
     if (!payroll?.id) return
 
     basic.value = Number(payroll.basic_salary || 0)
-    positionAllowance.value = Number(payroll.transport_allowance || 0)
-    internetAllowance.value = Number(payroll.attendance_allowance || 0)
+    transportAllowance.value = Number(payroll.transport_allowance || 0)
     mealAllowance.value = Number(payroll.meal_allowance || 0)
+    attendanceAllowance.value = Number(payroll.attendance_allowance || 0)
     loan.value = Number(payroll.other_deduction || 0)
     if (Number(payroll.other_allowance || 0) > 0) {
       customComponents.value = [
@@ -103,9 +102,9 @@ async function handleSave() {
     user_id: Number(selectedEmployeeId.value),
     payroll_period: payrollPeriod(),
     basic_salary: Number(basic.value || 0),
-    transport_allowance: Number(positionAllowance.value || 0),
+    transport_allowance: Number(transportAllowance.value || 0),
     meal_allowance: Number(mealAllowance.value || 0),
-    attendance_allowance: Number(internetAllowance.value || 0),
+    attendance_allowance: Number(attendanceAllowance.value || 0),
     other_allowance: customComponents.value.reduce((sum, item) => sum + Number(item.amount || 0), 0),
     tax_deduction: taxMethod.value === 'Ditanggung Kantor' ? 0 : Number(calculation.value.tax || 0),
     other_deduction: Number(loan.value || 0),
@@ -140,10 +139,10 @@ async function handleSave() {
 }
 
 const calculation = computed(() => {
-  const fixed = Number(positionAllowance.value || 0) + Number(certificationAllowance.value || 0)
+  const fixed = Number(transportAllowance.value || 0)
   const variable =
-    Number(internetAllowance.value || 0) +
     Number(mealAllowance.value || 0) +
+    Number(attendanceAllowance.value || 0) +
     customComponents.value.reduce((sum, item) => sum + Number(item.amount || 0), 0)
   const gross = Number(basic.value || 0) + fixed + variable
   const employment = bpjsEmployment.value ? Number(basic.value || 0) * 0.03 : 0
@@ -212,29 +211,24 @@ onMounted(() => {
           <div class="fields">
             <label>Gaji Pokok<input v-model.number="basic" type="number" min="0" /></label
             ><label
-              >Tunjangan Jabatan<input
-                v-model.number="positionAllowance"
+              >Tunjangan Transportasi<input
+                v-model.number="transportAllowance"
                 type="number"
-                min="0" /></label
-            ><label
-              >Tunjangan Sertifikasi<input
-                v-model.number="certificationAllowance"
-                type="number"
-                min="0"
-            /></label>
+                min="0" /></label>
           </div>
         </section>
         <section class="card">
           <h2>2. Tunjangan Variabel & Operasional</h2>
           <div class="fields">
             <label
-              >Tunjangan Internet & WFH<input
-                v-model.number="internetAllowance"
+              >Tunjangan Makan<input v-model.number="mealAllowance" type="number" min="0"
+            /></label
+            ><label
+              >Tunjangan Kehadiran<input
+                v-model.number="attendanceAllowance"
                 type="number"
                 min="0" /></label
-            ><label
-              >Makan & Transport<input v-model.number="mealAllowance" type="number" min="0"
-            /></label>
+            >
           </div>
           <div v-for="component in customComponents" :key="component.id" class="custom-row">
             <input v-model="component.name" /><input

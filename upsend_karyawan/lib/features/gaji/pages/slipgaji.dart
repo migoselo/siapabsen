@@ -232,12 +232,15 @@ class _SlipGajiPageState extends State<SlipGajiPage> {
                 _formatRupiah(payroll.money('basic_salary')),
               ),
               moneyRow(
-                'Transport',
+                'Tunjangan Transportasi',
                 _formatRupiah(payroll.money('transport_allowance')),
               ),
-              moneyRow('Makan', _formatRupiah(payroll.money('meal_allowance'))),
               moneyRow(
-                'Kehadiran',
+                'Tunjangan Makan',
+                _formatRupiah(payroll.money('meal_allowance')),
+              ),
+              moneyRow(
+                'Tunjangan Kehadiran',
                 _formatRupiah(payroll.money('attendance_allowance')),
               ),
               moneyRow(
@@ -510,17 +513,17 @@ class _SlipGajiPageState extends State<SlipGajiPage> {
                           false,
                         ),
                         (
-                          'Transport',
+                          'Tunjangan Transportasi',
                           _formatRupiah(payroll.money('transport_allowance')),
                           false,
                         ),
                         (
-                          'Makan',
+                          'Tunjangan Makan',
                           _formatRupiah(payroll.money('meal_allowance')),
                           false,
                         ),
                         (
-                          'Kehadiran',
+                          'Tunjangan Kehadiran',
                           _formatRupiah(payroll.money('attendance_allowance')),
                           false,
                         ),
