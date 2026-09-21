@@ -36,7 +36,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         // Batasi hasil ke tenant saat ini (jika ada)
-        $query = User::with('homeLocation')->forTenant();
+        $query = User::with(['homeLocation', 'division', 'shift'])->forTenant();
 
         if ($request->filled('location_id')) {
             $query->where('home_location_id', $request->location_id);
@@ -68,6 +68,8 @@ class UserController extends Controller
             'no_hp' => 'nullable|string|max:255',
             'role' => 'required|in:admin,karyawan',
             'home_location_id' => 'nullable|exists:locations,id',
+            'division_id' => 'nullable|exists:divisions,id',
+            'shift_id' => 'nullable|exists:shifts,id',
             ...$this->biodataRules(),
         ]);
 
@@ -82,7 +84,7 @@ class UserController extends Controller
 
         $user = User::create($data);
 
-        return response()->json($user->load('homeLocation'), 201);
+        return response()->json($user->load(['homeLocation', 'division', 'shift']), 201);
     }
 
     protected function generateEmployeeId(int $tenantId): string
@@ -98,7 +100,7 @@ class UserController extends Controller
     {
         $this->ensureSameTenant($user);
 
-        return response()->json($user->load('homeLocation'));
+        return response()->json($user->load(['homeLocation', 'division', 'shift']));
     }
 
     public function update(Request $request, User $user)
@@ -119,12 +121,14 @@ class UserController extends Controller
             'no_hp' => 'nullable|string|max:255',
             'role' => 'sometimes|required|in:admin,karyawan',
             'is_active' => 'sometimes|boolean',
+            'division_id' => 'nullable|exists:divisions,id',
+            'shift_id' => 'nullable|exists:shifts,id',
             ...$this->biodataRules(),
         ]);
 
         $user->update($data);
 
-        return response()->json($user->load('homeLocation'));
+        return response()->json($user->load(['homeLocation', 'division', 'shift']));
     }
 
     protected function biodataRules(): array

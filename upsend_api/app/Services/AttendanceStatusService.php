@@ -16,23 +16,27 @@ class AttendanceStatusService
         }
 
         $location = $attendance->location;
+        $shift = $attendance->employee?->shift;
         $workStart = $this->timeOnDate(
             $checkIn,
-            $location?->work_start_time ?? '09:15:00',
+            $shift?->work_start_time ?? $location?->work_start_time ?? '09:15:00',
         );
         $workEnd = $this->timeOnDate(
             $checkIn,
-            $location?->work_end_time ?? '17:00:00',
+            $shift?->work_end_time ?? $location?->work_end_time ?? '17:00:00',
         );
+        if ($workEnd->lessThanOrEqualTo($workStart)) {
+            $workEnd->addDay();
+        }
 
         $checkOut = $attendance->check_out_time;
         if ($checkOut !== null &&
-            $checkOut->toDateString() !== $checkIn->toDateString()) {
+            ($checkOut->lessThan($checkIn) || $checkOut->greaterThan($workEnd->copy()->addDay()))) {
             return 'lupa_absen';
         }
 
         if ($checkOut === null &&
-            $checkIn->toDateString() < ($referenceTime ?? now())->toDateString()) {
+            ($referenceTime ?? now())->greaterThan($workEnd)) {
             return 'lupa_absen';
         }
 

@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import router from '../router'
 
 const api = axios.create({
-  baseURL: 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
+  baseURL: import.meta.env.DEV ? '/api' : 'https://dipodic-burlily-roxie.ngrok-free.dev/api',
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
