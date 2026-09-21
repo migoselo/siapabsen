@@ -297,8 +297,8 @@ class _PasswordField extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: SvgPicture.asset(
                   obscure
-                      ? 'assets/images/Eye.svg'
-                      : 'assets/images/Eye_Closed.svg',
+                      ? 'assets/images/Eye_Closed.svg'
+                      : 'assets/images/Eye.svg',
                   colorFilter: const ColorFilter.mode(
                     kDarkBlue,
                     BlendMode.srcIn,
