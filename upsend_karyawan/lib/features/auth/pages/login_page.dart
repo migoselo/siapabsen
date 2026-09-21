@@ -582,8 +582,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         suffixIcon: IconButton(
           icon: SvgPicture.asset(
             _obscurePassword
-                ? 'assets/images/Eye.svg'
-                : 'assets/images/Eye_Closed.svg',
+                ? 'assets/images/Eye_Closed.svg'
+                : 'assets/images/Eye.svg',
             width: 24,
             height: 24,
             colorFilter: const ColorFilter.mode(primaryColor, BlendMode.srcIn),
