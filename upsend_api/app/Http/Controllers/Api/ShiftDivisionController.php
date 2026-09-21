@@ -73,6 +73,7 @@ class ShiftDivisionController extends Controller
 
     public function storeShift(Request $request)
     {
+        $tenantId = $this->tenantId($request);
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'division_id' => 'nullable|exists:divisions,id',
@@ -80,7 +81,7 @@ class ShiftDivisionController extends Controller
             'work_end_time' => 'required|date_format:H:i',
             'is_active' => 'sometimes|boolean',
         ]);
-        $data['tenant_id'] = $this->tenantId($request);
+        $data['tenant_id'] = $tenantId;
         $this->ensureDivisionTenant($data['division_id'] ?? null, $tenantId);
         return response()->json(Shift::create($data)->load('division'), 201);
     }
