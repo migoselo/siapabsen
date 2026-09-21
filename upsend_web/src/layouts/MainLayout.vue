@@ -76,11 +76,11 @@ const navigation = [
     path: '/dashboard/gaji',
   },
   {
-    id: 'shift-divisi',
-    text: 'Kelola Shift Divisi',
+    id: 'divisi-shift',
+    text: 'Kelola Divisi dan Shift',
     icon: 'material-symbols:domain-rounded',
     activeIcon: 'material-symbols:domain-rounded',
-    path: '/dashboard/shift-divisi',
+    path: '/dashboard/divisi-shift',
   },
 ]
 

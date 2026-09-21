@@ -5,7 +5,7 @@ import { Icon } from '@iconify/vue'
 /* ------------------------------------------------------------------ */
 /* State Management & Mock Data                                        */
 /* ------------------------------------------------------------------ */
-const activeTab = ref('shift') // 'shift' | 'divisi'
+const activeTab = ref('divisi') // 'shift' | 'divisi'
 const searchQuery = ref('')
 const currentPage = ref(1)
 const perPage = ref(10)
@@ -21,21 +21,23 @@ const divisions = ref([
   { id: 'd6', name: 'Operations', description: 'Tim operasional harian dan logistik' },
 ])
 
-// Data Mock Shift
+// Data Mock Shift (divisionIds menggunakan array)
 const shifts = ref([
-  { id: 's1', name: 'Shift Pagi Reguler', clockIn: '08:00', clockOut: '17:00', divisionId: 'd1', status: 'Aktif' },
-  { id: 's2', name: 'Shift Pagi Reguler', clockIn: '08:00', clockOut: '17:00', divisionId: 'd5', status: 'Aktif' },
-  { id: 's3', name: 'Shift Fleksibel', clockIn: '09:00', clockOut: '18:00', divisionId: 'd2', status: 'Aktif' },
-  { id: 's4', name: 'Shift Fleksibel', clockIn: '09:00', clockOut: '18:00', divisionId: 'd4', status: 'Aktif' },
-  { id: 's5', name: 'Shift Malam (Ops)', clockIn: '20:00', clockOut: '05:00', divisionId: 'd6', status: 'Aktif' },
+  { id: 's1', name: 'Non Shift', clockIn: '09:00', clockOut: '17:00', divisionIds: ['d1', 'd3'], status: 'Aktif' },
+  { id: 's3', name: 'Shift Fleksibel', clockIn: '09:00', clockOut: '18:00', divisionIds: ['d2', 'd4'], status: 'Aktif' }
 ])
 
 /* ------------------------------------------------------------------ */
 /* Helper Functions                                                    */
 /* ------------------------------------------------------------------ */
-function getDivisionName(id) {
-  if (id === 'all') return 'Semua Divisi'
-  return divisions.value.find(d => d.id === id)?.name || '-'
+function getDivisionNames(ids) {
+  if (!ids || ids.length === 0) return '-'
+  if (ids.length === divisions.value.length) return 'Semua Divisi'
+  
+  return divisions.value
+    .filter(d => ids.includes(d.id))
+    .map(d => d.name)
+    .join(', ')
 }
 
 function calculateDuration(inTime, outTime) {
@@ -57,7 +59,7 @@ const filteredData = computed(() => {
     return shifts.value.filter(s => 
       !query || 
       s.name.toLowerCase().includes(query) || 
-      getDivisionName(s.divisionId).toLowerCase().includes(query)
+      getDivisionNames(s.divisionIds).toLowerCase().includes(query)
     )
   } else {
     return divisions.value.filter(d => 
@@ -104,7 +106,9 @@ const formData = ref({})
 function openModal(mode, item = null) {
   modalMode.value = mode
   if (activeTab.value === 'shift') {
-    formData.value = item ? { ...item } : { name: '', clockIn: '08:00', clockOut: '17:00', divisionId: 'd1', status: 'Aktif' }
+    formData.value = item 
+      ? { ...item, divisionIds: [...(item.divisionIds || [])] } 
+      : { name: '', clockIn: '08:00', clockOut: '17:00', divisionIds: [], status: 'Aktif' }
   } else {
     formData.value = item ? { ...item } : { name: '', description: '' }
   }
@@ -116,8 +120,21 @@ function closeModal() {
   formData.value = {}
 }
 
+function toggleAllDivisions(e) {
+  if (e.target.checked) {
+    formData.value.divisionIds = divisions.value.map(d => d.id)
+  } else {
+    formData.value.divisionIds = []
+  }
+}
+
 function saveForm() {
   if (activeTab.value === 'shift') {
+    if (!formData.value.divisionIds || formData.value.divisionIds.length === 0) {
+      alert('Harap pilih minimal satu divisi untuk shift ini.')
+      return
+    }
+
     if (modalMode.value === 'add') {
       shifts.value.push({ ...formData.value, id: `s${Date.now()}` })
     } else {
@@ -140,8 +157,7 @@ function deleteData(id) {
   if (activeTab.value === 'shift') {
     shifts.value = shifts.value.filter(s => s.id !== id)
   } else {
-    // Validasi sederhana jika divisi dihapus tapi masih dipakai di shift
-    const usedInShift = shifts.value.some(s => s.divisionId === id)
+    const usedInShift = shifts.value.some(s => s.divisionIds.includes(id))
     if (usedInShift) {
       alert('Divisi ini tidak bisa dihapus karena sedang digunakan pada data Shift.')
       return
@@ -198,19 +214,19 @@ function deleteData(id) {
         <div class="tabs">
           <button 
             class="tab" 
-            :class="{ 'tab-active': activeTab === 'shift' }" 
-            @click="changeTab('shift')"
-          >
-            Pengaturan Shift
-            <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'shift' }">{{ shifts.length }}</span>
-          </button>
-          <button 
-            class="tab" 
             :class="{ 'tab-active': activeTab === 'divisi' }" 
             @click="changeTab('divisi')"
           >
             Daftar Divisi
             <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'divisi' }">{{ divisions.length }}</span>
+          </button>
+          <button 
+            class="tab" 
+            :class="{ 'tab-active': activeTab === 'shift' }" 
+            @click="changeTab('shift')"
+          >
+            Pengaturan Shift
+            <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'shift' }">{{ shifts.length }}</span>
           </button>
         </div>
 
@@ -269,7 +285,7 @@ function deleteData(id) {
                   <strong class="text-dark">{{ shift.name }}</strong>
                 </td>
                 <td>
-                  <span class="badge badge-divisi">{{ getDivisionName(shift.divisionId) }}</span>
+                  <span class="badge badge-divisi">{{ getDivisionNames(shift.divisionIds) }}</span>
                 </td>
                 <td><span class="time-box in">{{ shift.clockIn }}</span></td>
                 <td><span class="time-box out">{{ shift.clockOut }}</span></td>
@@ -373,10 +389,24 @@ function deleteData(id) {
 
             <div class="form-group">
               <label>Pilih Divisi Terkait</label>
-              <select v-model="formData.divisionId" class="form-input select-input" required>
-                <option value="all">Berlaku untuk Semua Divisi</option>
-                <option v-for="d in divisions" :key="d.id" :value="d.id">{{ d.name }}</option>
-              </select>
+              <div class="checkbox-group">
+                <label class="checkbox-label font-bold">
+                  <input 
+                    type="checkbox" 
+                    :checked="formData.divisionIds?.length === divisions.length"
+                    @change="toggleAllDivisions" 
+                  />
+                  Pilih Semua Divisi
+                </label>
+                <div class="divider"></div>
+                <label v-for="d in divisions" :key="d.id" class="checkbox-label">
+                  <input type="checkbox" v-model="formData.divisionIds" :value="d.id" />
+                  {{ d.name }}
+                </label>
+              </div>
+              <span class="form-hint" v-if="formData.divisionIds?.length === 0">
+                Harap pilih minimal satu divisi.
+              </span>
             </div>
 
             <div class="form-group">
@@ -526,7 +556,7 @@ function deleteData(id) {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  transform: translateY(1px); /* align border with bottom line */
+  transform: translateY(1px);
 }
 .tab-active {
   color: var(--blue-900);
@@ -752,12 +782,49 @@ function deleteData(id) {
 }
 .form-input:focus { border-color: var(--blue-900); box-shadow: 0 0 0 3px rgba(47, 59, 105, 0.1); }
 .select-input { cursor: pointer; appearance: auto; }
+.form-hint { color: var(--ink-soft); font-size: 12px; }
 .textarea-input { resize: vertical; min-height: 80px; font-family: inherit; }
 
 .modal-footer {
   display: flex; justify-content: flex-end; gap: 12px;
   margin-top: 8px; padding-top: 20px;
   border-top: 1px solid var(--line);
+}
+
+/* Checkbox Styles */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-dark);
+  cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--blue-900);
+}
+.checkbox-label.font-bold {
+  font-weight: 700;
+  color: var(--blue-900);
+}
+.divider {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
 }
 
 @media (max-width: 640px) {
