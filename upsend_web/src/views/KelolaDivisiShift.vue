@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
 
 /* ------------------------------------------------------------------ */
@@ -97,11 +97,27 @@ function changePerPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Modal Form (Tambah/Edit)                                            */
+/* Modal Form & Custom Dropdown State                                  */
 /* ------------------------------------------------------------------ */
 const showModal = ref(false)
 const modalMode = ref('add') // 'add' | 'edit'
 const formData = ref({})
+const showStatusMenu = ref(false) // State untuk custom dropdown
+
+// Tutup dropdown jika area di luarnya diklik
+function handleOutsideClick(e) {
+  if (!e.target.closest?.('.custom-select')) {
+    showStatusMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleOutsideClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick)
+})
 
 function openModal(mode, item = null) {
   modalMode.value = mode
@@ -117,6 +133,7 @@ function openModal(mode, item = null) {
 
 function closeModal() {
   showModal.value = false
+  showStatusMenu.value = false
   formData.value = {}
 }
 
@@ -363,7 +380,7 @@ function deleteData(id) {
       <div class="modal">
         <div class="modal-header">
           <h2>{{ modalMode === 'add' ? 'Tambah' : 'Edit' }} {{ activeTab === 'shift' ? 'Shift' : 'Divisi' }}</h2>
-          <button class="icon-btn-plain" @click="closeModal">
+          <button type="button" class="icon-btn-plain" @click="closeModal">
             <Icon icon="material-symbols:close" width="20" />
           </button>
         </div>
@@ -409,12 +426,32 @@ function deleteData(id) {
               </span>
             </div>
 
+            <!-- Custom Dropdown untuk Status Shift -->
             <div class="form-group">
               <label>Status Shift</label>
-              <select v-model="formData.status" class="form-input select-input">
-                <option value="Aktif">Aktif</option>
-                <option value="Tidak Aktif">Tidak Aktif</option>
-              </select>
+              <div class="custom-select" @click.stop="showStatusMenu = !showStatusMenu">
+                <span>{{ formData.status }}</span>
+                <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+
+                <div v-if="showStatusMenu" class="select-menu">
+                  <button
+                    type="button"
+                    class="select-item"
+                    :class="{ active: formData.status === 'Aktif' }"
+                    @click.stop="formData.status = 'Aktif'; showStatusMenu = false"
+                  >
+                    Aktif
+                  </button>
+                  <button
+                    type="button"
+                    class="select-item"
+                    :class="{ active: formData.status === 'Tidak Aktif' }"
+                    @click.stop="formData.status = 'Tidak Aktif'; showStatusMenu = false"
+                  >
+                    Tidak Aktif
+                  </button>
+                </div>
+              </div>
             </div>
           </template>
 
@@ -756,7 +793,7 @@ function deleteData(id) {
   border-radius: 16px;
   width: 100%; max-width: 500px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-  overflow: hidden;
+  overflow: visible; /* Diubah agar custom-select-menu tidak terpotong (overflowing) */
 }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -825,6 +862,68 @@ function deleteData(id) {
   height: 1px;
   background: var(--line);
   margin: 4px 0;
+}
+
+/* Custom Select Dropdown (Seperti DataIzinCuti.vue) */
+.custom-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-dark);
+  cursor: pointer;
+  user-select: none;
+  transition: border 0.2s;
+}
+.custom-select:focus-within,
+.custom-select:active {
+  border-color: var(--blue-900);
+  box-shadow: 0 0 0 3px rgba(47, 59, 105, 0.1);
+}
+.custom-select svg,
+.custom-select .iconify {
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.select-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  padding: 6px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.select-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--ink-dark);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.select-item:hover {
+  background: #f4f5f8;
+}
+.select-item.active {
+  background: #f4f5f8;
+  color: var(--blue-900);
+  font-weight: 700;
 }
 
 @media (max-width: 640px) {
