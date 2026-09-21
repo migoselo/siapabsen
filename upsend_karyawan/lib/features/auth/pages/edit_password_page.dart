@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../repository/auth_repository.dart';
 import 'reset_password_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
 
 const Color kDarkBlue = Color(0xFF2F3B69);
 const Color kTextSecondary = Color(0xFF6B7280);
@@ -34,27 +35,24 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
     super.dispose();
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message.replaceFirst('Exception: ', ''))),
-    );
-  }
-
   Future<void> _submit() async {
     final oldPassword = _oldPasswordController.text;
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
     if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
-      _showSnackBar('Semua field wajib diisi.');
+      AppSnackbar.warning(context, 'Semua field wajib diisi.');
       return;
     }
     if (newPassword.length < 6) {
-      _showSnackBar('Password baru minimal 6 karakter.');
+      AppSnackbar.warning(context, 'Password baru minimal 6 karakter.');
       return;
     }
     if (newPassword != confirmPassword) {
-      _showSnackBar('Password baru dan ulangi password tidak sama.');
+      AppSnackbar.warning(
+        context,
+        'Password baru dan ulangi password tidak sama.',
+      );
       return;
     }
 
@@ -66,11 +64,14 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
         newPasswordConfirmation: confirmPassword,
       );
       if (!mounted) return;
-      _showSnackBar('Password berhasil diubah.');
+      AppSnackbar.success(context, 'Password berhasil diubah.');
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar(e.toString());
+      AppSnackbar.error(
+        context,
+        e.toString().replaceFirst('Exception: ', ''),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -117,7 +118,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 48), // seimbangin lebar tombol back
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
@@ -142,17 +143,6 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Ubah Password',
-                      style: TextStyle(
-                        fontFamily: kFontFamily,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: kTextSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
                     _PasswordField(
                       label: 'Password Lama',
                       hint: 'Masukkan password lama',
@@ -218,8 +208,8 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                     const SizedBox(height: 12),
 
                     Center(
-                      child: GestureDetector(
-                        onTap: () {
+                      child: TextButton(
+                        onPressed: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
