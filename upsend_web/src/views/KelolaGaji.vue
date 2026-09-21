@@ -176,7 +176,11 @@ const normalizeEmployee = (item) => {
     lokasiKerja: item.user?.home_location?.name || 'Belum diatur',
     pokok: Number(item.basic_salary || 0),
     tetap: Number(item.transport_allowance || 0) + Number(item.attendance_allowance || 0),
-    variabel: Number(item.meal_allowance || 0) + Number(item.other_allowance || 0),
+    variabel:
+      Number(item.meal_allowance || 0) +
+      Number(item.performance_allowance || 0) +
+      Number(item.holiday_allowance || 0) +
+      Number(item.other_allowance || 0),
     potongan,
     netSalary,
     status: 'Aktif',

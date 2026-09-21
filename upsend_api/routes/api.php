@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\PayrollController;
+use App\Http\Controllers\Api\ShiftDivisionController;
 use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -54,6 +55,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/admin/leave-requests/{leaveRequest}/status', [LeaveRequestController::class, 'updateStatus']);
 
         Route::apiResource('locations', LocationController::class);
+
+        Route::get('/tenants', [ShiftDivisionController::class, 'indexTenants']);
+        Route::get('/divisions', [ShiftDivisionController::class, 'indexDivisions']);
+        Route::post('/divisions', [ShiftDivisionController::class, 'storeDivision']);
+        Route::put('/divisions/{division}', [ShiftDivisionController::class, 'updateDivision']);
+        Route::delete('/divisions/{division}', [ShiftDivisionController::class, 'destroyDivision']);
+        Route::get('/shifts', [ShiftDivisionController::class, 'indexShifts']);
+        Route::post('/shifts', [ShiftDivisionController::class, 'storeShift']);
+        Route::put('/shifts/{shift}', [ShiftDivisionController::class, 'updateShift']);
+        Route::delete('/shifts/{shift}', [ShiftDivisionController::class, 'destroyShift']);
 
         Route::apiResource('users', UserController::class);
         Route::patch('/users/{user}/transfer', [UserController::class, 'transfer']);
