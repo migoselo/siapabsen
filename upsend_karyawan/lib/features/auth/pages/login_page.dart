@@ -5,8 +5,25 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:upsend_karyawan/features/auth/bloc/auth_bloc.dart';
 import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
 import 'package:upsend_karyawan/features/auth/pages/reset_password_screen.dart';
+import 'package:upsend_karyawan/core/api/api.dart';
 
 enum LoginType { email, employeeId, phone }
+
+class LocationItem {
+  final int id;
+  final String name;
+
+  LocationItem({required this.id, required this.name});
+
+  factory LocationItem.fromJson(Map<String, dynamic> json) {
+    return LocationItem(
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id'].toString()) ?? 0,
+      name: json['name']?.toString() ?? '',
+    );
+  }
+}
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -36,6 +53,11 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   static const Color selectorBackground = Color(0xFFF3F3F3);
   static const Color borderColor = Color(0xFFCBD5E1);
 
+  // State untuk data Kantor Cabang Dinamis
+  List<LocationItem> _locations = [];
+  LocationItem? _selectedLocation;
+  bool _isLoadingLocations = false;
+
   TextStyle _jakartaStyle({
     double fontSize = 14,
     FontWeight fontWeight = FontWeight.normal,
@@ -54,6 +76,37 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _fetchLocationsFromBackend();
+  }
+
+  Future<void> _fetchLocationsFromBackend() async {
+    setState(() {
+      _isLoadingLocations = true;
+    });
+
+    try {
+      final response = await Api.dio.get('/locations');
+      if (response.statusCode == 200 && response.data != null) {
+        final List dynamicList = response.data is List
+            ? response.data
+            : (response.data['data'] ?? []);
+
+        setState(() {
+          _locations = dynamicList
+              .map((item) => LocationItem.fromJson(item))
+              .where((loc) => loc.name.trim().isNotEmpty && loc.name != '0')
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Gagal memuat daftar kantor cabang: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingLocations = false;
+        });
+      }
+    }
   }
 
   void _applyScrollPosition() {
@@ -99,8 +152,6 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       case LoginType.email:
         return _emailController.text.trim();
       case LoginType.employeeId:
-        final company = _companyController.text.trim();
-        if (company.isNotEmpty) return company;
         return _employeeIdController.text.trim();
       case LoginType.phone:
         return _phoneController.text.trim();
@@ -114,7 +165,18 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     final identifierEmpty = identifier.isEmpty;
     final passwordEmpty = password.isEmpty;
 
-    // 1. Cek kosong dulu (kombinasi & satu-satu)
+    // Validasi kantor cabang khusus opsi Login ID Karyawan
+    if (_currentLoginType == LoginType.employeeId) {
+      if (_selectedLocation == null && identifierEmpty && passwordEmpty) {
+        AppSnackbar.warning(context, _getBothEmptyMessage());
+        return;
+      }
+      if (_selectedLocation == null && _companyController.text.trim().isEmpty) {
+        AppSnackbar.warning(context, 'Kantor cabang wajib dipilih!');
+        return;
+      }
+    }
+
     if (identifierEmpty && passwordEmpty) {
       AppSnackbar.warning(context, _getBothEmptyMessage());
       return;
@@ -130,14 +192,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       return;
     }
 
-    // 2. Cek format identifier sesuai tab aktif
     final formatError = _validateIdentifierFormat(identifier);
     if (formatError != null) {
       AppSnackbar.warning(context, formatError);
       return;
     }
 
-    // 3. Cek panjang minimum password
     if (password.length < 6) {
       AppSnackbar.warning(context, 'Password minimal 6 karakter!');
       return;
@@ -148,7 +208,6 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     );
   }
 
-  /// Balikin pesan error kalau format identifier gak valid, null kalau valid
   String? _validateIdentifierFormat(String identifier) {
     switch (_currentLoginType) {
       case LoginType.email:
@@ -158,11 +217,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
         return null;
 
       case LoginType.employeeId:
-        final company = _companyController.text.trim();
         final employeeId = _employeeIdController.text.trim();
-        if (company.isNotEmpty && !_isValidEmail(company)) {
-          return 'Format kantor cabang tidak valid!';
-        }
         if (employeeId.isEmpty) {
           return 'ID karyawan wajib diisi!';
         }
@@ -422,12 +477,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildLabel('Kantor Cabang'),
-            _buildInputField(
-              controller: _companyController,
-              hintText: 'Masukkan nama kantor cabang',
-              prefixIconAsset: 'assets/images/Message.svg',
-              prefixIconSize: const Size(16, 16),
-            ),
+            _buildBranchDropdownField(),
             const SizedBox(height: 18),
             _buildLabel('ID Karyawan'),
             _buildInputField(
@@ -493,6 +543,134 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           ],
         );
     }
+  }
+
+  Widget _buildBranchDropdownField() {
+    if (_isLoadingLocations) {
+      return Container(
+        height: 50,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: primaryColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Memuat kantor cabang...',
+              style: _jakartaStyle(color: subtitleColor, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return RawAutocomplete<LocationItem>(
+          displayStringForOption: (LocationItem option) => option.name,
+          textEditingController: _companyController,
+          focusNode: FocusNode(),
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (textEditingValue.text.isEmpty) {
+              return _locations; // Menampilkan seluruh list jika input kosong
+            }
+            return _locations.where((LocationItem option) {
+              return option.name.toLowerCase().contains(
+                textEditingValue.text.toLowerCase(),
+              );
+            });
+          },
+          onSelected: (LocationItem selection) {
+            setState(() {
+              _selectedLocation = selection;
+              _companyController.text = selection.name;
+            });
+          },
+          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              style: _jakartaStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Pilih atau cari kantor cabang',
+                hintStyle: _jakartaStyle(color: subtitleColor, fontSize: 14),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.all(14),
+                  // Gunakan Icon bawaan jika asset SVG belum ada/bermasalah
+                  child: Icon(
+                    Icons.business_rounded,
+                    color: subtitleColor,
+                    size: 20,
+                  ),
+                ),
+                suffixIcon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: subtitleColor,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 15,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: borderColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: primaryColor, width: 1.5),
+                ),
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+                child: SizedBox(
+                  width:
+                      constraints.maxWidth, // Lebar disamakan dengan TextField
+                  height: options.length > 3
+                      ? 200
+                      : null, // Mencegah batas overflow
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1, color: selectorBackground),
+                    itemBuilder: (BuildContext context, int index) {
+                      final option = options.elementAt(index);
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          option.name,
+                          style: _jakartaStyle(fontSize: 14),
+                        ),
+                        onTap: () => onSelected(option),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildLabel(String label) {
