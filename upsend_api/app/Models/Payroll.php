@@ -16,7 +16,9 @@ class Payroll extends Model
         'basic_salary',
         'transport_allowance',
         'meal_allowance',
+        'performance_allowance',
         'attendance_allowance',
+        'holiday_allowance',
         'other_allowance',
         'tax_deduction',
         'other_deduction',
@@ -30,7 +32,9 @@ class Payroll extends Model
         'basic_salary' => 'decimal:2',
         'transport_allowance' => 'decimal:2',
         'meal_allowance' => 'decimal:2',
+        'performance_allowance' => 'decimal:2',
         'attendance_allowance' => 'decimal:2',
+        'holiday_allowance' => 'decimal:2',
         'other_allowance' => 'decimal:2',
         'tax_deduction' => 'decimal:2',
         'other_deduction' => 'decimal:2',
@@ -45,7 +49,9 @@ class Payroll extends Model
     {
         return (float) $this->transport_allowance
             + (float) $this->meal_allowance
+            + (float) $this->performance_allowance
             + (float) $this->attendance_allowance
+            + (float) $this->holiday_allowance
             + (float) $this->other_allowance;
     }
 

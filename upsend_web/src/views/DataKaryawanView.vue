@@ -24,6 +24,8 @@ watch(currentPage, (newPage) => {
 const showModal = ref(false)
 const saving = ref(false)
 const locations = ref([])
+const divisions = ref([])
+const shifts = ref([])
 const companies = ref([])
 const selectedCompany = ref(null)
 const selectedBranch = ref(null)
@@ -34,6 +36,8 @@ const form = ref({
   no_hp: '',
   role: 'karyawan',
   home_location_id: '',
+  division_id: '',
+  shift_id: '',
 })
 
 const showPassword = ref(false)
@@ -178,6 +182,10 @@ const companyTree = computed(() => {
         name: employeeName,
         email: emp.email || '-',
         no_hp: emp.no_hp || '-',
+        division: emp.division?.name || emp.division_name || '-',
+        shift: emp.shift
+          ? `${emp.shift.name} (${String(emp.shift.work_start_time).slice(0, 5)}-${String(emp.shift.work_end_time).slice(0, 5)})`
+          : 'Gunakan jam lokasi',
         raw: emp
       })
       target.count = target.employees.length
@@ -272,6 +280,8 @@ function openAddModal() {
     no_hp: '',
     role: 'karyawan',
     home_location_id: '',
+    division_id: '',
+    shift_id: '',
   }
   showPassword.value = false
   showModal.value = true
@@ -323,6 +333,8 @@ async function submitNewEmployee() {
       no_hp: no_hp || null,
       role: form.value.role,
       ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
+      ...(form.value.division_id ? { division_id: Number(form.value.division_id) } : {}),
+      ...(form.value.shift_id ? { shift_id: Number(form.value.shift_id) } : {}),
     }
 
     await api.post('/users', payload)
@@ -355,9 +367,23 @@ async function fetchLocations() {
   }
 }
 
+async function fetchShiftSettings() {
+  try {
+    const [divisionResponse, shiftResponse] = await Promise.all([
+      api.get('/divisions'),
+      api.get('/shifts'),
+    ])
+    divisions.value = divisionResponse.data || []
+    shifts.value = shiftResponse.data || []
+  } catch (err) {
+    console.error('Gagal mengambil pengaturan shift:', err)
+  }
+}
+
 onMounted(() => {
   fetchEmployees()
   fetchLocations()
+  fetchShiftSettings()
 })
 
 onBeforeUnmount(() => {
@@ -475,12 +501,14 @@ onBeforeUnmount(() => {
             <th>Nama Karyawan</th>
             <th>Email</th>
             <th>Nomor HP</th>
+            <th>Divisi</th>
+            <th>Jam Kerja / Shift</th>
             <th class="action-column">Aksi</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="currentEmployees.length === 0">
-            <td colspan="5" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
+            <td colspan="7" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
           </tr>
           <tr v-for="emp in currentEmployees" :key="emp.id">
             <td class="emp-id-cell">{{ emp.id }}</td>
@@ -490,6 +518,8 @@ onBeforeUnmount(() => {
             </td>
             <td>{{ emp.email }}</td>
             <td>{{ emp.no_hp || '-' }}</td>
+            <td>{{ emp.division }}</td>
+            <td>{{ emp.shift }}</td>
             <td class="action-cell">
               <!-- Hanya Tombol "Lihat" saja -->
               <button type="button" class="detail-link-btn" @click="goToEmployeeDetail(emp)">
@@ -616,6 +646,30 @@ onBeforeUnmount(() => {
                 <select v-model="form.home_location_id">
                   <option value="" disabled>Pilih lokasi</option>
                   <option v-for="loc in locations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Divisi</label>
+                <select v-model="form.division_id">
+                  <option value="">Tanpa divisi</option>
+                  <option v-for="division in divisions" :key="division.id" :value="division.id">
+                    {{ division.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Jam Kerja / Shift</label>
+                <select v-model="form.shift_id">
+                  <option value="">Gunakan jam lokasi</option>
+                  <option
+                    v-for="shift in shifts.filter((item) => !form.division_id || item.division_id === Number(form.division_id))"
+                    :key="shift.id"
+                    :value="shift.id"
+                  >
+                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} - {{ shift.work_end_time.slice(0, 5) }})
+                  </option>
                 </select>
               </div>
             </div>

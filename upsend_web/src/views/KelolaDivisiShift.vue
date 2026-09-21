@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
+import api from '../api'
 
 /* ------------------------------------------------------------------ */
-/* State Management & Mock Data                                        */
+/* State Management                                                     */
 /* ------------------------------------------------------------------ */
 const activeTab = ref('divisi') // 'shift' | 'divisi'
 const searchQuery = ref('')
@@ -11,21 +12,12 @@ const currentPage = ref(1)
 const perPage = ref(10)
 const pageInput = ref(1)
 
-// Data Mock Divisi
-const divisions = ref([
-  { id: 'd1', name: 'Engineering', description: 'Tim pengembang perangkat lunak dan infrastruktur IT' },
-  { id: 'd2', name: 'Marketing', description: 'Tim pemasaran, media sosial, dan campaign' },
-  { id: 'd3', name: 'Finance', description: 'Tim keuangan, akuntansi, dan penggajian' },
-  { id: 'd4', name: 'Creative', description: 'Tim desain grafis, video, dan konten visual' },
-  { id: 'd5', name: 'HR', description: 'Tim sumber daya manusia dan rekrutmen' },
-  { id: 'd6', name: 'Operations', description: 'Tim operasional harian dan logistik' },
-])
-
-// Data Mock Shift (divisionIds menggunakan array)
-const shifts = ref([
-  { id: 's1', name: 'Non Shift', clockIn: '09:00', clockOut: '17:00', divisionIds: ['d1', 'd3'], status: 'Aktif' },
-  { id: 's3', name: 'Shift Fleksibel', clockIn: '09:00', clockOut: '18:00', divisionIds: ['d2', 'd4'], status: 'Aktif' }
-])
+const divisions = ref([])
+const shifts = ref([])
+const companies = ref([])
+const selectedCompany = ref(null)
+const loading = ref(false)
+const saving = ref(false)
 
 /* ------------------------------------------------------------------ */
 /* Helper Functions                                                    */
@@ -58,8 +50,8 @@ const filteredData = computed(() => {
   if (activeTab.value === 'shift') {
     return shifts.value.filter(s => 
       !query || 
-      s.name.toLowerCase().includes(query) || 
-      getDivisionNames(s.divisionIds).toLowerCase().includes(query)
+        s.name.toLowerCase().includes(query) ||
+        getDivisionName(s.division_id).toLowerCase().includes(query)
     )
   } else {
     return divisions.value.filter(d => 
@@ -67,6 +59,14 @@ const filteredData = computed(() => {
       d.name.toLowerCase().includes(query)
     )
   }
+})
+
+const filteredCompanies = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return companies.value
+  return companies.value.filter((company) =>
+    `${company.name} ${company.address || ''}`.toLowerCase().includes(query),
+  )
 })
 
 const totalRecords = computed(() => filteredData.value.length)
@@ -122,9 +122,7 @@ onUnmounted(() => {
 function openModal(mode, item = null) {
   modalMode.value = mode
   if (activeTab.value === 'shift') {
-    formData.value = item 
-      ? { ...item, divisionIds: [...(item.divisionIds || [])] } 
-      : { name: '', clockIn: '08:00', clockOut: '17:00', divisionIds: [], status: 'Aktif' }
+    formData.value = item ? { ...item } : { name: '', work_start_time: '08:00', work_end_time: '17:00', division_id: null, is_active: true }
   } else {
     formData.value = item ? { ...item } : { name: '', description: '' }
   }
@@ -145,47 +143,131 @@ function toggleAllDivisions(e) {
   }
 }
 
-function saveForm() {
-  if (activeTab.value === 'shift') {
-    if (!formData.value.divisionIds || formData.value.divisionIds.length === 0) {
-      alert('Harap pilih minimal satu divisi untuk shift ini.')
-      return
-    }
-
-    if (modalMode.value === 'add') {
-      shifts.value.push({ ...formData.value, id: `s${Date.now()}` })
-    } else {
-      const idx = shifts.value.findIndex(s => s.id === formData.value.id)
-      if (idx !== -1) shifts.value[idx] = { ...formData.value }
-    }
-  } else {
-    if (modalMode.value === 'add') {
-      divisions.value.push({ ...formData.value, id: `d${Date.now()}` })
-    } else {
-      const idx = divisions.value.findIndex(d => d.id === formData.value.id)
-      if (idx !== -1) divisions.value[idx] = { ...formData.value }
-    }
+async function saveForm() {
+  saving.value = true
+  try {
+    const resource = activeTab.value === 'shift' ? 'shifts' : 'divisions'
+    const payload = activeTab.value === 'shift'
+      ? { name: formData.value.name, division_id: formData.value.division_id || null, work_start_time: formData.value.work_start_time, work_end_time: formData.value.work_end_time, is_active: formData.value.is_active }
+      : { name: formData.value.name, description: formData.value.description || '', is_active: formData.value.is_active ?? true }
+    const requestConfig = { params: { tenant_id: selectedCompany.value.id } }
+    if (modalMode.value === 'add') await api.post(`/${resource}`, payload, requestConfig)
+    else await api.put(`/${resource}/${formData.value.id}`, payload, requestConfig)
+    await fetchData()
+    closeModal()
+  } catch (error) {
+    alert(error.response?.data?.message || 'Data gagal disimpan.')
+  } finally {
+    saving.value = false
   }
-  closeModal()
 }
 
-function deleteData(id) {
+async function deleteData(id) {
   if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return
-  if (activeTab.value === 'shift') {
-    shifts.value = shifts.value.filter(s => s.id !== id)
-  } else {
-    const usedInShift = shifts.value.some(s => s.divisionIds.includes(id))
-    if (usedInShift) {
-      alert('Divisi ini tidak bisa dihapus karena sedang digunakan pada data Shift.')
-      return
-    }
-    divisions.value = divisions.value.filter(d => d.id !== id)
+  try {
+    await api.delete(`/${activeTab.value === 'shift' ? 'shifts' : 'divisions'}/${id}`, {
+      params: { tenant_id: selectedCompany.value.id },
+    })
+    await fetchData()
+  } catch (error) {
+    alert(error.response?.data?.message || 'Data gagal dihapus.')
   }
 }
+
+async function fetchData() {
+  if (!selectedCompany.value) return
+  loading.value = true
+  try {
+    const config = { params: { tenant_id: selectedCompany.value.id } }
+    const [divisionResponse, shiftResponse] = await Promise.all([
+      api.get('/divisions', config),
+      api.get('/shifts', config),
+    ])
+    divisions.value = divisionResponse.data
+    shifts.value = shiftResponse.data
+  } catch (error) {
+    alert(error.response?.data?.message || 'Data shift dan divisi gagal dimuat.')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchCompanies() {
+  try {
+    const [locationResponse, userResponse] = await Promise.all([
+      api.get('/locations'),
+      api.get('/users', { params: { per_page: 1000 } }),
+    ])
+    const locations = Array.isArray(locationResponse.data) ? locationResponse.data : []
+    const users = Array.isArray(userResponse.data?.data) ? userResponse.data.data : []
+
+    companies.value = locations.map((location) => ({
+      id: location.tenant_id || location.id,
+      location_id: location.id,
+      name: location.name,
+      address: location.address,
+      users_count: users.filter((user) => Number(user.home_location_id) === Number(location.id)).length,
+    }))
+  } catch (error) {
+    alert(error.response?.data?.message || 'Daftar perusahaan gagal dimuat.')
+  }
+}
+
+function selectCompany(company) {
+  selectedCompany.value = company
+  divisions.value = []
+  shifts.value = []
+  fetchData()
+}
+
+onMounted(fetchCompanies)
 </script>
 
 <template>
   <div class="shift-divisi-page">
+    <section v-if="!selectedCompany" class="panel table-panel">
+      <div class="filter-bar">
+        <div class="breadcrumb-wrap">
+          <div class="table-heading">
+            <h2>Pilih Perusahaan</h2>
+            <p>Pilih perusahaan untuk mengatur divisi dan jam kerja.</p>
+          </div>
+        </div>
+        <div class="search">
+          <Icon icon="material-symbols:search-rounded" width="18" height="18" />
+          <input v-model="searchQuery" type="text" placeholder="Cari perusahaan..." />
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Nama Perusahaan</th>
+            <th>Alamat</th>
+            <th>Jumlah Karyawan</th>
+            <th class="action-column">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="loading"><td colspan="4" class="empty-cell">Memuat data...</td></tr>
+          <tr v-else-if="filteredCompanies.length === 0"><td colspan="4" class="empty-cell">Data perusahaan tidak ditemukan.</td></tr>
+          <tr v-for="company in filteredCompanies" :key="`${company.id}-${company.location_id}`">
+            <td><strong>{{ company.name }}</strong></td>
+            <td>{{ company.address || '-' }}</td>
+            <td><span class="count-badge">{{ company.users_count || 0 }} Orang</span></td>
+            <td class="action-cell">
+              <button type="button" class="detail-link-btn" @click="selectCompany(company)">Kelola Shift</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <template v-else>
+    <div class="company-context">
+      <button type="button" class="change-company" @click="selectedCompany = null; divisions = []; shifts = []">
+        <Icon icon="material-symbols:arrow-back-rounded" width="18" /> Pilih Perusahaan Lain
+      </button>
+      <strong>{{ selectedCompany.name }}</strong>
+    </div>
     <!-- Stat Cards Summary -->
     <div class="stats-grid">
       <div class="summary-card">
@@ -226,7 +308,7 @@ function deleteData(id) {
     </div>
 
     <!-- Main Card Panel -->
-    <div class="card">
+    <div class="panel table-panel">
       <div class="card-toolbar">
         <div class="tabs">
           <button 
@@ -302,14 +384,14 @@ function deleteData(id) {
                   <strong class="text-dark">{{ shift.name }}</strong>
                 </td>
                 <td>
-                  <span class="badge badge-divisi">{{ getDivisionNames(shift.divisionIds) }}</span>
+                  <span class="badge badge-divisi">{{ getDivisionName(shift.division_id) }}</span>
                 </td>
-                <td><span class="time-box in">{{ shift.clockIn }}</span></td>
-                <td><span class="time-box out">{{ shift.clockOut }}</span></td>
-                <td>{{ calculateDuration(shift.clockIn, shift.clockOut) }}</td>
+                <td><span class="time-box in">{{ shift.work_start_time?.slice(0, 5) }}</span></td>
+                <td><span class="time-box out">{{ shift.work_end_time?.slice(0, 5) }}</span></td>
+                <td>{{ calculateDuration(shift.work_start_time, shift.work_end_time) }}</td>
                 <td>
-                  <span class="badge" :class="shift.status === 'Aktif' ? 'badge-green' : 'badge-gray'">
-                    {{ shift.status }}
+                  <span class="badge" :class="shift.is_active ? 'badge-green' : 'badge-gray'">
+                    {{ shift.is_active ? 'Aktif' : 'Tidak Aktif' }}
                   </span>
                 </td>
                 <td>
@@ -328,7 +410,7 @@ function deleteData(id) {
             <!-- Render Baris Divisi -->
             <template v-else>
               <tr v-for="div in paginatedData" :key="div.id">
-                <td><span class="text-soft">{{ div.id.toUpperCase() }}</span></td>
+                <td><span class="text-soft">DIV-{{ div.id }}</span></td>
                 <td><strong class="text-dark">{{ div.name }}</strong></td>
                 <td><span class="text-soft">{{ div.description || '-' }}</span></td>
                 <td>
@@ -396,62 +478,29 @@ function deleteData(id) {
             <div class="form-row">
               <div class="form-group">
                 <label>Jam Masuk (Clock In)</label>
-                <input v-model="formData.clockIn" type="time" class="form-input" required />
+                <input v-model="formData.work_start_time" type="time" class="form-input" required />
               </div>
               <div class="form-group">
                 <label>Jam Pulang (Clock Out)</label>
-                <input v-model="formData.clockOut" type="time" class="form-input" required />
+                <input v-model="formData.work_end_time" type="time" class="form-input" required />
               </div>
             </div>
 
             <div class="form-group">
               <label>Pilih Divisi Terkait</label>
-              <div class="checkbox-group">
-                <label class="checkbox-label font-bold">
-                  <input 
-                    type="checkbox" 
-                    :checked="formData.divisionIds?.length === divisions.length"
-                    @change="toggleAllDivisions" 
-                  />
-                  Pilih Semua Divisi
-                </label>
-                <div class="divider"></div>
-                <label v-for="d in divisions" :key="d.id" class="checkbox-label">
-                  <input type="checkbox" v-model="formData.divisionIds" :value="d.id" />
-                  {{ d.name }}
-                </label>
-              </div>
-              <span class="form-hint" v-if="formData.divisionIds?.length === 0">
-                Harap pilih minimal satu divisi.
-              </span>
+              <select v-model="formData.division_id" class="form-input select-input">
+                <option :value="null">Berlaku untuk Semua Divisi</option>
+                <option v-for="d in divisions" :key="d.id" :value="d.id">{{ d.name }}</option>
+              </select>
             </div>
 
             <!-- Custom Dropdown untuk Status Shift -->
             <div class="form-group">
               <label>Status Shift</label>
-              <div class="custom-select" @click.stop="showStatusMenu = !showStatusMenu">
-                <span>{{ formData.status }}</span>
-                <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
-
-                <div v-if="showStatusMenu" class="select-menu">
-                  <button
-                    type="button"
-                    class="select-item"
-                    :class="{ active: formData.status === 'Aktif' }"
-                    @click.stop="formData.status = 'Aktif'; showStatusMenu = false"
-                  >
-                    Aktif
-                  </button>
-                  <button
-                    type="button"
-                    class="select-item"
-                    :class="{ active: formData.status === 'Tidak Aktif' }"
-                    @click.stop="formData.status = 'Tidak Aktif'; showStatusMenu = false"
-                  >
-                    Tidak Aktif
-                  </button>
-                </div>
-              </div>
+              <select v-model="formData.is_active" class="form-input select-input">
+                <option :value="true">Aktif</option>
+                <option :value="false">Tidak Aktif</option>
+              </select>
             </div>
           </template>
 
@@ -474,6 +523,7 @@ function deleteData(id) {
         </form>
       </div>
     </div>
+    </template>
   </div>
 </template>
 

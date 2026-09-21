@@ -17,6 +17,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'password', 'no_hp', 'role', 'home_location_id', 'is_active',
         'employee_id',
+        'division_id', 'shift_id',
         'department', 'grade', 'employee_type', 'joined_at', 'nik', 'birth_place',
         'birth_date', 'gender', 'religion', 'blood_type', 'marital_status', 'address',
         'emergency_contact', 'bank_name', 'bank_account_number', 'bank_account_name',
@@ -39,6 +40,16 @@ class User extends Authenticatable
     public function homeLocation()
     {
         return $this->belongsTo(Location::class, 'home_location_id');
+    }
+
+    public function division()
+    {
+        return $this->belongsTo(Division::class);
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
     }
 
     public function attendances()
