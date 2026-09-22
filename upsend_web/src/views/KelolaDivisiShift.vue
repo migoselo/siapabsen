@@ -4,7 +4,7 @@ import { Icon } from '@iconify/vue'
 import api from '../api'
 
 /* ------------------------------------------------------------------ */
-/* State Management & Mock Data                                       */
+/* State Management                                                    */
 /* ------------------------------------------------------------------ */
 // Flow Perusahaan
 const companies = ref([])
@@ -25,10 +25,28 @@ const shifts = ref([])
 /* ------------------------------------------------------------------ */
 /* Helper Functions                                                    */
 /* ------------------------------------------------------------------ */
+// CATATAN: backend menyimpan field dengan nama snake_case
+// (division_ids/divisions, work_start_time, work_end_time, is_active).
+// Fungsi ini menerjemahkan respons API itu ke bentuk camelCase yang
+// dipakai di seluruh file ini (divisionIds, clockIn, clockOut, status),
+// supaya template & fungsi lain di bawah tidak perlu diubah.
+function normalizeShift(raw) {
+  const divisionIds =
+    raw.division_ids ?? (Array.isArray(raw.divisions) ? raw.divisions.map((d) => d.id) : [])
+  return {
+    id: raw.id,
+    name: raw.name,
+    clockIn: (raw.work_start_time || '').slice(0, 5),
+    clockOut: (raw.work_end_time || '').slice(0, 5),
+    divisionIds,
+    status: raw.is_active ? 'Aktif' : 'Tidak Aktif',
+  }
+}
+
 function getDivisionNames(ids) {
   if (!ids || !Array.isArray(ids) || ids.length === 0) return '-'
-  if (ids.length === divisions.value.length) return 'Semua Divisi'
-  
+  if (divisions.value.length > 0 && ids.length === divisions.value.length) return 'Semua Divisi'
+
   return divisions.value
     .filter(d => ids.includes(d.id))
     .map(d => d.name)
@@ -59,14 +77,14 @@ const filteredCompanies = computed(() => {
 const filteredData = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   if (activeTab.value === 'shift') {
-    return shifts.value.filter(s => 
-      !query || 
-      s.name.toLowerCase().includes(query) || 
+    return shifts.value.filter(s =>
+      !query ||
+      s.name.toLowerCase().includes(query) ||
       getDivisionNames(s.divisionIds).toLowerCase().includes(query)
     )
   } else {
-    return divisions.value.filter(d => 
-      !query || 
+    return divisions.value.filter(d =>
+      !query ||
       d.name.toLowerCase().includes(query)
     )
   }
@@ -100,18 +118,30 @@ function changePerPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/* API Data Fetching                                                   */
+/* API Data Fetching (nyata — dummy data dihapus)                       */
 /* ------------------------------------------------------------------ */
 async function fetchCompanies() {
-  // Mock Fetching Perusahaan
   loading.value = true
-  setTimeout(() => {
-    companies.value = [
-      { id: 1, location_id: 101, name: 'PT Maju Bersama', address: 'Jl. Sudirman No. 1', users_count: 120 },
-      { id: 2, location_id: 102, name: 'PT Teknologi Jaya', address: 'Jl. Thamrin No. 2', users_count: 85 },
-    ]
+  try {
+    const [locationResponse, userResponse] = await Promise.all([
+      api.get('/locations'),
+      api.get('/users', { params: { per_page: 1000 } }),
+    ])
+    const locations = Array.isArray(locationResponse.data) ? locationResponse.data : []
+    const users = Array.isArray(userResponse.data?.data) ? userResponse.data.data : []
+
+    companies.value = locations.map((location) => ({
+      id: location.tenant_id || location.id,
+      location_id: location.id,
+      name: location.name,
+      address: location.address,
+      users_count: users.filter((user) => Number(user.home_location_id) === Number(location.id)).length,
+    }))
+  } catch (error) {
+    alert(error.response?.data?.message || 'Daftar perusahaan gagal dimuat.')
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 function selectCompany(company) {
@@ -120,22 +150,22 @@ function selectCompany(company) {
   fetchDataForCompany()
 }
 
-function fetchDataForCompany() {
+async function fetchDataForCompany() {
   if (!selectedCompany.value) return
   loading.value = true
-  
-  // Mock Data spesifik per perusahaan
-  setTimeout(() => {
-    divisions.value = [
-      { id: 'd1', name: 'Engineering', description: 'Tim pengembang' },
-      { id: 'd2', name: 'Marketing', description: 'Tim pemasaran' }
-    ]
-    shifts.value = [
-      { id: 's1', name: 'Shift Pagi', clockIn: '08:00', clockOut: '17:00', divisionIds: ['d1', 'd2'], status: 'Aktif' },
-      { id: 's2', name: 'Shift Malam', clockIn: '20:00', clockOut: '05:00', divisionIds: ['d1'], status: 'Tidak Aktif' }
-    ]
+  try {
+    const config = { params: { tenant_id: selectedCompany.value.id } }
+    const [divisionResponse, shiftResponse] = await Promise.all([
+      api.get('/divisions', config),
+      api.get('/shifts', config),
+    ])
+    divisions.value = divisionResponse.data
+    shifts.value = (Array.isArray(shiftResponse.data) ? shiftResponse.data : []).map(normalizeShift)
+  } catch (error) {
+    alert(error.response?.data?.message || 'Data shift dan divisi gagal dimuat.')
+  } finally {
     loading.value = false
-  }, 400)
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -179,8 +209,8 @@ onUnmounted(() => {
 function openModal(mode, item = null) {
   modalMode.value = mode
   if (activeTab.value === 'shift') {
-    formData.value = item 
-      ? { ...item, divisionIds: [...(item.divisionIds || [])] } 
+    formData.value = item
+      ? { ...item, divisionIds: [...(item.divisionIds || [])] }
       : { name: '', clockIn: '08:00', clockOut: '17:00', divisionIds: [], status: 'Aktif' }
   } else {
     formData.value = item ? { ...item } : { name: '', description: '' }
@@ -204,47 +234,57 @@ function toggleAllDivisions(e) {
   }
 }
 
-function saveForm() {
-  if (activeTab.value === 'shift') {
-    if (!formData.value.divisionIds || formData.value.divisionIds.length === 0) {
-      alert('Harap pilih minimal satu divisi untuk shift ini.')
-      return
-    }
-    if (modalMode.value === 'add') {
-      shifts.value.push({ ...formData.value, id: `s${Date.now()}` })
-    } else {
-      const idx = shifts.value.findIndex(s => s.id === formData.value.id)
-      if (idx !== -1) shifts.value[idx] = { ...formData.value }
-    }
-  } else {
-    if (modalMode.value === 'add') {
-      divisions.value.push({ ...formData.value, id: `d${Date.now()}` })
-    } else {
-      const idx = divisions.value.findIndex(d => d.id === formData.value.id)
-      if (idx !== -1) divisions.value[idx] = { ...formData.value }
-    }
+async function saveForm() {
+  if (activeTab.value === 'shift' && (!formData.value.divisionIds || formData.value.divisionIds.length === 0)) {
+    alert('Harap pilih minimal satu divisi untuk shift ini.')
+    return
   }
-  closeModal()
+  saving.value = true
+  try {
+    const resource = activeTab.value === 'shift' ? 'shifts' : 'divisions'
+    // CATATAN: di sinilah field camelCase lokal diterjemahkan balik
+    // ke nama field yang diharapkan backend Laravel. Sesuaikan kalau
+    // controller-mu memakai nama lain.
+    const payload = activeTab.value === 'shift'
+      ? {
+          name: formData.value.name,
+          division_ids: formData.value.divisionIds,
+          work_start_time: formData.value.clockIn,
+          work_end_time: formData.value.clockOut,
+          is_active: formData.value.status === 'Aktif',
+        }
+      : {
+          name: formData.value.name,
+          description: formData.value.description || '',
+        }
+    const requestConfig = { params: { tenant_id: selectedCompany.value.id } }
+    if (modalMode.value === 'add') await api.post(`/${resource}`, payload, requestConfig)
+    else await api.put(`/${resource}/${formData.value.id}`, payload, requestConfig)
+    await fetchDataForCompany()
+    closeModal()
+  } catch (error) {
+    alert(error.response?.data?.message || 'Data gagal disimpan.')
+  } finally {
+    saving.value = false
+  }
 }
 
-function deleteData(id) {
+async function deleteData(id) {
   if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return
-  if (activeTab.value === 'shift') {
-    shifts.value = shifts.value.filter(s => s.id !== id)
-  } else {
-    const usedInShift = shifts.value.some(s => s.divisionIds.includes(id))
-    if (usedInShift) {
-      alert('Divisi ini tidak bisa dihapus karena sedang digunakan pada data Shift.')
-      return
-    }
-    divisions.value = divisions.value.filter(d => d.id !== id)
+  try {
+    await api.delete(`/${activeTab.value === 'shift' ? 'shifts' : 'divisions'}/${id}`, {
+      params: { tenant_id: selectedCompany.value.id },
+    })
+    await fetchDataForCompany()
+  } catch (error) {
+    alert(error.response?.data?.message || 'Data gagal dihapus.')
   }
 }
 </script>
 
 <template>
   <div class="shift-divisi-page">
-    
+
     <!-- TAMPILAN 1: LIST PERUSAHAAN (Jika Belum Dipilih) -->
     <section v-if="!selectedCompany" class="panel table-panel">
       <div class="filter-bar">
@@ -259,7 +299,7 @@ function deleteData(id) {
           <input v-model="searchQuery" type="text" placeholder="Cari perusahaan..." />
         </div>
       </div>
-      
+
       <table class="table">
         <thead>
           <tr>
@@ -277,7 +317,7 @@ function deleteData(id) {
             <td><span class="text-soft">{{ company.address || '-' }}</span></td>
             <td><span class="badge badge-divisi">{{ company.users_count || 0 }} Orang</span></td>
             <td class="action-column">
-              <button type="button" class="btn-primary" @click="selectCompany(company)">Kelola Shift</button>
+              <button type="button" class="detail-link-btn" @click="selectCompany(company)">Kelola Shift</button>
             </td>
           </tr>
         </tbody>
@@ -288,7 +328,7 @@ function deleteData(id) {
     <template v-else>
       <div class="company-context">
         <button type="button" class="back-btn" @click="selectedCompany = null; divisions = []; shifts = []">
-          <Icon icon="material-symbols:arrow-back-rounded" width="18" /> 
+          <Icon icon="material-symbols:arrow-back-rounded" width="18" />
         </button>
         <span class="company-name-display">{{ selectedCompany.name }}</span>
       </div>
@@ -336,17 +376,17 @@ function deleteData(id) {
       <div class="card">
         <div class="card-toolbar">
           <div class="tabs">
-            <button 
-              class="tab" 
-              :class="{ 'tab-active': activeTab === 'divisi' }" 
+            <button
+              class="tab"
+              :class="{ 'tab-active': activeTab === 'divisi' }"
               @click="changeTab('divisi')"
             >
               Daftar Divisi
               <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'divisi' }">{{ divisions.length }}</span>
             </button>
-            <button 
-              class="tab" 
-              :class="{ 'tab-active': activeTab === 'shift' }" 
+            <button
+              class="tab"
+              :class="{ 'tab-active': activeTab === 'shift' }"
               @click="changeTab('shift')"
             >
               Pengaturan Shift
@@ -357,14 +397,14 @@ function deleteData(id) {
           <div class="toolbar-actions">
             <div class="search-box">
               <Icon icon="material-symbols:search" width="18" class="search-icon" />
-              <input 
-                v-model="searchQuery" 
-                type="text" 
-                :placeholder="activeTab === 'shift' ? 'Cari nama shift/divisi...' : 'Cari nama divisi...'" 
+              <input
+                v-model="searchQuery"
+                type="text"
+                :placeholder="activeTab === 'shift' ? 'Cari nama shift/divisi...' : 'Cari nama divisi...'"
               />
             </div>
             <button class="btn-primary" @click="openModal('add')">
-              <Icon icon="material-symbols:add-rounded" width="18" /> 
+              <Icon icon="material-symbols:add-rounded" width="18" />
               Tambah {{ activeTab === 'shift' ? 'Shift' : 'Divisi' }}
             </button>
           </div>
@@ -412,8 +452,8 @@ function deleteData(id) {
                   <td>
                     <span class="badge badge-divisi">{{ getDivisionNames(shift.divisionIds) }}</span>
                   </td>
-                  <td><span class="time-box in">{{ shift.clockIn?.slice(0, 5) }}</span></td>
-                  <td><span class="time-box out">{{ shift.clockOut?.slice(0, 5) }}</span></td>
+                  <td><span class="time-box in">{{ shift.clockIn }}</span></td>
+                  <td><span class="time-box out">{{ shift.clockOut }}</span></td>
                   <td>{{ calculateDuration(shift.clockIn, shift.clockOut) }}</td>
                   <td>
                     <span class="badge" :class="shift.status === 'Aktif' ? 'badge-green' : 'badge-gray'">
@@ -436,7 +476,7 @@ function deleteData(id) {
               <!-- Render Baris Divisi -->
               <template v-else-if="activeTab === 'divisi' && !loading">
                 <tr v-for="div in paginatedData" :key="div.id">
-                  <td><span class="text-soft">{{ div.id.toUpperCase() }}</span></td>
+                  <td><span class="text-soft">DIV-{{ div.id }}</span></td>
                   <td><strong class="text-dark">{{ div.name }}</strong></td>
                   <td><span class="text-soft">{{ div.description || '-' }}</span></td>
                   <td>
@@ -492,7 +532,7 @@ function deleteData(id) {
               <Icon icon="material-symbols:close" width="20" />
             </button>
           </div>
-          
+
           <form @submit.prevent="saveForm" class="modal-body">
             <!-- Form Shift -->
             <template v-if="activeTab === 'shift'">
@@ -500,7 +540,7 @@ function deleteData(id) {
                 <label>Nama Shift</label>
                 <input v-model="formData.name" type="text" class="form-input" placeholder="Misal: Shift Pagi Reguler" required />
               </div>
-              
+
               <div class="form-row">
                 <!-- Custom Clock In -->
                 <div class="form-group">
@@ -574,10 +614,10 @@ function deleteData(id) {
                 <label>Pilih Divisi Terkait</label>
                 <div class="checkbox-group">
                   <label class="checkbox-label font-bold">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       :checked="formData.divisionIds?.length === divisions.length && divisions.length > 0"
-                      @change="toggleAllDivisions" 
+                      @change="toggleAllDivisions"
                     />
                     Pilih Semua Divisi
                   </label>
@@ -635,8 +675,10 @@ function deleteData(id) {
             </template>
 
             <div class="modal-footer">
-              <button type="button" class="btn-ghost" @click="closeModal">Batal</button>
-              <button type="submit" class="btn-primary">Simpan Data</button>
+              <button type="button" class="btn-ghost" @click="closeModal" :disabled="saving">Batal</button>
+              <button type="submit" class="btn-primary" :disabled="saving">
+                {{ saving ? 'Menyimpan...' : 'Simpan Data' }}
+              </button>
             </div>
           </form>
         </div>
@@ -879,6 +921,7 @@ function deleteData(id) {
   white-space: nowrap;
 }
 .btn-primary:hover { background: #252f58; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-ghost {
   display: inline-flex;
@@ -894,6 +937,7 @@ function deleteData(id) {
   cursor: pointer;
 }
 .btn-ghost:hover { background: #f4f5f8; }
+.btn-ghost:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Table */
 .table-wrap {
@@ -985,9 +1029,22 @@ function deleteData(id) {
   cursor: pointer;
 }
 .back-btn:hover {
-  background: var(--surface-soft);
+  background: var(--bg);
 }
-
+.detail-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue-900);
+  font-weight: 700;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+.detail-link-btn:hover {
+  text-decoration: underline;
+}
 /* Pagination */
 .table-footer {
   display: flex;
