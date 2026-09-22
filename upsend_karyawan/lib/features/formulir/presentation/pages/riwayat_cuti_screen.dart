@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,6 +12,7 @@ import 'package:upsend_karyawan/features/formulir/kategori_cuti.dart';
 import 'package:upsend_karyawan/features/formulir/models/cuti_model.dart';
 
 import '../../../../core/api/api.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/widgets/custom_bottom_navbar.dart';
 import '../../../attendance/pages/checkin_location_page.dart';
 import 'detail_cuti_screen.dart';
@@ -79,6 +81,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         ),
       );
       final data = response.data is List ? response.data as List : const [];
+      await _notifyStatusChanges(data);
       final signature = data
           .map(
             (item) => '${item['id']}:${item['status']}:${item['updated_at']}',
@@ -112,6 +115,47 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
       }
     } finally {
       _isRefreshing = false;
+    }
+  }
+
+  Future<void> _notifyStatusChanges(List<dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    for (final rawItem in data) {
+      if (rawItem is! Map) continue;
+
+      final id = rawItem['id']?.toString();
+      if (id == null || id.isEmpty) continue;
+
+      final status = (rawItem['status'] ?? 'pending').toString().toLowerCase();
+      final previousStatus = prefs.getString('leave_request_status_$id');
+
+      if (previousStatus != null && previousStatus != status) {
+        final type = (rawItem['type'] ?? 'Cuti').toString();
+        if (status == 'approved') {
+          if (type.toLowerCase().contains('lembur')) {
+            await NotificationService.instance.showOvertimeRequestApproved();
+          } else {
+            await NotificationService.instance.showLeaveRequestApproved(
+              type: type,
+            );
+          }
+        } else if (status == 'rejected') {
+          final reason = rawItem['admin_note']?.toString();
+          if (type.toLowerCase().contains('lembur')) {
+            await NotificationService.instance.showOvertimeRequestRejected(
+              reason: reason,
+            );
+          } else {
+            await NotificationService.instance.showLeaveRequestRejected(
+              type: type,
+              reason: reason,
+            );
+          }
+        }
+      }
+
+      await prefs.setString('leave_request_status_$id', status);
     }
   }
 

@@ -29,7 +29,7 @@ class PayrollCalculationService
         $calculationStart = $calculationStart->lessThan($periodStart) ? $periodStart : $calculationStart;
         $calculationStart->setTimezone($timezone);
         $effectiveWorkDays = $this->effectiveWorkDays($calculationStart, $periodEnd);
-        $attendedDates = $attendance
+        $attendedDates = collect($attendance
             ->filter(function (Attendance $item): bool {
                 return $item->check_in_time !== null
                     && !in_array(strtolower((string) $item->status), ['alpha', 'mangkir', 'bolos'], true);
@@ -39,7 +39,8 @@ class PayrollCalculationService
                 ->setTimezone($timezone)
                 ->toDateString())
             ->unique()
-            ->values();
+            ->values()
+            ->all());
         $approvedLeaveDates = $this->approvedLeaveDates(
             $payroll->user_id,
             $periodStart,
@@ -115,10 +116,9 @@ class PayrollCalculationService
 
     private function workStart(Attendance $attendance): Carbon
     {
-        $time = $attendance->location?->work_start_time ?? '09:15:00';
-        if (str_contains($time, '.')) {
-            $time = explode('.', $time, 2)[0];
-        }
+        $rawTime = (string) ($attendance->location?->work_start_time ?? '09:15:00');
+        preg_match('/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/', $rawTime, $matches);
+        $time = $matches[1] ?? '09:15:00';
         $time = strlen($time) === 5 ? $time . ':00' : $time;
 
         $checkIn = $attendance->check_in_time->copy()->setTimezone(config('app.timezone'));

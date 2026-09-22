@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../core/services/camera_service.dart';
 import '../../../core/services/face_registration_service.dart';
 import '../../../core/services/face_embedding_service.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/widgets/face_camera_preview.dart';
 import '../../attendance/repository/attendance_repository.dart';
 import 'face_registration_success_dialog.dart';
@@ -61,6 +62,7 @@ class _FaceRegistrationCameraPageState
     try {
       final file = await _cameraService.takePictureIfFaceDetected();
       if (file == null) {
+        await NotificationService.instance.showFaceVerificationFailed();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Wajah tidak terdeteksi. Coba lagi.')),
@@ -92,6 +94,7 @@ class _FaceRegistrationCameraPageState
           Navigator.pop(context); // tutup intro page juga
         }
       } else {
+        await NotificationService.instance.showFaceVerificationFailed();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -102,6 +105,7 @@ class _FaceRegistrationCameraPageState
         setState(() => _isSaving = false);
       }
     } catch (e) {
+      await NotificationService.instance.showFaceVerificationFailed();
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,

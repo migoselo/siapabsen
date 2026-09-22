@@ -99,21 +99,32 @@ function handleReject() {
         <!-- Tinjau Permohonan -->
         <div class="card review-card">
           <h3>Tinjau Permohonan</h3>
-          <p class="review-desc">Silakan tinjau rincian yang diberikan dan setujui atau tolak pengajuan ini.</p>
-          
-          <label class="comment-label">Catatan</label>
-          <textarea
-            v-model="comment"
-            class="comment-textarea"
-            placeholder="Tambahkan komentar untuk karyawan.."
-          ></textarea>
+          <template v-if="request.status === 'pending'">
+            <p class="review-desc">Silakan tinjau rincian yang diberikan dan setujui atau tolak pengajuan ini.</p>
 
-          <button class="btn-action btn-accept" @click="handleApprove">
-            <Icon icon="material-symbols:check-circle-outline" width="18" /> Terima
-          </button>
-          <button class="btn-action btn-refuse" @click="handleReject">
-            <Icon icon="material-symbols:cancel-outline" width="18" /> Tolak
-          </button>
+            <label class="comment-label">Catatan</label>
+            <textarea
+              v-model="comment"
+              class="comment-textarea"
+              placeholder="Tambahkan komentar untuk karyawan.."
+            ></textarea>
+
+            <button class="btn-action btn-accept" @click="handleApprove">
+              <Icon icon="material-symbols:check-circle-outline" width="18" /> Terima
+            </button>
+            <button class="btn-action btn-refuse" @click="handleReject">
+              <Icon icon="material-symbols:cancel-outline" width="18" /> Tolak
+            </button>
+          </template>
+          <div v-else class="status-result" :class="request.status">
+            <Icon
+              :icon="request.status === 'approved'
+                ? 'material-symbols:check-circle-outline'
+                : 'material-symbols:cancel-outline'"
+              width="22"
+            />
+            <span>{{ request.status === 'approved' ? 'Pengajuan sudah diterima' : 'Pengajuan sudah ditolak' }}</span>
+          </div>
         </div>
 
         <!-- Konteks Bulanan -->
@@ -369,6 +380,24 @@ function handleReject() {
 }
 .btn-refuse:hover {
   background: #e2e5f0;
+}
+
+.status-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.status-result.approved {
+  background: #e9f9ef;
+  color: #1b8a5a;
+}
+.status-result.rejected {
+  background: #fdeeee;
+  color: #c53030;
 }
 
 /* Monthly Context Card */

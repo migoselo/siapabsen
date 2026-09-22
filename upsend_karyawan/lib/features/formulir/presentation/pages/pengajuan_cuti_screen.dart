@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../../core/api/api.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import '../../../../core/widgets/riwayat_calendar_dialog.dart';
 import 'dart:async';
@@ -80,7 +81,8 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
       _tanggalMulai = selection.date;
       // Kalau tanggal selesai yang sudah dipilih jadi nggak valid lagi
       // (sebelum tanggal mulai baru), reset supaya user pilih ulang.
-      if (_tanggalSelesai != null && _tanggalSelesai!.isBefore(selection.date)) {
+      if (_tanggalSelesai != null &&
+          _tanggalSelesai!.isBefore(selection.date)) {
         _tanggalSelesai = null;
       }
     });
@@ -345,7 +347,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
           ),
       });
 
-      await Api.dio.post(
+      final response = await Api.dio.post(
         '/leave-requests',
         data: formData,
         onSendProgress: hasAttachment
@@ -357,6 +359,22 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
               }
             : null,
       );
+
+      final requestId = response.data is Map
+          ? response.data['id']?.toString()
+          : null;
+      if (requestId != null && requestId.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('leave_request_status_$requestId', 'pending');
+      }
+
+      if (_isLembur) {
+        await NotificationService.instance.showOvertimeRequestSubmitted();
+      } else {
+        await NotificationService.instance.showLeaveRequestSubmitted(
+          type: tipeLabel,
+        );
+      }
 
       if (_isCuti) {
         final startDate = _tanggalMulai!;
