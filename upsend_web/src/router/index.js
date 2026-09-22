@@ -12,6 +12,16 @@ const routes = [
     component: () => import('../views/LoginView.vue'),
   },
   {
+    path: '/aktivasi-akun',
+    name: 'AccountActivation',
+    component: () => import('../views/EmailActionView.vue'),
+  },
+  {
+    path: '/reset-password',
+    name: 'PasswordReset',
+    component: () => import('../views/EmailActionView.vue'),
+  },
+  {
     path: '/dashboard',
     component: () => import('../layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
@@ -98,6 +108,14 @@ router.beforeEach((to, from) => {
   if (requiresAuth && !token) {
     return { name: 'Login' }
   }
+})
+
+router.onError((error) => {
+  const message = String(error?.message || '')
+  if (message.includes('Failed to fetch dynamically imported module')) {
+    console.warn('Modul halaman gagal dimuat. Silakan refresh halaman setelah Vite siap.')
+  }
+  console.error('Gagal berpindah halaman:', error)
 })
 
 export default router
