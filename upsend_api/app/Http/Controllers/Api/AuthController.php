@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -128,6 +129,78 @@ class AuthController extends Controller
             'message' => 'Password berhasil diubah.',
             'success' => true,
         ]);
+    }
+
+    public function activateAccount(Request $request)
+    {
+        $data = $request->validate([
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = User::where('invitation_token', hash('sha256', $data['token']))
+            ->where('invitation_expires_at', '>', now())
+            ->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Link aktivasi tidak valid atau sudah kedaluwarsa.'], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($data['password']),
+            'is_active' => true,
+            'invitation_token' => null,
+            'invitation_expires_at' => null,
+        ]);
+
+        return response()->json(['message' => 'Akun berhasil diaktifkan. Silakan login.']);
+    }
+
+    public function requestPasswordReset(Request $request)
+    {
+        $data = $request->validate(['email' => 'required|email']);
+        $user = User::where('email', trim($data['email']))->first();
+
+        if ($user) {
+            $token = Str::random(64);
+            $user->update([
+                'password_reset_token' => hash('sha256', $token),
+                'password_reset_expires_at' => now()->addMinutes(30),
+            ]);
+            $resetUrl = rtrim((string) env('FRONTEND_URL', 'http://localhost:5173'), '/')
+                . '/reset-password?token=' . urlencode($token);
+            app(\App\Services\EmailDeliveryService::class)->send(
+                $user->email,
+                'Reset Password Upsend',
+                "Gunakan link berikut untuk membuat password baru:\n{$resetUrl}\n\nLink berlaku 30 menit.",
+            );
+        }
+
+        return response()->json(['message' => 'Jika email terdaftar, link reset telah dikirim.']);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $data = $request->validate([
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+        $user = User::where('password_reset_token', hash('sha256', $data['token']))
+            ->where('password_reset_expires_at', '>', now())
+            ->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Link reset tidak valid atau sudah kedaluwarsa.'], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($data['password']),
+            'is_active' => true,
+            'password_reset_token' => null,
+            'password_reset_expires_at' => null,
+        ]);
+
+        return response()->json(['message' => 'Password berhasil diubah.']);
     }
 
     public function logout(Request $request)

@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -54,17 +55,10 @@ class UserController extends Controller
     {
         $tenantId = $this->currentTenantId();
 
-        // unique email scoped to tenant if tenant active, otherwise global unique
-        $emailRule = $tenantId
-            ? Rule::unique('users')->where(function ($q) use ($tenantId) {
-                $q->where('tenant_id', $tenantId);
-            })
-            : 'unique:users,email';
-
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => ['required','email',$emailRule],
-            'password' => 'required|string|min:6',
+            'email' => ['required','email'],
+            'password' => 'nullable|string|min:6',
             'no_hp' => 'nullable|string|max:255',
             'role' => 'required|in:admin,karyawan',
             'home_location_id' => 'nullable|exists:locations,id',
@@ -78,13 +72,65 @@ class UserController extends Controller
             unset($data['tenant_id']);
         }
 
-        $data['password'] = Hash::make($data['password']);
+        $existingUser = User::where('tenant_id', $tenantId)
+            ->where('email', $data['email'])
+            ->first();
+
+        if ($existingUser) {
+            if ($existingUser->is_active) {
+                return response()->json([
+                    'message' => 'Email tersebut sudah terdaftar pada akun aktif.',
+                ], 422);
+            }
+
+            $invitationToken = Str::random(64);
+            $existingUser->update([
+                'name' => $data['name'],
+                'no_hp' => $data['no_hp'] ?? null,
+                'home_location_id' => $data['home_location_id'] ?? null,
+                'role' => $data['role'],
+                'invitation_token' => hash('sha256', $invitationToken),
+                'invitation_expires_at' => now()->addHours(48),
+                'invited_at' => now(),
+            ]);
+
+            $activationUrl = rtrim((string) config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173')), '/')
+                . '/aktivasi-akun?token=' . urlencode($invitationToken);
+            app(\App\Services\EmailDeliveryService::class)->send(
+                $existingUser->email,
+                'Undangan Aktivasi Akun Upsend',
+                "Halo {$existingUser->name},\n\nBerikut link aktivasi akun Anda:\n{$activationUrl}\n\nLink berlaku 48 jam.",
+            );
+
+            return response()->json([
+                'message' => 'Akun belum aktif. Undangan aktivasi telah dikirim ulang ke email karyawan.',
+                'user' => $existingUser->load(['homeLocation', 'division', 'shift']),
+            ]);
+        }
+
+        $invitationToken = Str::random(64);
+        $data['password'] = Hash::make(Str::random(40));
         $data['tenant_id'] = (int) $tenantId;
         $data['employee_id'] = $this->generateEmployeeId((int) $tenantId);
+        $data['is_active'] = false;
+        $data['invitation_token'] = hash('sha256', $invitationToken);
+        $data['invitation_expires_at'] = now()->addHours(48);
+        $data['invited_at'] = now();
 
         $user = User::create($data);
 
-        return response()->json($user->load(['homeLocation', 'division', 'shift']), 201);
+        $activationUrl = rtrim((string) config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173')), '/')
+            . '/aktivasi-akun?token=' . urlencode($invitationToken);
+        app(\App\Services\EmailDeliveryService::class)->send(
+            $user->email,
+            'Aktivasi Akun Upsend',
+            "Halo {$user->name},\n\nAdmin telah membuat akun Anda. Aktifkan akun melalui link berikut:\n{$activationUrl}\n\nLink berlaku 48 jam.",
+        );
+
+        return response()->json([
+            'message' => 'Karyawan berhasil dibuat. Link aktivasi telah dikirim ke email karyawan.',
+            'user' => $user->load(['homeLocation', 'division', 'shift']),
+        ], 201);
     }
 
     protected function generateEmployeeId(int $tenantId): string
@@ -101,6 +147,31 @@ class UserController extends Controller
         $this->ensureSameTenant($user);
 
         return response()->json($user->load(['homeLocation', 'division', 'shift']));
+    }
+
+    public function resendInvitation(User $user)
+    {
+        $this->ensureSameTenant($user);
+
+        if ($user->is_active) {
+            return response()->json(['message' => 'Akun karyawan sudah aktif.'], 422);
+        }
+
+        $token = Str::random(64);
+        $user->update([
+            'invitation_token' => hash('sha256', $token),
+            'invitation_expires_at' => now()->addHours(48),
+            'invited_at' => now(),
+        ]);
+        $activationUrl = rtrim((string) env('FRONTEND_URL', 'http://localhost:5173'), '/')
+            . '/aktivasi-akun?token=' . urlencode($token);
+        app(\App\Services\EmailDeliveryService::class)->send(
+            $user->email,
+            'Undangan Aktivasi Akun Upsend',
+            "Halo {$user->name},\n\nBerikut link aktivasi akun Anda:\n{$activationUrl}\n\nLink berlaku 48 jam.",
+        );
+
+        return response()->json(['message' => 'Undangan aktivasi berhasil dikirim ulang.']);
     }
 
     public function update(Request $request, User $user)

@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/login-web', [AuthController::class, 'loginWeb']);  // BARU, dipakai dashboard web (email)
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/activate-account', [AuthController::class, 'activateAccount']);
+Route::post('/password/forgot', [AuthController::class, 'requestPasswordReset']);
+Route::post('/password/reset', [AuthController::class, 'resetPassword']);
 
 Route::get('/locations/public', [LocationController::class, 'publicIndex']);
 
@@ -69,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/shifts/{shift}', [ShiftDivisionController::class, 'destroyShift']);
 
         Route::apiResource('users', UserController::class);
+        Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation']);
         Route::patch('/users/{user}/transfer', [UserController::class, 'transfer']);
 
         Route::get('/attendances', [AttendanceAdminController::class, 'index']);

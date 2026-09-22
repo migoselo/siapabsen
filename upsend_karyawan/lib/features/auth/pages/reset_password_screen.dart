@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'verifikasi_email_screen.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/api/api.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -52,12 +53,25 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      // TODO: panggil API untuk mengirim kode verifikasi ke [email]
+      await Api.dio.post('/password/forgot', data: {'email': email});
       if (!mounted) return;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerifikasiEmailScreen(email: email),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Jika email terdaftar, link reset password telah dikirim.',
+            style: GoogleFonts.plusJakartaSans(),
+          ),
+        ),
+      );
+      Navigator.pop(context);
+    } on DioException catch (error) {
+      if (!mounted) return;
+      final message = error.response?.data is Map
+          ? error.response?.data['message']?.toString()
+          : null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message ?? 'Gagal mengirim link reset password.'),
         ),
       );
     } finally {
