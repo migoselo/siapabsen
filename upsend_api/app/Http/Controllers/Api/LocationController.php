@@ -64,4 +64,13 @@ class LocationController extends Controller
 
         return response()->json(['message' => 'Lokasi berhasil dihapus.']);
     }
+
+    public function publicIndex()
+    {
+        $locations = \App\Models\Location::select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($locations);
+    }
 }

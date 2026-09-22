@@ -18,6 +18,8 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/login-web', [AuthController::class, 'loginWeb']);  // BARU, dipakai dashboard web (email)
 Route::post('/register', [AuthController::class, 'register']);
 
+Route::get('/locations/public', [LocationController::class, 'publicIndex']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
