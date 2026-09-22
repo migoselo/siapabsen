@@ -6,6 +6,7 @@ import 'package:upsend_karyawan/features/auth/bloc/auth_bloc.dart';
 import 'package:upsend_karyawan/core/widgets/custom_snackbar.dart';
 import 'package:upsend_karyawan/features/auth/pages/reset_password_screen.dart';
 import 'package:upsend_karyawan/core/api/api.dart';
+import 'package:flutter/services.dart';
 
 enum LoginType { email, employeeId, phone }
 
@@ -79,7 +80,15 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchLocationsFromBackend();
+
+    _emailController.addListener(_onFieldChanged);
+    _employeeIdController.addListener(_onFieldChanged);
+    _phoneController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+    _companyController.addListener(_onFieldChanged);
   }
+
+  void _onFieldChanged() => setState(() {});
 
   String? _locationsFetchError;
 
@@ -149,6 +158,13 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
+
+    _emailController.removeListener(_onFieldChanged);
+    _employeeIdController.removeListener(_onFieldChanged);
+    _phoneController.removeListener(_onFieldChanged);
+    _passwordController.removeListener(_onFieldChanged);
+    _companyController.removeListener(_onFieldChanged);
+
     _emailController.dispose();
     _companyController.dispose();
     _employeeIdController.dispose();
@@ -169,39 +185,24 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     }
   }
 
-  void _login() {
+  bool get _isFormFilled {
     final identifier = _getLoginIdentifier();
     final password = _passwordController.text;
 
-    final identifierEmpty = identifier.isEmpty;
-    final passwordEmpty = password.isEmpty;
+    if (identifier.trim().isEmpty || password.trim().isEmpty) return false;
 
-    // Validasi kantor cabang khusus opsi Login ID Karyawan
-    if (_currentLoginType == LoginType.employeeId) {
-      if (_selectedLocation == null && identifierEmpty && passwordEmpty) {
-        AppSnackbar.warning(context, _getBothEmptyMessage());
-        return;
-      }
-      if (_selectedLocation == null && _companyController.text.trim().isEmpty) {
-        AppSnackbar.warning(context, 'Kantor cabang wajib dipilih!');
-        return;
-      }
+    if (_currentLoginType == LoginType.employeeId &&
+        _selectedLocation == null &&
+        _companyController.text.trim().isEmpty) {
+      return false;
     }
 
-    if (identifierEmpty && passwordEmpty) {
-      AppSnackbar.warning(context, _getBothEmptyMessage());
-      return;
-    }
+    return true;
+  }
 
-    if (identifierEmpty) {
-      AppSnackbar.warning(context, _getIdentifierOnlyMessage());
-      return;
-    }
-
-    if (passwordEmpty) {
-      AppSnackbar.warning(context, 'Password wajib diisi!');
-      return;
-    }
+  void _login() {
+    final identifier = _getLoginIdentifier();
+    final password = _passwordController.text;
 
     final formatError = _validateIdentifierFormat(identifier);
     if (formatError != null) {
@@ -252,6 +253,14 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     return regex.hasMatch(phone);
   }
 
+  String? get _phoneErrorText {
+    final len = _phoneController.text.trim().length;
+    if (len == 0)
+      return null; 
+    if (len < 9) return 'Nomor telepon minimal 9 digit';
+    return null; 
+  }
+
   String _getFailureMessage(String? backendMessage) {
     final cleaned = (backendMessage ?? '').replaceFirst('Exception: ', '');
 
@@ -273,28 +282,6 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     }
 
     return cleaned.isEmpty ? 'Gagal masuk, silakan coba lagi.' : cleaned;
-  }
-
-  String _getBothEmptyMessage() {
-    switch (_currentLoginType) {
-      case LoginType.email:
-        return 'Email dan Password wajib diisi!';
-      case LoginType.employeeId:
-        return 'Kantor Cabang, ID Karyawan, dan Password wajib diisi!';
-      case LoginType.phone:
-        return 'Nomor Telepon dan Password wajib diisi!';
-    }
-  }
-
-  String _getIdentifierOnlyMessage() {
-    switch (_currentLoginType) {
-      case LoginType.email:
-        return 'Email wajib diisi!';
-      case LoginType.employeeId:
-        return 'Kantor Cabang dan ID Karyawan wajib diisi!';
-      case LoginType.phone:
-        return 'Nomor Telepon wajib diisi!';
-    }
   }
 
   @override
@@ -742,15 +729,23 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     Size? prefixIconSize,
     TextInputType keyboardType = TextInputType.text,
     bool isPhonePrefix = false,
+    List<TextInputFormatter>? inputFormatters,
+    String? errorText,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: _jakartaStyle(fontSize: 14),
       scrollPadding: const EdgeInsets.all(20),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: _jakartaStyle(color: subtitleColor, fontSize: 14),
+        errorText: errorText,
+        errorStyle: _jakartaStyle(
+          fontSize: 11.5,
+          color: const Color(0xFFDC2626),
+        ),
         prefixIcon: prefixIconAsset != null
             ? Padding(
                 padding: const EdgeInsets.all(14),
@@ -786,6 +781,24 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                 )
               : BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryColor, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: isPhonePrefix
+              ? const BorderRadius.only(
+                  topRight: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                )
+              : BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFDC2626)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: isPhonePrefix
+              ? const BorderRadius.only(
+                  topRight: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                )
+              : BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
         ),
       ),
     );
@@ -869,10 +882,13 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           final isLoading = state.status == AuthStatus.authenticating;
+          final canSubmit = _isFormFilled && !isLoading;
+
           return ElevatedButton(
-            onPressed: isLoading ? null : _login,
+            onPressed: canSubmit ? _login : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
+              disabledBackgroundColor: primaryColor.withOpacity(0.4),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
