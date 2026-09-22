@@ -186,9 +186,87 @@ class NotificationService {
     );
   }
 
-  Future<void> showShiftChanged({required String message}) {
+  Future<void> showLeaveRequestSubmitted({required String type}) {
+    final label = _normalizeLeaveLabel(type);
+    return _show(
+      109,
+      'Pengajuan $label Terkirim',
+      'Pengajuan $label Anda telah berhasil dikirim dan sedang diproses.',
+      channelId: _generalChannel.id,
+    );
+  }
+
+  Future<void> showLeaveRequestPending({required String type}) {
+    final label = _normalizeLeaveLabel(type);
     return _show(
       110,
+      'Pengajuan $label Menunggu Persetujuan',
+      'Pengajuan $label Anda sedang menunggu persetujuan.',
+      channelId: _generalChannel.id,
+    );
+  }
+
+  Future<void> showLeaveRequestApproved({required String type}) {
+    final label = _normalizeLeaveLabel(type);
+    return _show(
+      111,
+      'Pengajuan $label Disetujui',
+      'Pengajuan $label Anda telah disetujui.',
+      channelId: _generalChannel.id,
+    );
+  }
+
+  Future<void> showLeaveRequestRejected({
+    required String type,
+    String? reason,
+  }) {
+    final label = _normalizeLeaveLabel(type);
+    final details = reason != null && reason.trim().isNotEmpty
+        ? ' Alasan: $reason.'
+        : '';
+
+    return _show(
+      112,
+      'Pengajuan $label Ditolak',
+      'Pengajuan $label Anda ditolak.$details',
+      channelId: _generalChannel.id,
+    );
+  }
+
+  Future<void> showOvertimeRequestSubmitted() {
+    return _show(
+      113,
+      'Pengajuan Lembur Terkirim',
+      'Pengajuan lembur Anda telah berhasil dikirim dan sedang diproses.',
+      channelId: _generalChannel.id,
+    );
+  }
+
+  Future<void> showOvertimeRequestApproved() {
+    return _show(
+      114,
+      'Pengajuan Lembur Disetujui',
+      'Pengajuan lembur Anda telah disetujui.',
+      channelId: _generalChannel.id,
+    );
+  }
+
+  Future<void> showOvertimeRequestRejected({String? reason}) {
+    final details = reason != null && reason.trim().isNotEmpty
+        ? ' Alasan: $reason.'
+        : '';
+
+    return _show(
+      115,
+      'Pengajuan Lembur Ditolak',
+      'Pengajuan lembur Anda ditolak.$details',
+      channelId: _generalChannel.id,
+    );
+  }
+
+  Future<void> showShiftChanged({required String message}) {
+    return _show(
+      116,
       'Jadwal Shift Berubah',
       message,
       channelId: _generalChannel.id,
@@ -197,7 +275,7 @@ class NotificationService {
 
   Future<void> showOfficeFallback({required String message}) {
     return _show(
-      111,
+      117,
       'Jam Kantor Dipakai',
       message,
       channelId: _generalChannel.id,
@@ -208,7 +286,15 @@ class NotificationService {
     required String title,
     required String message,
   }) {
-    return _show(112, title, message, channelId: _generalChannel.id);
+    return _show(118, title, message, channelId: _generalChannel.id);
+  }
+
+  String _normalizeLeaveLabel(String type) {
+    final normalized = type.trim();
+    if (normalized.toLowerCase() == 'izin') return 'Izin';
+    if (normalized.toLowerCase() == 'lembur') return 'Lembur';
+    if (normalized.toLowerCase() == 'cuti') return 'Cuti';
+    return normalized.isNotEmpty ? normalized : 'Permohonan';
   }
 
   Future<void> _show(
