@@ -125,8 +125,15 @@ class LeaveRequestController extends Controller
                 ],
                 'leaveTypeId' => $leaveRequest->leave_type_id,
                 'leaveTypeName' => $leaveRequest->type,
+                'type' => $leaveRequest->type,
                 'startDate' => $leaveRequest->start_date?->format('Y-m-d'),
                 'endDate' => $leaveRequest->end_date?->format('Y-m-d'),
+                'startTime' => $leaveRequest->start_time
+                    ? substr((string) $leaveRequest->start_time, 0, 5)
+                    : null,
+                'endTime' => $leaveRequest->end_time
+                    ? substr((string) $leaveRequest->end_time, 0, 5)
+                    : null,
                 'workDaysLabel' => $leaveRequest->total_days === 1
                     ? '1 Hari'
                     : "{$leaveRequest->total_days} Hari Kerja",

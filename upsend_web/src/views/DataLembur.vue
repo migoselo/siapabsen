@@ -106,9 +106,10 @@ function mkReq(
   durationHours,
   reason,
   status = 'pending',
+  requestId = null,
 ) {
   return reactive({
-    id: crypto.randomUUID ? crypto.randomUUID() : nextId('req'),
+    id: requestId ?? (crypto.randomUUID ? crypto.randomUUID() : nextId('req')),
     requester: { name, position, departmentId, avatarUrl: '' },
     date,
     startTime,
@@ -188,7 +189,16 @@ function normalizeOvertimeApiRequest(item) {
     durationHours,
     payload.reason || 'Tidak ada keterangan',
     String(payload.status || 'pending').toLowerCase(),
+    payload.id ?? null,
   )
+}
+
+function extractRowsFromPayload(payload) {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.data)) return payload.data
+  if (Array.isArray(payload?.items)) return payload.items
+  if (Array.isArray(payload?.results)) return payload.results
+  return []
 }
 
 async function fetchOvertimeRequests() {
@@ -198,38 +208,41 @@ async function fetchOvertimeRequests() {
 
     let rows = []
 
-    try {
-      const firstPage = await api.get('/admin/leave-requests', {
-        params: { page: 1, per_page: 50 },
-      })
-      const payload = firstPage?.data || {}
-      const firstBatch = Array.isArray(payload?.data)
-        ? payload.data
-        : Array.isArray(payload)
-          ? payload
-          : []
-      rows = [...firstBatch]
+    const firstPage = await api.get('/admin/leave-requests', {
+      params: { page: 1, per_page: 50 },
+    })
+    const payload = firstPage?.data || {}
+    rows = [...extractRowsFromPayload(payload)]
 
-      const lastPage = Number(payload?.last_page || 1)
-      if (lastPage > 1) {
-        for (let page = 2; page <= lastPage; page += 1) {
-          const { data } = await api.get('/admin/leave-requests', {
-            params: { page, per_page: 50 },
-          })
-          const batch = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
-          rows.push(...batch)
-        }
+    const lastPage = Number(payload?.last_page || 1)
+    if (lastPage > 1) {
+      for (let page = 2; page <= lastPage; page += 1) {
+        const { data } = await api.get('/admin/leave-requests', {
+          params: { page, per_page: 50 },
+        })
+        rows.push(...extractRowsFromPayload(data))
       }
-    } catch {
-      const { data } = await api.get('/leave-requests')
-      rows = Array.isArray(data) ? data : []
     }
 
     const overtimeRows = rows.filter((row) => isOvertimeRow(row))
     requests.splice(0, requests.length, ...overtimeRows.map(normalizeOvertimeApiRequest))
+
+    if (
+      activeTab.value === 'pending' &&
+      !requests.some((request) => request.status === 'pending') &&
+      requests.some((request) => request.status === 'approved')
+    ) {
+      activeTab.value = 'approved'
+    }
   } catch (error) {
     console.error('Gagal memuat data lembur dari API:', error)
-    apiError.value = 'Gagal memuat data lembur dari server.'
+
+    if (error?.response?.status === 401 || error?.response?.status === 403) {
+      apiError.value = 'Akun saat ini tidak memiliki akses admin untuk melihat semua data lembur.'
+    } else {
+      apiError.value = 'Gagal memuat data lembur dari server.'
+    }
+
     requests.splice(0, requests.length)
   } finally {
     apiLoading.value = false
@@ -353,15 +366,24 @@ function changePerPage() {
 /* ------------------------------------------------------------------ */
 /* Aksi approve / reject                                               */
 /* ------------------------------------------------------------------ */
-function approveRequest(id, comment = '') {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'approved'
-  if (selectedRequest.value?.id === id) closeDetail()
+async function updateRequestStatus(id, status) {
+  try {
+    await api.patch(`/admin/leave-requests/${id}/status`, { status })
+    const request = requests.find((item) => item.id === id)
+    if (request) request.status = status
+    if (selectedRequest.value?.id === id) closeDetail()
+  } catch (error) {
+    console.error('Gagal memperbarui status pengajuan lembur:', error)
+    apiError.value = 'Status pengajuan gagal diperbarui. Silakan coba lagi.'
+  }
 }
-function rejectRequest(id, comment = '') {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'rejected'
-  if (selectedRequest.value?.id === id) closeDetail()
+
+function approveRequest(id) {
+  return updateRequestStatus(id, 'approved')
+}
+
+function rejectRequest(id) {
+  return updateRequestStatus(id, 'rejected')
 }
 
 /* ------------------------------------------------------------------ */
