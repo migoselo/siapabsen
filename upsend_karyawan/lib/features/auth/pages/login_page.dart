@@ -41,6 +41,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   bool _keyboardWasOpen = false;
 
+  final FocusNode _branchFocusNode = FocusNode();
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _companyController = TextEditingController();
   final TextEditingController _employeeIdController = TextEditingController();
@@ -79,13 +81,16 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     _fetchLocationsFromBackend();
   }
 
+  String? _locationsFetchError;
+
   Future<void> _fetchLocationsFromBackend() async {
     setState(() {
       _isLoadingLocations = true;
+      _locationsFetchError = null;
     });
 
     try {
-      final response = await Api.dio.get('/locations');
+      final response = await Api.dio.get('/locations/public');
       if (response.statusCode == 200 && response.data != null) {
         final List dynamicList = response.data is List
             ? response.data
@@ -100,6 +105,11 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       }
     } catch (e) {
       debugPrint('Gagal memuat daftar kantor cabang: $e');
+      if (mounted) {
+        setState(() {
+          _locationsFetchError = e.toString();
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -144,6 +154,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     _employeeIdController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _branchFocusNode.dispose();
     super.dispose();
   }
 
@@ -575,15 +586,60 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       );
     }
 
+    if (_locationsFetchError != null) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFFCA5A5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Gagal memuat kantor cabang:',
+              style: _jakartaStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFDC2626),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _locationsFetchError!,
+              style: _jakartaStyle(
+                fontSize: 11,
+                color: const Color(0xFFDC2626),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _fetchLocationsFromBackend,
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              child: Text(
+                'Coba lagi',
+                style: _jakartaStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: primaryColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return RawAutocomplete<LocationItem>(
           displayStringForOption: (LocationItem option) => option.name,
           textEditingController: _companyController,
-          focusNode: FocusNode(),
+          focusNode: _branchFocusNode,
           optionsBuilder: (TextEditingValue textEditingValue) {
             if (textEditingValue.text.isEmpty) {
-              return _locations; // Menampilkan seluruh list jika input kosong
+              return _locations;
             }
             return _locations.where((LocationItem option) {
               return option.name.toLowerCase().contains(
@@ -607,7 +663,6 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                 hintStyle: _jakartaStyle(color: subtitleColor, fontSize: 14),
                 prefixIcon: const Padding(
                   padding: EdgeInsets.all(14),
-                  // Gunakan Icon bawaan jika asset SVG belum ada/bermasalah
                   child: Icon(
                     Icons.business_rounded,
                     color: subtitleColor,
@@ -641,11 +696,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                 borderRadius: BorderRadius.circular(12),
                 color: Colors.white,
                 child: SizedBox(
-                  width:
-                      constraints.maxWidth, // Lebar disamakan dengan TextField
-                  height: options.length > 3
-                      ? 200
-                      : null, // Mencegah batas overflow
+                  width: constraints.maxWidth,
+                  height: options.length > 3 ? 200 : null,
                   child: ListView.separated(
                     padding: EdgeInsets.zero,
                     shrinkWrap: true,
