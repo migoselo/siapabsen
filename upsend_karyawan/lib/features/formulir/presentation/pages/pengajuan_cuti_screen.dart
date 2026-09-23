@@ -601,15 +601,30 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               const SizedBox(height: 20),
 
-              // 2. Jenis Pengajuan
-              Text(
-                'Jenis Pengajuan',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
+              // Keterangan tanda wajib
+              Align(
+                alignment: Alignment.centerLeft,
+                child: RichText(
+                  text: TextSpan(
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFDC2626),
+                    ),
+                    children: const [
+                      TextSpan(
+                        text: '* ',
+                        style: TextStyle(color: Color(0xFFDC2626)),
+                      ),
+                      TextSpan(text: 'Menunjukkan form yang wajib diisi'),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(height: 12),
+
+              // 2. Jenis Pengajuan
+              _buildLabel('Jenis Pengajuan', required: true),
               const SizedBox(height: 10),
               _buildDropdownField<String>(
                 value: _selectedJenisPengajuan,
@@ -623,13 +638,9 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
 
               if (_isCuti || _isIzin) ...[
                 const SizedBox(height: 20),
-                Text(
+                _buildLabel(
                   _isCuti ? 'Tipe Cuti' : 'Tipe Izin',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
+                  required: true,
                 ),
                 const SizedBox(height: 10),
                 _buildDropdownField<int>(
@@ -664,13 +675,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Tanggal Mulai',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          _buildLabel('Tanggal Mulai', required: true),
                           const SizedBox(height: 8),
                           _buildDateField(
                             date: _tanggalMulai,
@@ -684,13 +689,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Tanggal Selesai',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          _buildLabel('Tanggal Selesai', required: true),
                           const SizedBox(height: 8),
                           _buildDateField(
                             date: _tanggalSelesai,
@@ -768,12 +767,9 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  _buildLabel(
                     _isLembur ? 'Alasan Lembur' : 'Alasan Pengajuan',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    required: true,
                   ),
                   Text(
                     '$_alasanLength/250',
@@ -813,12 +809,9 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
               const SizedBox(height: 20),
 
               // 6. Lampiran
-              Text(
-                _isLembur ? 'Lampiran (Wajib)' : 'Lampiran (Opsional)',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+              _buildLabel(
+                _isLembur ? 'Lampiran' : 'Lampiran',
+                required: _isLembur,
               ),
               const SizedBox(height: 8),
               GestureDetector(
@@ -987,6 +980,27 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     );
   }
 
+  // Widget label reusable — nampilin tanda asterisk merah kalau field-nya wajib diisi
+  Widget _buildLabel(String text, {bool required = false}) {
+    return RichText(
+      text: TextSpan(
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black,
+        ),
+        children: [
+          TextSpan(text: text),
+          if (required)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(color: Color(0xFFDC2626)),
+            ),
+        ],
+      ),
+    );
+  }
+
   // Widget Dropdown reusable — dipakai untuk Jenis Pengajuan & Tipe Cuti
   Widget _buildDropdownField<T>({
     Key? key,
@@ -1120,13 +1134,7 @@ class _PengajuanCutiScreenState extends State<PengajuanCutiScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        _buildLabel(label, required: true),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: onTap,

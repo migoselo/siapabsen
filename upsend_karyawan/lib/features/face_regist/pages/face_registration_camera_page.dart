@@ -5,6 +5,7 @@ import '../../../core/services/face_registration_service.dart';
 import '../../../core/services/face_embedding_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/widgets/face_camera_preview.dart';
+import '../../../core/widgets/custom_snackbar.dart';
 import '../../attendance/repository/attendance_repository.dart';
 import 'face_registration_success_dialog.dart';
 
@@ -45,9 +46,7 @@ class _FaceRegistrationCameraPageState
     } catch (e) {
       if (mounted) {
         setState(() => _cameraPermissionDenied = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal inisialisasi kamera: $e')),
-        );
+        AppSnackbar.error(context, 'Gagal inisialisasi kamera: $e');
       }
     }
   }
@@ -64,8 +63,9 @@ class _FaceRegistrationCameraPageState
       if (file == null) {
         await NotificationService.instance.showFaceVerificationFailed();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Wajah tidak terdeteksi. Coba lagi.')),
+          AppSnackbar.warning(
+            context,
+            'Wajah tidak terdeteksi. Silakan coba lagi.',
           );
         }
         return;
@@ -96,22 +96,23 @@ class _FaceRegistrationCameraPageState
       } else {
         await NotificationService.instance.showFaceVerificationFailed();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Gagal mendaftarkan wajah: ${result['message']}'),
-            ),
-          );
+          AppSnackbar.error(context, _cleanErrorMessage(result['message']));
         }
         setState(() => _isSaving = false);
       }
     } catch (e) {
       await NotificationService.instance.showFaceVerificationFailed();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal mendaftarkan wajah: $e')));
+      AppSnackbar.error(context, _cleanErrorMessage(e));
       setState(() => _isSaving = false);
     }
+  }
+
+  // Buang prefix teknis seperti "Exception: " biar pesan yang dilihat user
+  // lebih bersih dan enak dibaca, bukan istilah pemrograman.
+  String _cleanErrorMessage(Object? message) {
+    final text = (message ?? '').toString();
+    return text.replaceFirst('Exception: ', '');
   }
 
   @override

@@ -6,17 +6,38 @@ const Color kSuccessGreen = Color(0xFF4CAF50);
 const String kFontFamily = 'PlusJakartaSans';
 
 /// Panggil: await showFaceRegistrationSuccessDialog(context);
-/// Return setelah user tap "Selesai" (dialog ke-dismiss).
-Future<void> showFaceRegistrationSuccessDialog(BuildContext context) {
+/// Return otomatis setelah dialog tertutup sendiri (tidak ada tombol lagi).
+Future<void> showFaceRegistrationSuccessDialog(
+  BuildContext context, {
+  Duration displayDuration = const Duration(seconds: 3),
+}) {
   return showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (context) => const _SuccessDialog(),
+    builder: (context) => _SuccessDialog(displayDuration: displayDuration),
   );
 }
 
-class _SuccessDialog extends StatelessWidget {
-  const _SuccessDialog();
+class _SuccessDialog extends StatefulWidget {
+  final Duration displayDuration;
+
+  const _SuccessDialog({required this.displayDuration});
+
+  @override
+  State<_SuccessDialog> createState() => _SuccessDialogState();
+}
+
+class _SuccessDialogState extends State<_SuccessDialog> {
+  @override
+  void initState() {
+    super.initState();
+    // Tutup dialog otomatis setelah displayDuration, tanpa perlu tombol.
+    Future.delayed(widget.displayDuration, () {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,23 +68,6 @@ class _SuccessDialog extends StatelessWidget {
             const Text(
               'Wajah Anda berhasil tersimpan',
               style: TextStyle(fontFamily: kFontFamily, fontSize: 13, color: kTextSecondary),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kSuccessGreen,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Selesai',
-                  style: TextStyle(fontFamily: kFontFamily, fontWeight: FontWeight.w600, color: Colors.white),
-                ),
-              ),
             ),
           ],
         ),
