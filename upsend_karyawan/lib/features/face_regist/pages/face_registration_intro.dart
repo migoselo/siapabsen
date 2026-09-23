@@ -23,95 +23,108 @@ class FaceRegistrationIntroPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+      body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 8),
-            // NOTE: icon face-scan ini APPROKSIMASI (Icons.face_retouching_natural),
-            // bukan asset SVG asli — ganti kalau kamu punya asset khusus.
-            Container(
-              width: 90,
-              height: 90,
-              decoration: const BoxDecoration(color: kIconBg, shape: BoxShape.circle),
-              child: const Icon(Icons.face_retouching_natural, color: kNavy, size: 44),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Daftarkan Wajah Anda',
-              style: TextStyle(
-                fontFamily: kFontFamily,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: kTextPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Pastikan pencahayaan cukup dan wajah terlihat jelas untuk presensi yang akurat.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: kFontFamily, fontSize: 13, color: kTextSecondary),
-            ),
-            const SizedBox(height: 24),
+            // Konten bisa di-scroll kalau layarnya kecil, tapi tombol tetap
+            // nempel di bawah karena berada di luar SingleChildScrollView.
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    // NOTE: icon face-scan ini APPROKSIMASI (Icons.face_retouching_natural),
+                    // bukan asset SVG asli — ganti kalau kamu punya asset khusus.
+                    Container(
+                      width: 90,
+                      height: 90,
+                      decoration: const BoxDecoration(color: kIconBg, shape: BoxShape.circle),
+                      child: const Icon(Icons.face_retouching_natural, color: kNavy, size: 44),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Daftarkan Wajah Anda',
+                      style: TextStyle(
+                        fontFamily: kFontFamily,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: kTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Pastikan pencahayaan cukup dan wajah terlihat jelas untuk presensi yang akurat.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontFamily: kFontFamily, fontSize: 13, color: kTextSecondary),
+                    ),
+                    const SizedBox(height: 24),
 
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                border: Border.all(color: kBorder),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  _TipRow(
-                    icon: Icons.face_outlined,
-                    title: 'Lepas aksesoris wajah',
-                    description: 'Lepas masker atau kacamata hitam yang menutupi bagian wajah.',
-                  ),
-                  const Divider(height: 1, color: kBorder),
-                  _TipRow(
-                    icon: Icons.center_focus_strong_outlined,
-                    title: 'Posisikan wajah di tengah',
-                    description: 'Pastikan seluruh wajah Anda berada di dalam area bingkai yang disediakan.',
-                  ),
-                  const Divider(height: 1, color: kBorder),
-                  _TipRow(
-                    icon: Icons.wb_sunny_outlined,
-                    title: 'Cari tempat terang',
-                    description: 'Gunakan pencahayaan yang terang namun tidak membuat silau atau bayangan gelap.',
-                    isLast: true,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FaceRegistrationCameraPage()),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kNavy,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Mulai Daftarkan Wajah',
-                  style: TextStyle(
-                    fontFamily: kFontFamily,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: kBorder),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          _TipRow(
+                            icon: Icons.face_outlined,
+                            title: 'Lepas aksesoris wajah',
+                            description: 'Lepas masker atau kacamata hitam yang menutupi bagian wajah.',
+                          ),
+                          const Divider(height: 1, color: kBorder),
+                          _TipRow(
+                            icon: Icons.center_focus_strong_outlined,
+                            title: 'Posisikan wajah di tengah',
+                            description: 'Pastikan seluruh wajah Anda berada di dalam area bingkai yang disediakan.',
+                          ),
+                          const Divider(height: 1, color: kBorder),
+                          _TipRow(
+                            icon: Icons.wb_sunny_outlined,
+                            title: 'Cari tempat terang',
+                            description: 'Gunakan pencahayaan yang terang namun tidak membuat silau atau bayangan gelap.',
+                            isLast: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+
+            // Tombol dipaku di bawah, di luar area scroll.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FaceRegistrationCameraPage()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kNavy,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Mulai Daftarkan Wajah',
+                    style: TextStyle(
+                      fontFamily: kFontFamily,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
