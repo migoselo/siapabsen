@@ -15,4 +15,13 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+ server: {
+  allowedHosts: ['dipodic-burlily-roxie.ngrok-free.dev'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8010', // ganti sesuai port Laravel kamu
+        changeOrigin: true,
+      }
+    }
+  }
 })
