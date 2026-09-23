@@ -56,6 +56,10 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   static const Color selectorBackground = Color(0xFFF3F3F3);
   static const Color borderColor = Color(0xFFCBD5E1);
 
+  // Batas panjang nomor telepon (tanpa kode negara +62)
+  static const int _phoneMinLength = 9;
+  static const int _phoneMaxLength = 15;
+
   // State untuk data Kantor Cabang Dinamis
   List<LocationItem> _locations = [];
   LocationItem? _selectedLocation;
@@ -237,7 +241,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
 
       case LoginType.phone:
         if (!_isValidPhone(identifier)) {
-          return 'Format nomor telepon tidak valid! Gunakan angka saja, 9-15 digit.';
+          return 'Format nomor telepon tidak valid! Gunakan angka saja, $_phoneMinLength-$_phoneMaxLength digit.';
         }
         return null;
     }
@@ -249,16 +253,17 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   }
 
   bool _isValidPhone(String phone) {
-    final regex = RegExp(r'^[0-9]{9,15}$');
+    final regex = RegExp('^[0-9]{$_phoneMinLength,$_phoneMaxLength}\$');
     return regex.hasMatch(phone);
   }
 
   String? get _phoneErrorText {
     final len = _phoneController.text.trim().length;
-    if (len == 0)
-      return null; 
-    if (len < 9) return 'Nomor telepon minimal 9 digit';
-    return null; 
+    if (len == 0) return null;
+    if (len < _phoneMinLength) {
+      return 'Nomor telepon minimal $_phoneMinLength digit';
+    }
+    return null;
   }
 
   String _getFailureMessage(String? backendMessage) {
@@ -496,43 +501,47 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildLabel('Nomor Telepon'),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: borderColor),
-                        left: BorderSide(color: borderColor),
-                        bottom: BorderSide(color: borderColor),
-                      ),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 50,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: borderColor),
+                      left: BorderSide(color: borderColor),
+                      bottom: BorderSide(color: borderColor),
                     ),
-                    child: Text(
-                      '+62',
-                      style: _jakartaStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                      ),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
                     ),
                   ),
-                  Expanded(
-                    child: _buildInputField(
-                      controller: _phoneController,
-                      hintText: 'Masukkan nomor telepon',
-                      keyboardType: TextInputType.phone,
-                      isPhonePrefix: true,
+                  child: Text(
+                    '+62',
+                    style: _jakartaStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
                     ),
                   ),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: _buildInputField(
+                    controller: _phoneController,
+                    hintText: 'Masukkan nomor telepon',
+                    keyboardType: TextInputType.phone,
+                    isPhonePrefix: true,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(_phoneMaxLength),
+                    ],
+                    errorText: _phoneErrorText,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 18),
             _buildLabel('Password'),
