@@ -296,12 +296,10 @@ function closeModal(force = false) {
 async function submitNewEmployee() {
   const name = String(form.value.name || '').trim()
   const email = String(form.value.email || '').trim()
-  const password = String(form.value.password || '')
   const no_hp = String(form.value.no_hp || '').trim()
 
   const nameRegex = /^[a-zA-Z\s'.-]{2,100}$/
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,64}$/
   const phoneRegex = /^(?:\+62|62|0)8[1-9][0-9]{6,11}$/
 
   if (!name || !nameRegex.test(name)) {
@@ -311,11 +309,6 @@ async function submitNewEmployee() {
 
   if (!email || !emailRegex.test(email) || email.length > 254) {
     showToast('Format email tidak valid (contoh: user@domain.com).', 'error')
-    return
-  }
-
-  if (!passRegex.test(password)) {
-    showToast('Password minimal 8 karakter, kombinasi huruf besar, kecil, dan angka.', 'error')
     return
   }
 
@@ -329,7 +322,6 @@ async function submitNewEmployee() {
     const payload = {
       name,
       email,
-      password,
       no_hp: no_hp || null,
       role: form.value.role,
       ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
@@ -337,10 +329,10 @@ async function submitNewEmployee() {
       ...(form.value.shift_id ? { shift_id: Number(form.value.shift_id) } : {}),
     }
 
-    await api.post('/users', payload)
+    const response = await api.post('/users', payload)
     closeModal(true)
     await fetchEmployees(currentPage.value)
-    showToast('Karyawan berhasil ditambahkan.')
+    showToast(response.data?.message || 'Karyawan berhasil ditambahkan.')
   } catch (err) {
     console.error('Gagal menyimpan karyawan:', err)
     const status = err.response?.status
@@ -603,25 +595,9 @@ onBeforeUnmount(() => {
               <label class="required">Email</label>
               <input type="email" v-model="form.email" maxlength="254" placeholder="Email" />
             </div>
-            <div class="field">
-              <label class="required">Password</label>
-              <div class="input-eye-wrap">
-                <input
-                  :type="showPassword ? 'text' : 'password'"
-                  v-model="form.password"
-                  maxlength="64"
-                  placeholder="Password"
-                />
-                <button
-                  type="button"
-                  class="eye-toggle"
-                  @click="showPassword = !showPassword"
-                  tabindex="-1"
-                >
-                  <Icon :icon="showPassword ? 'material-symbols:visibility-off-rounded' : 'material-symbols:visibility-rounded'" width="18" height="18" />
-                </button>
-              </div>
-            </div>
+            <p class="activation-note">
+              Link aktivasi untuk membuat password akan dikirim ke email karyawan.
+            </p>
             <div class="field">
               <label class="required">Nomor HP</label>
               <input

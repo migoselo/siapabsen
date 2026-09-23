@@ -26,9 +26,16 @@ class User extends Authenticatable
         'mother_name', 'children_count',
         // tenant_id ditambahkan supaya bisa di-set oleh migration/bootHasTenant
         'tenant_id',
+        'invitation_token', 'invitation_expires_at', 'invited_at',
+        'password_reset_token', 'password_reset_expires_at',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'invitation_token',
+        'password_reset_token',
+    ];
 
     protected $casts = [
         'is_active' => 'boolean',
