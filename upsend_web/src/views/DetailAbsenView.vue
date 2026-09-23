@@ -4,6 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
+// Import Base Component
+import BaseButton from '../components/BaseButton.vue'
+
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id
@@ -149,7 +152,8 @@ onMounted(() => {
 <template>
   <div class="detail-absen-page">
     <div class="detail-heading">
-      <button class="back-btn" @click="router.back()"><Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" /></button>
+      <!-- Penerapan BaseButton -->
+      <BaseButton variant="ghost" icon="material-symbols:arrow-back-rounded" @click="router.back()" style="padding: 10px;" />
       <h2>Detail Absensi</h2>
     </div>
 
@@ -189,9 +193,7 @@ onMounted(() => {
   padding: 24px;
   min-height: calc(100vh - 80px);
 }
-.detail-absen-page * {
-  box-sizing: border-box;
-}
+.detail-absen-page * { box-sizing: border-box; }
 .detail-layout {
   background: var(--card);
   border: 1px solid var(--line);
@@ -200,111 +202,26 @@ onMounted(() => {
   max-width: 1040px;
   margin: 0 auto;
 }
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.panel-head-title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.detail-header h2 {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.15;
-  font-weight: 700;
-}
-.detail-header p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13px;
-  opacity: 0.9;
-}
-.icon-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 24px;
-  align-items: start;
-}
-.detail-info {
-  display: grid;
-  gap: 10px;
-}
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-.info-row:last-child {
-  border-bottom: none;
-}
-.label {
-  color: var(--ink-soft);
-  font-weight: 700;
-  min-width: 150px;
-}
-.value {
-  color: var(--ink);
-  text-align: right;
-  max-width: 320px;
-  word-wrap: break-word;
-}
-.detail-photo {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.photo-heading {
-  font-weight: 600;
-  color: var(--ink-soft);
-}
-.empty-cell {
-  text-align: center;
-  color: var(--ink-soft);
-  padding: 32px;
-}
-.photo-preview {
-  width: 100%;
-  overflow: hidden;
-  border-radius: 14px;
-}
-.photo-preview img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  object-fit: contain;
-  max-height: 320px;
-}
+.detail-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.panel-head-title { display: flex; flex-direction: column; gap: 2px; }
+.detail-header h2 { margin: 0; font-size: 18px; line-height: 1.15; font-weight: 700; }
+.detail-header p { margin: 0; color: var(--ink-soft); font-size: 13px; opacity: 0.9; }
 
-.detail-absen-page {
-  --success: #16b364;
-  --warning: #a26c00;
-  --warning-bg: #fff0c7;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  padding: 26px 32px 56px;
-  background: #fff;
-}
+.detail-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; align-items: start; }
+.detail-info { display: grid; gap: 10px; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.info-row:last-child { border-bottom: none; }
+.label { color: var(--ink-soft); font-weight: 700; min-width: 150px; }
+.value { color: var(--ink); text-align: right; max-width: 320px; word-wrap: break-word; }
+.detail-photo { display: flex; flex-direction: column; gap: 12px; }
+.photo-heading { font-weight: 600; color: var(--ink-soft); }
+.empty-cell { text-align: center; color: var(--ink-soft); padding: 32px; }
+.photo-preview { width: 100%; overflow: hidden; border-radius: 14px; }
+.photo-preview img { width: 100%; height: auto; display: block; border-radius: 14px; border: 1px solid var(--line); object-fit: contain; max-height: 320px; }
+
+.detail-absen-page { --success: #16b364; --warning: #a26c00; --warning-bg: #fff0c7; font-family: 'Plus Jakarta Sans', sans-serif; padding: 26px 32px 56px; background: #fff; }
 .detail-absen-page * { font-family: inherit; }
 .detail-heading { max-width: 1100px; margin: 0 auto 24px; display: flex; align-items: center; gap: 10px; }
-.back-btn { border: 0; background: transparent; padding: 0; display: grid; place-items: center; cursor: pointer; color: var(--ink); }
 .detail-heading h2 { margin: 0; font-size: 26px; font-weight: 700; }
 .detail-layout { padding: 0; overflow: hidden; border-radius: 14px; max-width: 1100px; }
 .identity { display: flex; justify-content: space-between; align-items: flex-start; padding: 24px 28px; background: #f0f1f1; border-bottom: 1px solid var(--line); }
@@ -339,6 +256,7 @@ onMounted(() => {
 .summary-card > div span { display: grid; gap: 3px; padding-right: 24px; border-right: 1px solid rgba(255,255,255,.35); color: #cbd2eb; font-size: 11px; }
 .summary-card > div span:last-child { border-right: 0; }
 .summary-card strong { color: #fff; font-size: 21px; }
+
 @media (max-width: 760px) {
   .detail-absen-page { padding: 20px 16px 40px; }
   .attendance-columns { grid-template-columns: 1fr; }

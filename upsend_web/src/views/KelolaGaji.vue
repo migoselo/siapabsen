@@ -4,13 +4,22 @@ import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
+// Import Base Components
+import BaseSummaryCard from '../components/BaseSummaryCard.vue'
+import BaseSelect from '../components/BaseSelect.vue'
+import BaseSearch from '../components/BaseSearch.vue'
+import BaseButton from '../components/BaseButton.vue'
+import BaseTable from '../components/BaseTable.vue'
+import TableActions from '../components/TableActions.vue'
+
 const router = useRouter()
 
 const employees = ref([])
 const officeLocations = ref([])
 const loading = ref(false)
 const search = ref('')
-const lokasiKerja = ref('Semua Kantor')
+
+// Filter States
 const divisi = ref('Semua Divisi')
 const status = ref('Semua Status')
 const grade = ref('Semua Level')
@@ -19,15 +28,37 @@ const page = ref(1)
 const perPage = ref(20)
 const pageInput = ref(1)
 
+// Drill-Down States
+const selectedCompany = ref(null)
+const selectedBranch = ref(null)
+
 /* ------------------------------------------------------------------ */
-/* Kontrol Custom Dropdown & Custom Month Picker                       */
+/* Konfigurasi Tabel BaseComponent                                     */
+/* ------------------------------------------------------------------ */
+const companyColumns = [
+  { key: 'name', label: 'Nama Perusahaan/Cabang' },
+  { key: 'address', label: 'Alamat' },
+  { key: 'count', label: 'Karyawan Bergaji' },
+  { key: 'budget', label: 'Total Anggaran Gaji' }
+]
+
+const payrollColumns = [
+  { key: 'karyawan', label: 'Karyawan' },
+  { key: 'pokok', label: 'Gaji Pokok' },
+  { key: 'tetap', label: 'Tunj. Tetap' },
+  { key: 'variabel', label: 'Tunj. Variabel' },
+  { key: 'potongan', label: 'Potongan' },
+  { key: 'netSalary', label: 'Take Home Pay' },
+  { key: 'status', label: 'Status' }
+]
+
+const gradeOptions = ['Semua Level', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6']
+const statusOptions = ['Semua Status', 'Aktif', 'Menunggu Review', 'Perlu Update']
+
+/* ------------------------------------------------------------------ */
+/* Kontrol Custom Month Picker                                         */
 /* ------------------------------------------------------------------ */
 const showMonthMenu = ref(false)
-const showLokasiMenu = ref(false)
-const showDivisiMenu = ref(false)
-const showGradeMenu = ref(false)
-const showStatusMenu = ref(false)
-
 const pickerYear = ref(Number(selectedMonth.value.split('-')[0]))
 
 const monthList = [
@@ -44,59 +75,18 @@ const formattedMonthLabel = computed(() => {
 
 function toggleMonthMenu() {
   showMonthMenu.value = !showMonthMenu.value
-  showLokasiMenu.value = false
-  showDivisiMenu.value = false
-  showGradeMenu.value = false
-  showStatusMenu.value = false
-}
-
-function toggleLokasiMenu() {
-  showLokasiMenu.value = !showLokasiMenu.value
-  showMonthMenu.value = false
-  showDivisiMenu.value = false
-  showGradeMenu.value = false
-  showStatusMenu.value = false
-}
-
-function toggleDivisiMenu() {
-  showDivisiMenu.value = !showDivisiMenu.value
-  showMonthMenu.value = false
-  showLokasiMenu.value = false
-  showGradeMenu.value = false
-  showStatusMenu.value = false
-}
-
-function toggleGradeMenu() {
-  showGradeMenu.value = !showGradeMenu.value
-  showMonthMenu.value = false
-  showLokasiMenu.value = false
-  showDivisiMenu.value = false
-  showStatusMenu.value = false
-}
-
-function toggleStatusMenu() {
-  showStatusMenu.value = !showStatusMenu.value
-  showMonthMenu.value = false
-  showLokasiMenu.value = false
-  showDivisiMenu.value = false
-  showGradeMenu.value = false
 }
 
 function closeAllMenus() {
   showMonthMenu.value = false
-  showLokasiMenu.value = false
-  showDivisiMenu.value = false
-  showGradeMenu.value = false
-  showStatusMenu.value = false
 }
 
 function handleOutsideClick(e) {
-  if (!e.target.closest('.custom-select')) {
+  if (!e.target.closest('.month-picker-wrap')) {
     closeAllMenus()
   }
 }
 
-/* Logika Kalender Custom */
 function changeYear(delta) {
   pickerYear.value += delta
 }
@@ -123,31 +113,6 @@ function selectThisMonth() {
   applyMonthFilter()
 }
 
-/* Logika Pilihan Filter Dropdown */
-function selectLokasi(val) {
-  lokasiKerja.value = val
-  showLokasiMenu.value = false
-  resetPage()
-}
-
-function selectDivisi(val) {
-  divisi.value = val
-  showDivisiMenu.value = false
-  resetPage()
-}
-
-function selectGrade(val) {
-  grade.value = val
-  showGradeMenu.value = false
-  resetPage()
-}
-
-function selectStatus(val) {
-  status.value = val
-  showStatusMenu.value = false
-  resetPage()
-}
-
 /* ------------------------------------------------------------------ */
 /* Helper & Data Formatting                                            */
 /* ------------------------------------------------------------------ */
@@ -171,8 +136,7 @@ const normalizeEmployee = (item) => {
     name: item.user?.name || 'Karyawan',
     code: item.user?.employee_id || item.employee_id || '-',
     position: item.user?.role || 'Karyawan',
-    kantor: item.user?.home_location?.name || 'Belum diatur',
-    divisi: item.user?.home_location?.name || 'Belum diatur',
+    divisi: item.user?.division?.name || item.division_name || 'Belum diatur',
     lokasiKerja: item.user?.home_location?.name || 'Belum diatur',
     pokok: Number(item.basic_salary || 0),
     tetap: Number(item.transport_allowance || 0) + Number(item.attendance_allowance || 0),
@@ -189,10 +153,6 @@ const normalizeEmployee = (item) => {
 }
 
 const divisions = computed(() => ['Semua Divisi', ...new Set(employees.value.map((e) => e.divisi))])
-const locations = computed(() => [
-  'Semua Kantor',
-  ...officeLocations.value.map((location) => location.name).filter(Boolean),
-])
 
 const filtered = computed(() =>
   employees.value.filter((employee) => {
@@ -202,38 +162,151 @@ const filtered = computed(() =>
       [employee.name, employee.code, employee.position].some((val) =>
         String(val || '').toLowerCase().includes(query),
       )
-    const matchesLokasi =
-      lokasiKerja.value === 'Semua Kantor' || employee.lokasiKerja === lokasiKerja.value
     const matchesDivisi = divisi.value === 'Semua Divisi' || employee.divisi === divisi.value
     const matchesStatus = status.value === 'Semua Status' || employee.status === status.value
     const matchesGrade =
       grade.value === 'Semua Level' || grade.value === 'Grade 0' || employee.position != null
-    return matchesSearch && matchesDivisi && matchesLokasi && matchesStatus && matchesGrade
+    return matchesSearch && matchesDivisi && matchesStatus && matchesGrade
   }),
 )
 
-const totalRecords = computed(() => filtered.value.length)
+/* ------------------------------------------------------------------ */
+/* Logika Hierarchy Drill-Down (Tree Perusahaan)                       */
+/* ------------------------------------------------------------------ */
+function resetDrillDown() {
+  selectedCompany.value = null
+  selectedBranch.value = null
+}
+
+function goToCompany(node) {
+  selectedCompany.value = node
+  selectedBranch.value = null
+}
+
+function goToBranch(node) {
+  selectedBranch.value = node
+}
+
+function goBackToCompanies() {
+  resetDrillDown()
+}
+
+function goBackToCompany() {
+  selectedBranch.value = null
+}
+
+function splitHierarchyLabel(label) {
+  const value = String(label || '').trim()
+  if (!value) return []
+  const separators = [' / ', ' > ', ' - ', ' | ']
+  for (const separator of separators) {
+    if (value.includes(separator)) {
+      return value.split(separator).map((part) => part.trim()).filter(Boolean)
+    }
+  }
+  return [value]
+}
+
+const companyTree = computed(() => {
+  const roots = []
+  const nodes = new Map()
+
+  const addNode = (path, address = '-') => {
+    let parent = null
+    path.forEach((segment, index) => {
+      const key = path.slice(0, index + 1).join(' / ')
+      if (!nodes.has(key)) {
+        const node = { id: key, name: segment, address, children: [], employees: [], count: 0, budget: 0 }
+        if (parent) parent.children.push(node)
+        else roots.push(node)
+        nodes.set(key, node)
+      }
+      parent = nodes.get(key)
+    })
+    return parent
+  }
+
+  (officeLocations.value || []).forEach((company) => {
+    const name = String(company?.name || '').trim()
+    const address = String(company?.address || company?.alamat || '-').trim()
+    if (!name) return
+    const path = splitHierarchyLabel(name)
+    addNode(path, address)
+  })
+
+  filtered.value.forEach((emp) => {
+    const companyName = emp.lokasiKerja || 'Tanpa Perusahaan'
+    const path = splitHierarchyLabel(companyName)
+    const exactKey = path.join(' / ')
+    const target = nodes.get(exactKey) || nodes.get(path[path.length - 1]) || addNode(path)
+    
+    if (target) {
+      target.employees.push(emp)
+    }
+  })
+
+  const assignStats = (node) => {
+    node.count = node.employees.length
+    node.budget = node.employees.reduce((sum, e) => sum + e.netSalary, 0)
+    node.children.forEach((child) => {
+      assignStats(child)
+      node.count += child.count || 0
+      node.budget += child.budget || 0
+    })
+  }
+
+  roots.forEach(assignStats)
+  return roots
+})
+
+const currentCompanyChildren = computed(() => {
+  if (!selectedCompany.value) return companyTree.value
+  return selectedCompany.value.children || []
+})
+
+const currentPayrolls = computed(() => {
+  if (selectedBranch.value) return selectedBranch.value.employees || []
+  if (selectedCompany.value) {
+    if ((selectedCompany.value.children || []).length) return []
+    return selectedCompany.value.employees || []
+  }
+  return []
+})
+
+const isShowingPayroll = computed(() => {
+  return selectedBranch.value != null || (selectedCompany.value != null && currentCompanyChildren.value.length === 0)
+})
+
+/* Dashboard Stats Dinamis berdasarkan View saat ini */
+const viewStats = computed(() => {
+  if (isShowingPayroll.value) {
+    const total = currentPayrolls.value.reduce((s, e) => s + e.netSalary, 0)
+    return { budget: total, count: currentPayrolls.value.length }
+  } else if (selectedCompany.value && !selectedBranch.value) {
+    return { budget: selectedCompany.value.budget, count: selectedCompany.value.count }
+  } else {
+    const totalBudget = companyTree.value.reduce((s, c) => s + (c.budget || 0), 0)
+    const totalCount = companyTree.value.reduce((s, c) => s + (c.count || 0), 0)
+    return { budget: totalBudget, count: totalCount }
+  }
+})
+
+// Pagination
+const totalRecords = computed(() => isShowingPayroll.value ? currentPayrolls.value.length : 0)
 const lastPage = computed(() => Math.max(1, Math.ceil(totalRecords.value / perPage.value)))
-const pageItems = computed(() =>
-  filtered.value.slice((page.value - 1) * perPage.value, page.value * perPage.value),
-)
+const pageItems = computed(() => {
+  if (!isShowingPayroll.value) return []
+  return currentPayrolls.value.slice((page.value - 1) * perPage.value, page.value * perPage.value)
+})
 
-const totalBudget = computed(() =>
-  employees.value.reduce(
-    (sum, employee) => sum + employee.netSalary,
-    0,
-  ),
-)
-
+/* ------------------------------------------------------------------ */
+/* Fetch Data                                                          */
+/* ------------------------------------------------------------------ */
 async function fetchPayrolls() {
   loading.value = true
   try {
     const res = await api.get('/payrolls', {
-      params: {
-        per_page: perPage.value,
-        month: selectedMonth.value,
-        payroll_period: `${selectedMonth.value}-01`,
-      },
+      params: { month: selectedMonth.value, payroll_period: `${selectedMonth.value}-01` },
     })
     const list = Array.isArray(res.data?.data) ? res.data.data : []
     employees.value = list.map(normalizeEmployee)
@@ -295,305 +368,197 @@ function statusBadgeClass(statusStr) {
   return 'missed'
 }
 
-function handleExport() {
-  window.alert('Fitur ekspor gaji belum tersedia.')
-}
-
-function handleCreateNewSalary() {
-  router.push({ name: 'GajiForm' })
-}
-
-function handleEditSalary(employeeId) {
-  router.push({ name: 'GajiForm', params: { employeeId } })
-}
+function handleExport() { window.alert('Fitur ekspor gaji belum tersedia.') }
+function handleCreateNewSalary() { router.push({ name: 'GajiForm' }) }
+function handleEditSalary(employeeId) { router.push({ name: 'GajiForm', params: { employeeId } }) }
 
 onMounted(() => {
   fetchPayrolls()
   fetchLocations()
   document.addEventListener('click', handleOutsideClick)
 })
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleOutsideClick)
-})
+onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick) })
 </script>
 
 <template>
   <div class="salary-page">
-    <!-- Section Summary / Dashboard -->
-    <section class="summary-grid">
-      <div class="summary-card">
-        <div class="summary-top">
-          <div class="summary-icon green">
-            <Icon icon="material-symbols:account-balance-wallet-outline" />
-          </div>
-          <span class="summary-tag green">ANGGARAN</span>
-        </div>
-        <span class="summary-label">Total Anggaran Bulanan</span>
-        <strong>{{ rupiah(totalBudget) }}</strong>
-        <small>+3.2% vs bulan lalu</small>
-      </div>
-
-      <div class="summary-card">
-        <div class="summary-top">
-          <div class="summary-icon blue">
-            <Icon icon="material-symbols:groups-outline" />
-          </div>
-          <span class="summary-tag blue">KARYAWAN</span>
-        </div>
-        <span class="summary-label">Karyawan Bergaji</span>
-        <strong class="blue-text">{{ employees.length }} Orang</strong>
-        <small>Seluruh data payroll aktif</small>
-      </div>
-
-      <div class="summary-card">
-        <div class="summary-top">
-          <div class="summary-icon amber">
-            <Icon icon="material-symbols:payments-outline" />
-          </div>
-          <span class="summary-tag amber">RATA-RATA</span>
-        </div>
-        <span class="summary-label">Rata-rata THP Netto</span>
-        <strong class="amber-text">{{ rupiah(totalBudget / employees.length) }}</strong>
-        <small>Estimasi penghasilan bersih</small>
-      </div>
+    
+    <!-- Section Summary / Dashboard (BaseSummaryCard) -->
+    <section v-if="selectedCompany" class="summary-grid">
+      <BaseSummaryCard 
+        tag="ANGGARAN"
+        title="Total Anggaran Bulanan"
+        :value="rupiah(viewStats.budget)"
+        subtitle="Dari data di lokasi ini"
+        icon="material-symbols:account-balance-wallet-outline"
+        theme="green"
+      />
+      <BaseSummaryCard 
+        tag="KARYAWAN"
+        title="Karyawan Bergaji"
+        :value="`${viewStats.count} Orang`"
+        subtitle="Seluruh data payroll aktif"
+        icon="material-symbols:groups-outline"
+        theme="blue"
+      />
+      <BaseSummaryCard 
+        tag="RATA-RATA"
+        title="Rata-rata THP Netto"
+        :value="rupiah(viewStats.budget / (viewStats.count || 1))"
+        subtitle="Estimasi penghasilan bersih"
+        icon="material-symbols:payments-outline"
+        theme="amber"
+      />
     </section>
 
     <!-- Section Table Panel -->
     <section class="panel table-panel">
       <!-- Filter Bar -->
       <div class="filter-bar">
-        <div class="filters">
-          <!-- Custom Month Picker -->
-          <div class="custom-select month-picker" @click.stop="toggleMonthMenu">
-            <Icon icon="material-symbols:calendar-month-outline-rounded" width="18" height="18" />
-            <span>{{ formattedMonthLabel }}</span>
-            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
-
-            <!-- Pop-up Month Picker Custom -->
-            <div v-if="showMonthMenu" class="month-picker-menu" @click.stop>
-              <div class="month-picker-header">
-                <button type="button" class="nav-btn" @click="changeYear(-1)">
-                  <Icon icon="material-symbols:chevron-left-rounded" width="20" height="20" />
-                </button>
-                <span class="year-label">{{ pickerYear }}</span>
-                <button type="button" class="nav-btn" @click="changeYear(1)">
-                  <Icon icon="material-symbols:chevron-right-rounded" width="20" height="20" />
-                </button>
-              </div>
-
-              <div class="month-grid">
-                <button
-                  v-for="(m, idx) in monthList"
-                  :key="m"
-                  type="button"
-                  class="month-item"
-                  :class="{ active: isCurrentSelectedMonth(idx) }"
-                  @click="selectMonth(idx)"
-                >
-                  {{ m }}
-                </button>
-              </div>
-
-              <div class="month-picker-footer">
-                <button type="button" class="btn-text" @click="selectThisMonth">Bulan Ini</button>
-              </div>
+        
+        <!-- Baris Navigasi & Pencarian (Drill Down Header) -->
+        <div class="filter-header">
+          <div class="breadcrumb-wrap">
+            <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
+              <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
+            </button>
+            <div v-if="!selectedCompany" class="table-heading">
+              <h2>Pilih Kantor</h2>
+              <p>Pilih kantor terlebih dahulu untuk mengelola gaji.</p>
+            </div>
+            <div v-else class="selected-office-heading">
+              <span>Kantor terpilih</span>
+              <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
             </div>
           </div>
-
-          <!-- Custom Dropdown Lokasi Kerja -->
-          <div class="custom-select" @click.stop="toggleLokasiMenu">
-            <span>{{ lokasiKerja }}</span>
-            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
-
-            <div v-if="showLokasiMenu" class="select-menu">
-              <button
-                v-for="item in locations"
-                :key="item"
-                type="button"
-                class="select-item"
-                :class="{ active: lokasiKerja === item }"
-                @click.stop="selectLokasi(item)"
-              >
-                {{ item }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Custom Dropdown Divisi -->
-          <div class="custom-select" @click.stop="toggleDivisiMenu">
-            <span>{{ divisi }}</span>
-            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
-
-            <div v-if="showDivisiMenu" class="select-menu">
-              <button
-                v-for="item in divisions"
-                :key="item"
-                type="button"
-                class="select-item"
-                :class="{ active: divisi === item }"
-                @click.stop="selectDivisi(item)"
-              >
-                {{ item }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Custom Dropdown Level / Grade -->
-          <div class="custom-select" @click.stop="toggleGradeMenu">
-            <span>{{ grade }}</span>
-            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
-
-            <div v-if="showGradeMenu" class="select-menu">
-              <button
-                type="button"
-                class="select-item"
-                :class="{ active: grade === 'Semua Level' }"
-                @click.stop="selectGrade('Semua Level')"
-              >
-                Semua Level
-              </button>
-              <button
-                v-for="item in [3, 4, 5, 6]"
-                :key="item"
-                type="button"
-                class="select-item"
-                :class="{ active: grade === `Grade ${item}` }"
-                @click.stop="selectGrade(`Grade ${item}`)"
-              >
-                Grade {{ item }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Custom Dropdown Status -->
-          <div class="custom-select" @click.stop="toggleStatusMenu">
-            <span>{{ status }}</span>
-            <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
-
-            <div v-if="showStatusMenu" class="select-menu">
-              <button
-                v-for="st in ['Semua Status', 'Aktif', 'Menunggu Review', 'Perlu Update']"
-                :key="st"
-                type="button"
-                class="select-item"
-                :class="{ active: status === st }"
-                @click.stop="selectStatus(st)"
-              >
-                {{ st }}
-              </button>
-            </div>
+          
+          <div class="search-wrap">
+            <BaseSearch 
+              v-model="search" 
+              @update:modelValue="resetPage"
+              placeholder="Cari nama, NIK, atau kantor..." 
+              width="260px"
+            />
           </div>
         </div>
 
-        <div class="search">
-          <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-          <input
-            type="text"
-            v-model="search"
-            @input="resetPage"
-            placeholder="Cari nama, NIK, atau posisi..."
-          />
-        </div>
+        <!-- Baris Filter Dropdown & Aksi -->
+        <div class="filter-controls">
+          <div class="filters">
+            <!-- Custom Month Picker -->
+            <div class="month-picker-wrap" @click.stop="toggleMonthMenu">
+              <Icon icon="material-symbols:calendar-month-outline-rounded" width="18" height="18" class="icon-left" />
+              <span>{{ formattedMonthLabel }}</span>
+              <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" class="icon-right" />
+              <div v-if="showMonthMenu" class="month-picker-menu" @click.stop>
+                <div class="month-picker-header">
+                  <button type="button" class="nav-btn" @click="changeYear(-1)">
+                    <Icon icon="material-symbols:chevron-left-rounded" width="20" height="20" />
+                  </button>
+                  <span class="year-label">{{ pickerYear }}</span>
+                  <button type="button" class="nav-btn" @click="changeYear(1)">
+                    <Icon icon="material-symbols:chevron-right-rounded" width="20" height="20" />
+                  </button>
+                </div>
+                <div class="month-grid">
+                  <button v-for="(m, idx) in monthList" :key="m" type="button" class="month-item" :class="{ active: isCurrentSelectedMonth(idx) }" @click="selectMonth(idx)">{{ m }}</button>
+                </div>
+                <div class="month-picker-footer">
+                  <button type="button" class="btn-text" @click="selectThisMonth">Bulan Ini</button>
+                </div>
+              </div>
+            </div>
 
-        <div class="actions-group">
-          <button class="add-btn" type="button" @click="handleCreateNewSalary">
-            <Icon icon="material-symbols:add-rounded" width="18" height="18" /> Tetapkan Gaji Baru
-          </button>
-          <button class="export-btn" type="button" @click="handleExport">
-            <Icon icon="material-symbols:download-rounded" /> Ekspor ke Excel
-          </button>
+            <!-- BaseSelects -->
+            <BaseSelect v-model="divisi" :options="divisions" @change="resetPage" />
+            <BaseSelect v-model="grade" :options="gradeOptions" @change="resetPage" />
+            <BaseSelect v-model="status" :options="statusOptions" @change="resetPage" />
+          </div>
+
+          <div class="actions-group">
+            <BaseButton variant="primary" icon="material-symbols:add-rounded" @click="handleCreateNewSalary">
+              Gaji Baru
+            </BaseButton>
+            <BaseButton variant="ghost" icon="material-symbols:download-rounded" @click="handleExport">
+              Ekspor
+            </BaseButton>
+          </div>
         </div>
       </div>
 
-      <!-- Tabel -->
-      <table>
-        <thead>
-          <tr>
-            <th>Karyawan</th>
-            <th>Gaji Pokok</th>
-            <th>Tunj. Tetap</th>
-            <th>Tunj. Variabel</th>
-            <th>Potongan</th>
-            <th>Take Home Pay</th>
-            <th>Status</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="pageItems.length === 0">
-            <td colspan="8" class="empty-cell">Tidak ada karyawan yang cocok dengan filter ini.</td>
-          </tr>
-          <tr v-for="employee in pageItems" :key="employee.id">
-            <td>
-              <div class="employee">
-                <div class="employee-avatar">{{ initials(employee.name) }}</div>
-                <div>
-                  <strong>{{ employee.name }}</strong>
-                  <small>{{ employee.code }} · {{ employee.position }}</small>
-                </div>
-              </div>
-            </td>
-            <td>{{ rupiah(employee.pokok) }}</td>
-            <td>{{ rupiah(employee.tetap) }}</td>
-            <td>{{ rupiah(employee.variabel) }}</td>
-            <td class="red-text">- {{ rupiah(employee.potongan) }}</td>
-            <td>
-              <strong class="pay-text">{{ rupiah(employee.netSalary) }}</strong>
-            </td>
-            <td>
-              <span class="status-badge" :class="statusBadgeClass(employee.status)">
-                {{ employee.status }}
-              </span>
-            </td>
-            <td>
-              <button class="action-btn" title="Edit gaji" @click="handleEditSalary(employee.id)">
-                <Icon icon="material-symbols:edit-outline" width="18" height="18" />
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <!-- TABEL DAFTAR PERUSAHAAN / CABANG (Level 1 & 2) -->
+      <BaseTable 
+        v-if="!isShowingPayroll"
+        :columns="companyColumns" 
+        :data="!selectedCompany ? companyTree : currentCompanyChildren" 
+        has-actions 
+        empty-text="Kantor atau lokasi tidak ditemukan."
+      >
+        <template #cell-name="{ item }">
+          <strong>{{ item.name }}</strong>
+        </template>
+        
+        <template #cell-count="{ item }">
+          <span class="count-badge">{{ item.count || 0 }} Orang</span>
+        </template>
+        
+        <template #cell-budget="{ item }">
+          <strong>{{ rupiah(item.budget) }}</strong>
+        </template>
+        
+        <template #actions="{ item }">
+          <button type="button" class="detail-link-btn" @click="!selectedCompany ? goToCompany(item) : goToBranch(item)">
+            Lihat Gaji
+          </button>
+        </template>
+      </BaseTable>
 
-      <!-- Table Footer / Pagination -->
-      <div class="table-footer">
+      <!-- TABEL DAFTAR KARYAWAN & GAJI (Level 3 - Payroll) -->
+      <BaseTable 
+        v-else
+        :columns="payrollColumns" 
+        :data="pageItems" 
+        has-actions 
+        empty-text="Belum ada data gaji di lokasi ini."
+      >
+        <template #cell-karyawan="{ item }">
+          <div class="employee">
+            <div class="employee-avatar">{{ initials(item.name) }}</div>
+            <div>
+              <strong>{{ item.name }}</strong>
+              <small>{{ item.code }} · {{ item.position }}</small>
+            </div>
+          </div>
+        </template>
+        <template #cell-pokok="{ item }">{{ rupiah(item.pokok) }}</template>
+        <template #cell-tetap="{ item }">{{ rupiah(item.tetap) }}</template>
+        <template #cell-variabel="{ item }">{{ rupiah(item.variabel) }}</template>
+        <template #cell-potongan="{ item }"><span class="red-text">- {{ rupiah(item.potongan) }}</span></template>
+        <template #cell-netSalary="{ item }"><strong class="pay-text">{{ rupiah(item.netSalary) }}</strong></template>
+        <template #cell-status="{ item }">
+          <span class="status-badge" :class="statusBadgeClass(item.status)">{{ item.status }}</span>
+        </template>
+        <template #actions="{ item }">
+          <TableActions show-edit @edit="handleEditSalary(item.id)" />
+        </template>
+      </BaseTable>
+
+      <!-- Table Footer / Pagination (Hanya tampil saat mode Payroll) -->
+      <div v-if="isShowingPayroll" class="table-footer">
         <div class="table-footer-content">
           <div class="pager">
-            <button
-              type="button"
-              class="pager-btn"
-              :disabled="page === 1"
-              @click="prevPage"
-              title="Halaman Sebelumnya"
-            >
+            <button type="button" class="pager-btn" :disabled="page === 1" @click="prevPage" title="Halaman Sebelumnya">
               <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
             </button>
-
             <div class="page-input-wrapper">
               <span>Halaman</span>
-              <input
-                type="number"
-                v-model.number="pageInput"
-                @keydown.enter="goToInputPage"
-                @blur="goToInputPage"
-                min="1"
-                :max="lastPage"
-                class="page-input"
-              />
+              <input type="number" v-model.number="pageInput" @keydown.enter="goToInputPage" @blur="goToInputPage" min="1" :max="lastPage" class="page-input" />
               <span>dari {{ lastPage }}</span>
             </div>
-
-            <button
-              type="button"
-              class="pager-btn"
-              :disabled="page === lastPage"
-              @click="nextPage"
-              title="Halaman Berikutnya"
-            >
+            <button type="button" class="pager-btn" :disabled="page === lastPage" @click="nextPage" title="Halaman Berikutnya">
               <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
             </button>
           </div>
-
           <div class="per-page-select">
             <select v-model="perPage" @change="resetPage">
               <option :value="10">10 baris</option>
@@ -601,7 +566,6 @@ onBeforeUnmount(() => {
               <option :value="50">50 baris</option>
             </select>
           </div>
-
           <span class="total-records-info">{{ totalRecords }} data</span>
         </div>
       </div>
@@ -651,96 +615,29 @@ onBeforeUnmount(() => {
   gap: 14px;
   margin-bottom: 20px;
 }
-.summary-card {
-  min-height: 146px;
-  padding: 18px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: 0 5px 12px rgba(47, 59, 105, 0.04);
-}
-.summary-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-.summary-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 7px;
-  display: grid;
-  place-items: center;
-}
-.summary-icon svg,
-.summary-icon .iconify {
-  width: 18px;
-  height: 18px;
-}
-.summary-icon.green {
-  background: #e0f5e9;
-  color: #17a057;
-}
-.summary-icon.amber {
-  background: #fff2d9;
-  color: #efb34f;
-}
-.summary-icon.blue {
-  background: #e8ebf5;
-  color: var(--blue-900);
-}
-.summary-tag {
-  padding: 4px 7px;
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 800;
-}
-.summary-tag.green {
-  color: #15924f;
-  background: #e5f5e9;
-}
-.summary-tag.amber {
-  color: #b17a18;
-  background: #fff0d3;
-}
-.summary-tag.blue {
-  color: var(--blue-900);
-  background: #e8ebf5;
-}
-.summary-label {
-  display: block;
-  color: var(--ink-soft);
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-.summary-card strong {
-  display: block;
-  color: #17a057;
-  font-size: 26px;
-  line-height: 1.1;
-  margin-bottom: 9px;
-}
-.summary-card small {
-  color: var(--ink-soft);
-  font-size: 11px;
-}
-.summary-card .amber-text {
-  color: #efb34f;
-}
-.summary-card .blue-text {
-  color: var(--blue-900);
-}
 
-/* Filter Bar */
+/* Filter Bar Layout */
 .filter-bar {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 14px;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 24px;
   background: var(--card);
   border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
   border-radius: 15px 15px 0 0;
+}
+.filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.filter-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .filters {
   display: flex;
@@ -748,14 +645,65 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-wrap: wrap;
 }
+.actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-/* Custom Select & Month Picker Styles */
-.custom-select {
+/* Drill-Down Header Styles (Sesuai DataKaryawanView_3) */
+.breadcrumb-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.table-heading h2 {
+  margin: 0;
+  color: var(--blue-900);
+  font-size: 18px;
+  font-weight: 700;
+}
+.table-heading p {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.selected-office-heading span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.selected-office-heading h2 {
+  margin: 0;
+  color: var(--blue-900);
+  font-size: 18px;
+  font-weight: 700;
+}
+.back-btn {
+  background: #ffffff;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #2c3345;
+  transition: background 0.2s;
+}
+.back-btn:hover {
+  background: #f4f5f8;
+}
+
+/* Custom Month Picker Styles Wrapper */
+.month-picker-wrap {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   height: 40px;
   background: var(--card);
   border: 1px solid var(--line);
@@ -765,59 +713,13 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--ink);
   cursor: pointer;
-  min-width: 150px;
+  min-width: 170px;
   user-select: none;
 }
-
-.custom-select.month-picker {
-  min-width: 170px;
-  gap: 10px;
-}
-
-.custom-select svg,
-.custom-select .iconify {
+.month-picker-wrap .icon-left, .month-picker-wrap .icon-right {
   color: var(--ink-soft);
   flex-shrink: 0;
 }
-
-.select-menu {
-  position: absolute;
-  z-index: 50;
-  top: calc(100% + 6px);
-  left: 0;
-  width: 200px;
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-  padding: 6px 0;
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.select-item {
-  width: 100%;
-  border: none;
-  background: transparent;
-  text-align: left;
-  padding: 10px 16px;
-  font-size: 14px;
-  color: var(--ink);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.select-item:hover {
-  background: #f4f5f8;
-}
-
-.select-item.active {
-  background: #f4f5f8;
-  color: var(--blue-900);
-  font-weight: 700;
-}
-
-/* Custom Month Picker Menu */
 .month-picker-menu {
   position: absolute;
   z-index: 50;
@@ -830,372 +732,96 @@ onBeforeUnmount(() => {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
   padding: 14px;
 }
-
 .month-picker-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
 }
-
-.year-label {
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--ink);
-}
-
+.year-label { font-weight: 700; font-size: 15px; color: var(--ink); }
 .nav-btn {
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--ink-soft);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  padding: 2px;
+  background: transparent; border: none; border-radius: 6px; color: var(--ink-soft); cursor: pointer; display: grid; place-items: center; padding: 2px;
 }
-
-.nav-btn:hover {
-  background: #f4f5f8;
-  color: var(--blue-900);
-}
-
-.month-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
+.nav-btn:hover { background: #f4f5f8; color: var(--blue-900); }
+.month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .month-item {
-  border: none;
-  background: #f7f8fa;
-  padding: 8px 0;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
-  transition: all 0.15s ease;
+  border: none; background: #f7f8fa; padding: 8px 0; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; transition: all 0.15s ease;
 }
-
-.month-item:hover {
-  background: #e8ebf5;
-  color: var(--blue-900);
-}
-
-.month-item.active {
-  background: var(--blue-900);
-  color: #ffffff;
-  font-weight: 700;
-}
-
+.month-item:hover { background: #e8ebf5; color: var(--blue-900); }
+.month-item.active { background: var(--blue-900); color: #ffffff; font-weight: 700; }
 .month-picker-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
+  display: flex; justify-content: flex-end; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
 }
-
 .btn-text {
-  background: none;
-  border: none;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--blue-900);
-  cursor: pointer;
-  padding: 2px 4px;
+  background: none; border: none; font-size: 12px; font-weight: 700; color: var(--blue-900); cursor: pointer; padding: 2px 4px;
 }
+.btn-text:hover { text-decoration: underline; }
 
-.btn-text:hover {
-  text-decoration: underline;
-}
-
-.search {
-  height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  width: 220px;
-  margin-left: auto;
-  background: var(--bg);
-}
-.search .iconify {
-  width: 18px;
-  height: 18px;
-  color: var(--ink-soft);
-  flex-shrink: 0;
-}
-.search input {
-  border: 0;
-  outline: 0;
-  width: 100%;
-  color: var(--ink);
-  font-size: 14px;
-  background: transparent;
-}
-
-.actions-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.add-btn {
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 8px;
-  background: #e3b726;
-  color: #000;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.add-btn:hover {
-  background: #e4bd3b;
-}
-
-.export-btn {
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #232c4f;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.export-btn:hover {
-  background: #2f3b69;
-}
-
-/* Table Style */
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-thead tr {
-  background: var(--blue-900);
-}
-thead th {
-  color: #eef0f7;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-align: left;
-  padding: 13px 20px;
-  text-transform: uppercase;
-}
-tbody td {
-  padding: 14px 20px;
-  font-size: 14px;
-  border-bottom: 1px solid var(--line);
-  vertical-align: middle;
-  color: var(--ink);
-}
-tbody tr:last-child td {
-  border-bottom: none;
-}
-.empty-cell {
-  text-align: center;
-  color: var(--ink-soft);
-  padding: 32px;
-}
-
+/* Kustomisasi Cell Table Khusus */
 .employee {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 .employee small {
-  display: block;
-  color: var(--ink-soft);
-  font-size: 12px;
+  display: block; color: var(--ink-soft); font-size: 12px;
 }
 .employee-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #e2e5f0;
-  color: var(--blue-900);
-  font-size: 12px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 50%; background: #e2e5f0; color: var(--blue-900);
+  font-size: 12px; font-weight: 700; display: grid; place-items: center; flex-shrink: 0;
 }
 
-.red-text {
-  color: #c91f2d;
-  font-weight: 600;
-}
-.pay-text {
-  color: var(--blue-900);
-  font-size: 14px;
+.count-badge {
+  display: inline-flex; font-size: 12px; color: var(--ink-soft); background: #e9edf7;
+  border-radius: 999px; padding: 4px 10px; font-weight: 700;
 }
 
+.detail-link-btn {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--blue-900); font-weight: 700;
+  background: none; border: none; cursor: pointer; font-size: 14px;
+}
+.detail-link-btn:hover { text-decoration: underline; }
+
+.red-text { color: #c91f2d; font-weight: 600; }
+.pay-text { color: var(--blue-900); font-size: 14px; }
 .status-badge {
-  display: inline-flex;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
+  display: inline-flex; padding: 6px 12px; border-radius: 999px; font-size: 11px;
+  font-weight: 700; white-space: nowrap;
 }
-.status-badge.on-time {
-  background: #dcf8e5;
-  color: #15924f;
-}
-.status-badge.late {
-  background: #fff0c7;
-  color: #9a6900;
-}
-.status-badge.missed {
-  background: #fde0e2;
-  color: #c91f2d;
-}
+.status-badge.on-time { background: #dcf8e5; color: #15924f; }
+.status-badge.late { background: #fff0c7; color: #9a6900; }
+.status-badge.missed { background: #fde0e2; color: #c91f2d; }
 
-.action-btn {
-  background: transparent;
-  border: none;
-  color: var(--ink-soft);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-}
-.action-btn:hover {
-  background: var(--bg);
-  color: var(--blue-900);
-}
-
+/* Table Footer / Pagination */
 .table-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 12px 20px;
-  font-size: 13px;
-  color: var(--ink-soft);
-  border-top: 1px solid var(--line);
-  background: var(--bg);
-  border-radius: 0 0 15px 15px;
+  display: flex; justify-content: flex-end; align-items: center; padding: 12px 20px;
+  font-size: 13px; color: var(--ink-soft); border-top: 1px solid var(--line);
+  background: var(--bg); border-radius: 0 0 15px 15px;
 }
-.table-footer-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.pager {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+.table-footer-content { display: flex; align-items: center; gap: 16px; }
+.pager { display: flex; align-items: center; gap: 6px; }
 .pager-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--ink-soft);
+  width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--card); display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s ease; color: var(--ink-soft);
 }
-.pager-btn:hover:not(:disabled) {
-  background: #fff;
-  border-color: var(--blue-900);
-  color: var(--blue-900);
-}
-.pager-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.page-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
+.pager-btn:hover:not(:disabled) { background: #fff; border-color: var(--blue-900); color: var(--blue-900); }
+.pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-input-wrapper { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-soft); font-size: 13px; }
 .page-input {
-  width: 44px;
-  height: 32px;
-  text-align: center;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--card);
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 13px;
-  outline: none;
-  appearance: textfield;
-  -moz-appearance: textfield;
+  width: 44px; height: 32px; text-align: center; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--card); color: var(--ink); font-weight: 700;
+  font-size: 13px; outline: none; appearance: textfield; -moz-appearance: textfield;
 }
-.page-input::-webkit-outer-spin-button,
-.page-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.page-input:focus {
-  border-color: var(--blue-900);
-  box-shadow: 0 0 0 2px rgba(47, 59, 105, 0.12);
-}
-
+.page-input::-webkit-outer-spin-button, .page-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.page-input:focus { border-color: var(--blue-900); box-shadow: 0 0 0 2px rgba(47, 59, 105, 0.12); }
 .per-page-select select {
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--card);
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  outline: none;
+  height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--card); color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; outline: none;
 }
-
-.total-records-info {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
+.total-records-info { font-size: 13px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
 
 @media (max-width: 800px) {
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-  .search {
-    margin-left: 0;
-    width: 100%;
-  }
-  .actions-group {
-    width: 100%;
-    justify-content: flex-end;
-  }
-  .table-panel {
-    overflow-x: auto;
-  }
-  table {
-    min-width: 850px;
-  }
+  .summary-grid { grid-template-columns: 1fr; }
+  .filter-header, .filter-controls { flex-direction: column; align-items: stretch; }
+  .search-wrap { width: 100%; }
+  .actions-group { width: 100%; justify-content: flex-end; }
 }
 </style>
