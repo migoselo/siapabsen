@@ -1,7 +1,7 @@
 <!-- src/components/GlobalConfirm.vue -->
 <script setup>
 import { Icon } from '@iconify/vue'
-import { useConfirm } from '../composables/useConfirm'
+import { useConfirm } from '../composables/UseConfirm'
 
 // Mengambil state dan fungsi dari composable
 const { state, confirm, cancel } = useConfirm()

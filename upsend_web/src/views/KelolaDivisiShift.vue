@@ -3,6 +3,26 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
+// Import Komponen Dialog
+import GlobalConfirm from '../components/GlobalConfirm.vue'
+import { useConfirm } from '../composables/UseConfirm'
+import BaseActionBtn from '../components/BaseActionBtn.vue'
+
+const confirmDialog = useConfirm()
+
+/* ------------------------------------------------------------------ */
+/* Toast Notification State                                            */
+/* ------------------------------------------------------------------ */
+const toast = ref({ show: false, type: 'success', message: '' })
+let toastTimer = null
+
+function showToast(message, type = 'success') {
+  toast.value = { show: true, type, message }
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toast.value.show = false
+  }, 2600)
+}
 
 /* ------------------------------------------------------------------ */
 /* State Management                                                    */
@@ -26,11 +46,6 @@ const shifts = ref([])
 /* ------------------------------------------------------------------ */
 /* Helper Functions                                                    */
 /* ------------------------------------------------------------------ */
-// CATATAN: backend menyimpan field dengan nama snake_case
-// (division_ids/divisions, work_start_time, work_end_time, is_active).
-// Fungsi ini menerjemahkan respons API itu ke bentuk camelCase yang
-// dipakai di seluruh file ini (divisionIds, clockIn, clockOut, status),
-// supaya template & fungsi lain di bawah tidak perlu diubah.
 function normalizeShift(raw) {
   const divisionIds =
     raw.division_ids ?? (Array.isArray(raw.divisions) ? raw.divisions.map((d) => d.id) : [])
@@ -49,8 +64,8 @@ function getDivisionNames(ids) {
   if (divisions.value.length > 0 && ids.length === divisions.value.length) return 'Semua Divisi'
 
   return divisions.value
-    .filter(d => ids.includes(d.id))
-    .map(d => d.name)
+    .filter((d) => ids.includes(d.id))
+    .map((d) => d.name)
     .join(', ')
 }
 
@@ -58,7 +73,7 @@ function calculateDuration(inTime, outTime) {
   if (!inTime || !outTime) return '-'
   const [inH, inM] = inTime.split(':').map(Number)
   const [outH, outM] = outTime.split(':').map(Number)
-  let diff = (outH * 60 + outM) - (inH * 60 + inM)
+  let diff = outH * 60 + outM - (inH * 60 + inM)
   if (diff < 0) diff += 24 * 60 // Shift lintas hari (misal shift malam)
   const hours = Math.floor(diff / 60)
   return `${hours} Jam`
@@ -78,16 +93,14 @@ const filteredCompanies = computed(() => {
 const filteredData = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   if (activeTab.value === 'shift') {
-    return shifts.value.filter(s =>
-      !query ||
-      s.name.toLowerCase().includes(query) ||
-      getDivisionNames(s.divisionIds).toLowerCase().includes(query)
+    return shifts.value.filter(
+      (s) =>
+        !query ||
+        s.name.toLowerCase().includes(query) ||
+        getDivisionNames(s.divisionIds).toLowerCase().includes(query),
     )
   } else {
-    return divisions.value.filter(d =>
-      !query ||
-      d.name.toLowerCase().includes(query)
-    )
+    return divisions.value.filter((d) => !query || d.name.toLowerCase().includes(query))
   }
 })
 
@@ -119,7 +132,7 @@ function changePerPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/* API Data Fetching (nyata — dummy data dihapus)                       */
+/* API Data Fetching (nyata)                                           */
 /* ------------------------------------------------------------------ */
 async function fetchCompanies() {
   loading.value = true
@@ -136,10 +149,11 @@ async function fetchCompanies() {
       location_id: location.id,
       name: location.name,
       address: location.address,
-      users_count: users.filter((user) => Number(user.home_location_id) === Number(location.id)).length,
+      users_count: users.filter((user) => Number(user.home_location_id) === Number(location.id))
+        .length,
     }))
   } catch (error) {
-    alert(error.response?.data?.message || 'Daftar perusahaan gagal dimuat.')
+    showToast(error.response?.data?.message || 'Daftar perusahaan gagal dimuat.', 'error')
   } finally {
     loading.value = false
   }
@@ -163,7 +177,7 @@ async function fetchDataForCompany() {
     divisions.value = divisionResponse.data
     shifts.value = (Array.isArray(shiftResponse.data) ? shiftResponse.data : []).map(normalizeShift)
   } catch (error) {
-    alert(error.response?.data?.message || 'Data shift dan divisi gagal dimuat.')
+    showToast(error.response?.data?.message || 'Data shift dan divisi gagal dimuat.', 'error')
   } finally {
     loading.value = false
   }
@@ -204,6 +218,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (toastTimer) clearTimeout(toastTimer)
   document.removeEventListener('click', handleOutsideClick)
 })
 
@@ -229,62 +244,102 @@ function closeModal() {
 
 function toggleAllDivisions(e) {
   if (e.target.checked) {
-    formData.value.divisionIds = divisions.value.map(d => d.id)
+    formData.value.divisionIds = divisions.value.map((d) => d.id)
   } else {
     formData.value.divisionIds = []
   }
 }
 
 async function saveForm() {
-  if (activeTab.value === 'shift' && (!formData.value.divisionIds || formData.value.divisionIds.length === 0)) {
-    alert('Harap pilih minimal satu divisi untuk shift ini.')
+  if (
+    activeTab.value === 'shift' &&
+    (!formData.value.divisionIds || formData.value.divisionIds.length === 0)
+  ) {
+    showToast('Harap pilih minimal satu divisi untuk shift ini.', 'error')
     return
   }
   saving.value = true
   try {
     const resource = activeTab.value === 'shift' ? 'shifts' : 'divisions'
-    // CATATAN: di sinilah field camelCase lokal diterjemahkan balik
-    // ke nama field yang diharapkan backend Laravel. Sesuaikan kalau
-    // controller-mu memakai nama lain.
-    const payload = activeTab.value === 'shift'
-      ? {
-          name: formData.value.name,
-          division_ids: formData.value.divisionIds,
-          work_start_time: formData.value.clockIn,
-          work_end_time: formData.value.clockOut,
-          is_active: formData.value.status === 'Aktif',
-        }
-      : {
-          name: formData.value.name,
-          description: formData.value.description || '',
-        }
+    const payload =
+      activeTab.value === 'shift'
+        ? {
+            name: formData.value.name,
+            division_ids: formData.value.divisionIds,
+            work_start_time: formData.value.clockIn,
+            work_end_time: formData.value.clockOut,
+            is_active: formData.value.status === 'Aktif',
+          }
+        : {
+            name: formData.value.name,
+            description: formData.value.description || '',
+          }
     const requestConfig = { params: { tenant_id: selectedCompany.value.id } }
-    if (modalMode.value === 'add') await api.post(`/${resource}`, payload, requestConfig)
-    else await api.put(`/${resource}/${formData.value.id}`, payload, requestConfig)
+
+    if (modalMode.value === 'add') {
+      await api.post(`/${resource}`, payload, requestConfig)
+      showToast(`${activeTab.value === 'shift' ? 'Shift' : 'Divisi'} berhasil ditambahkan.`)
+    } else {
+      await api.put(`/${resource}/${formData.value.id}`, payload, requestConfig)
+      showToast(`${activeTab.value === 'shift' ? 'Shift' : 'Divisi'} berhasil diperbarui.`)
+    }
+
     await fetchDataForCompany()
     closeModal()
   } catch (error) {
-    alert(error.response?.data?.message || 'Data gagal disimpan.')
+    showToast(error.response?.data?.message || 'Data gagal disimpan.', 'error')
   } finally {
     saving.value = false
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Delete Data dengan GlobalConfirm Dialog                             */
+/* ------------------------------------------------------------------ */
 async function deleteData(id) {
-  if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return
+  const typeLabel = activeTab.value === 'shift' ? 'Shift' : 'Divisi'
+  const isConfirmed = await confirmDialog.showConfirm({
+    title: `Hapus Data ${typeLabel}`,
+    message: `Apakah Anda yakin menghapus ${typeLabel.toLowerCase()} ini?`,
+    type: 'danger',
+    confirmText: 'Hapus',
+    cancelText: 'Batal',
+  })
+
+  if (!isConfirmed) return
+
   try {
     await api.delete(`/${activeTab.value === 'shift' ? 'shifts' : 'divisions'}/${id}`, {
       params: { tenant_id: selectedCompany.value.id },
     })
     await fetchDataForCompany()
+
+    // Tampilkan pesan dialog sukses seperti yang diminta
+    showToast(`${typeLabel} berhasil dihapus`, 'success')
   } catch (error) {
-    alert(error.response?.data?.message || 'Data gagal dihapus.')
+    showToast(error.response?.data?.message || 'Data gagal dihapus.', 'error')
   }
 }
 </script>
 
 <template>
   <div class="shift-divisi-page">
+    <!-- Komponen Konfirmasi & Toast -->
+    <Teleport to="body">
+      <div v-if="toast.show" class="toast" :class="toast.type">
+        <Icon
+          :icon="
+            toast.type === 'success'
+              ? 'material-symbols:check-circle-rounded'
+              : 'material-symbols:error-rounded'
+          "
+          width="18"
+          height="18"
+        />
+        <span>{{ toast.message }}</span>
+      </div>
+    </Teleport>
+    <GlobalConfirm />
 
     <!-- TAMPILAN 1: LIST PERUSAHAAN (Jika Belum Dipilih) -->
     <section v-if="!selectedCompany" class="panel table-panel">
@@ -311,14 +366,26 @@ async function deleteData(id) {
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="4" class="empty-cell">Memuat data...</td></tr>
-          <tr v-else-if="filteredCompanies.length === 0"><td colspan="4" class="empty-cell">Data perusahaan tidak ditemukan.</td></tr>
+          <tr v-if="loading">
+            <td colspan="4" class="empty-cell">Memuat data...</td>
+          </tr>
+          <tr v-else-if="filteredCompanies.length === 0">
+            <td colspan="4" class="empty-cell">Data perusahaan tidak ditemukan.</td>
+          </tr>
           <tr v-for="company in filteredCompanies" :key="`${company.id}-${company.location_id}`">
-            <td><strong class="text-dark">{{ company.name }}</strong></td>
-            <td><span class="text-soft">{{ company.address || '-' }}</span></td>
-            <td><span class="badge badge-divisi">{{ company.users_count || 0 }} Orang</span></td>
+            <td>
+              <strong class="text-dark">{{ company.name }}</strong>
+            </td>
+            <td>
+              <span class="text-soft">{{ company.address || '-' }}</span>
+            </td>
+            <td>
+              <span class="badge badge-divisi">{{ company.users_count || 0 }} Orang</span>
+            </td>
             <td class="action-column">
-              <button type="button" class="detail-link-btn" @click="selectCompany(company)">Kelola Shift</button>
+              <button type="button" class="detail-link-btn" @click="selectCompany(company)">
+                Kelola Shift
+              </button>
             </td>
           </tr>
         </tbody>
@@ -328,7 +395,15 @@ async function deleteData(id) {
     <!-- TAMPILAN 2: PENGATURAN SHIFT/DIVISI (Jika Sudah Memilih Perusahaan) -->
     <template v-else>
       <div class="company-context">
-        <button type="button" class="back-btn" @click="selectedCompany = null; divisions = []; shifts = []">
+        <button
+          type="button"
+          class="back-btn"
+          @click="
+            selectedCompany = null
+            divisions = []
+            shifts = []
+          "
+        >
           <Icon icon="material-symbols:arrow-back-rounded" width="18" />
         </button>
         <span class="company-name-display">{{ selectedCompany.name }}</span>
@@ -383,7 +458,9 @@ async function deleteData(id) {
               @click="changeTab('divisi')"
             >
               Daftar Divisi
-              <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'divisi' }">{{ divisions.length }}</span>
+              <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'divisi' }">{{
+                divisions.length
+              }}</span>
             </button>
             <button
               class="tab"
@@ -391,7 +468,9 @@ async function deleteData(id) {
               @click="changeTab('shift')"
             >
               Pengaturan Shift
-              <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'shift' }">{{ shifts.length }}</span>
+              <span class="tab-count" :class="{ 'tab-count-active': activeTab === 'shift' }">{{
+                shifts.length
+              }}</span>
             </button>
           </div>
 
@@ -401,7 +480,9 @@ async function deleteData(id) {
               <input
                 v-model="searchQuery"
                 type="text"
-                :placeholder="activeTab === 'shift' ? 'Cari nama shift/divisi...' : 'Cari nama divisi...'"
+                :placeholder="
+                  activeTab === 'shift' ? 'Cari nama shift/divisi...' : 'Cari nama divisi...'
+                "
               />
             </div>
             <button class="btn-primary" @click="openModal('add')">
@@ -431,13 +512,15 @@ async function deleteData(id) {
               <tr>
                 <th>ID Divisi</th>
                 <th>Nama Divisi</th>
-                <th style="width: 50%;">Deskripsi</th>
+                <th style="width: 50%">Deskripsi</th>
                 <th class="col-actions">Aksi</th>
               </tr>
             </thead>
 
             <tbody>
-              <tr v-if="loading"><td :colspan="activeTab === 'shift' ? 7 : 4" class="empty-row">Memuat data...</td></tr>
+              <tr v-if="loading">
+                <td :colspan="activeTab === 'shift' ? 7 : 4" class="empty-row">Memuat data...</td>
+              </tr>
               <tr v-else-if="paginatedData.length === 0">
                 <td :colspan="activeTab === 'shift' ? 7 : 4" class="empty-row">
                   Tidak ada data yang ditemukan.
@@ -451,24 +534,29 @@ async function deleteData(id) {
                     <strong class="text-dark">{{ shift.name }}</strong>
                   </td>
                   <td>
-                    <span class="badge badge-divisi">{{ getDivisionNames(shift.divisionIds) }}</span>
+                    <span class="badge badge-divisi">{{
+                      getDivisionNames(shift.divisionIds)
+                    }}</span>
                   </td>
-                  <td><span class="time-box in">{{ shift.clockIn }}</span></td>
-                  <td><span class="time-box out">{{ shift.clockOut }}</span></td>
+                  <td>
+                    <span class="time-box in">{{ shift.clockIn }}</span>
+                  </td>
+                  <td>
+                    <span class="time-box out">{{ shift.clockOut }}</span>
+                  </td>
                   <td>{{ calculateDuration(shift.clockIn, shift.clockOut) }}</td>
                   <td>
-                    <span class="badge" :class="shift.status === 'Aktif' ? 'badge-green' : 'badge-gray'">
+                    <span
+                      class="badge"
+                      :class="shift.status === 'Aktif' ? 'badge-green' : 'badge-gray'"
+                    >
                       {{ shift.status }}
                     </span>
                   </td>
                   <td>
                     <div class="actions">
-                      <button class="icon-btn" title="Edit" @click="openModal('edit', shift)">
-                        <Icon icon="material-symbols:edit-outline" width="16" />
-                      </button>
-                      <button class="icon-btn icon-btn-danger" title="Hapus" @click="deleteData(shift.id)">
-                        <Icon icon="material-symbols:delete-outline" width="16" />
-                      </button>
+                      <BaseActionBtn variant="edit" @click="openEditModal(item)" />
+                      <BaseActionBtn variant="delete" @click="deleteRole(item)" />
                     </div>
                   </td>
                 </tr>
@@ -477,15 +565,25 @@ async function deleteData(id) {
               <!-- Render Baris Divisi -->
               <template v-else-if="activeTab === 'divisi' && !loading">
                 <tr v-for="div in paginatedData" :key="div.id">
-                  <td><span class="text-soft">DIV-{{ div.id }}</span></td>
-                  <td><strong class="text-dark">{{ div.name }}</strong></td>
-                  <td><span class="text-soft">{{ div.description || '-' }}</span></td>
+                  <td>
+                    <span class="text-soft">DIV-{{ div.id }}</span>
+                  </td>
+                  <td>
+                    <strong class="text-dark">{{ div.name }}</strong>
+                  </td>
+                  <td>
+                    <span class="text-soft">{{ div.description || '-' }}</span>
+                  </td>
                   <td>
                     <div class="actions">
                       <button class="icon-btn" title="Edit" @click="openModal('edit', div)">
                         <Icon icon="material-symbols:edit-outline" width="16" />
                       </button>
-                      <button class="icon-btn icon-btn-danger" title="Hapus" @click="deleteData(div.id)">
+                      <button
+                        class="icon-btn icon-btn-danger"
+                        title="Hapus"
+                        @click="deleteData(div.id)"
+                      >
                         <Icon icon="material-symbols:delete-outline" width="16" />
                       </button>
                     </div>
@@ -505,10 +603,21 @@ async function deleteData(id) {
               </button>
               <div class="page-input-wrapper">
                 <span>Halaman</span>
-                <input type="number" v-model.number="pageInput" @change="goToInputPage" min="1" :max="totalPages" class="page-input" />
+                <input
+                  type="number"
+                  v-model.number="pageInput"
+                  @change="goToInputPage"
+                  min="1"
+                  :max="totalPages"
+                  class="page-input"
+                />
                 <span>dari {{ totalPages }}</span>
               </div>
-              <button class="pager-btn" :disabled="currentPage === totalPages" @click="currentPage++">
+              <button
+                class="pager-btn"
+                :disabled="currentPage === totalPages"
+                @click="currentPage++"
+              >
                 <Icon icon="material-symbols:chevron-right-rounded" width="18" />
               </button>
             </div>
@@ -528,7 +637,10 @@ async function deleteData(id) {
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal">
           <div class="modal-header">
-            <h2>{{ modalMode === 'add' ? 'Tambah' : 'Edit' }} {{ activeTab === 'shift' ? 'Shift' : 'Divisi' }}</h2>
+            <h2>
+              {{ modalMode === 'add' ? 'Tambah' : 'Edit' }}
+              {{ activeTab === 'shift' ? 'Shift' : 'Divisi' }}
+            </h2>
             <button type="button" class="icon-btn-plain" @click="closeModal">
               <Icon icon="material-symbols:close" width="20" />
             </button>
@@ -539,15 +651,32 @@ async function deleteData(id) {
             <template v-if="activeTab === 'shift'">
               <div class="form-group">
                 <label>Nama Shift</label>
-                <input v-model="formData.name" type="text" class="form-input" placeholder="Misal: Shift Pagi Reguler" required />
+                <input
+                  v-model="formData.name"
+                  type="text"
+                  class="form-input"
+                  placeholder="Misal: Shift Pagi Reguler"
+                  required
+                />
               </div>
 
               <div class="form-row">
                 <!-- Custom Clock In -->
                 <div class="form-group">
                   <label>Jam Masuk (Clock In)</label>
-                  <div class="custom-select time-select" @click.stop="showClockInMenu = !showClockInMenu; showClockOutMenu = false; showStatusMenu = false">
-                    <Icon icon="material-symbols:schedule-outline" width="18" class="time-icon-left" />
+                  <div
+                    class="custom-select time-select"
+                    @click.stop="
+                      showClockInMenu = !showClockInMenu
+                      showClockOutMenu = false
+                      showStatusMenu = false
+                    "
+                  >
+                    <Icon
+                      icon="material-symbols:schedule-outline"
+                      width="18"
+                      class="time-icon-left"
+                    />
                     <span class="time-text">{{ formData.clockIn }}</span>
                     <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" />
 
@@ -555,19 +684,27 @@ async function deleteData(id) {
                       <div class="time-columns">
                         <div class="time-col">
                           <div class="time-col-title">Jam</div>
-                          <button type="button" v-for="h in hoursList" :key="'in-h'+h"
+                          <button
+                            type="button"
+                            v-for="h in hoursList"
+                            :key="'in-h' + h"
                             class="time-item"
                             :class="{ active: formData.clockIn.split(':')[0] === h }"
-                            @click="selectTime('clockIn', 'h', h)">
+                            @click="selectTime('clockIn', 'h', h)"
+                          >
                             {{ h }}
                           </button>
                         </div>
                         <div class="time-col">
                           <div class="time-col-title">Menit</div>
-                          <button type="button" v-for="m in minutesList" :key="'in-m'+m"
+                          <button
+                            type="button"
+                            v-for="m in minutesList"
+                            :key="'in-m' + m"
                             class="time-item"
                             :class="{ active: formData.clockIn.split(':')[1] === m }"
-                            @click="selectTime('clockIn', 'm', m)">
+                            @click="selectTime('clockIn', 'm', m)"
+                          >
                             {{ m }}
                           </button>
                         </div>
@@ -579,8 +716,19 @@ async function deleteData(id) {
                 <!-- Custom Clock Out -->
                 <div class="form-group">
                   <label>Jam Pulang (Clock Out)</label>
-                  <div class="custom-select time-select" @click.stop="showClockOutMenu = !showClockOutMenu; showClockInMenu = false; showStatusMenu = false">
-                    <Icon icon="material-symbols:schedule-outline" width="18" class="time-icon-left" />
+                  <div
+                    class="custom-select time-select"
+                    @click.stop="
+                      showClockOutMenu = !showClockOutMenu
+                      showClockInMenu = false
+                      showStatusMenu = false
+                    "
+                  >
+                    <Icon
+                      icon="material-symbols:schedule-outline"
+                      width="18"
+                      class="time-icon-left"
+                    />
                     <span class="time-text">{{ formData.clockOut }}</span>
                     <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" />
 
@@ -588,19 +736,27 @@ async function deleteData(id) {
                       <div class="time-columns">
                         <div class="time-col">
                           <div class="time-col-title">Jam</div>
-                          <button type="button" v-for="h in hoursList" :key="'out-h'+h"
+                          <button
+                            type="button"
+                            v-for="h in hoursList"
+                            :key="'out-h' + h"
                             class="time-item"
                             :class="{ active: formData.clockOut.split(':')[0] === h }"
-                            @click="selectTime('clockOut', 'h', h)">
+                            @click="selectTime('clockOut', 'h', h)"
+                          >
                             {{ h }}
                           </button>
                         </div>
                         <div class="time-col">
                           <div class="time-col-title">Menit</div>
-                          <button type="button" v-for="m in minutesList" :key="'out-m'+m"
+                          <button
+                            type="button"
+                            v-for="m in minutesList"
+                            :key="'out-m' + m"
                             class="time-item"
                             :class="{ active: formData.clockOut.split(':')[1] === m }"
-                            @click="selectTime('clockOut', 'm', m)">
+                            @click="selectTime('clockOut', 'm', m)"
+                          >
                             {{ m }}
                           </button>
                         </div>
@@ -617,7 +773,9 @@ async function deleteData(id) {
                   <label class="checkbox-label font-bold">
                     <input
                       type="checkbox"
-                      :checked="formData.divisionIds?.length === divisions.length && divisions.length > 0"
+                      :checked="
+                        formData.divisionIds?.length === divisions.length && divisions.length > 0
+                      "
                       @change="toggleAllDivisions"
                     />
                     Pilih Semua Divisi
@@ -627,9 +785,14 @@ async function deleteData(id) {
                     <input type="checkbox" v-model="formData.divisionIds" :value="d.id" />
                     {{ d.name }}
                   </label>
-                  <div v-if="divisions.length === 0" class="form-hint">Belum ada divisi yang dibuat.</div>
+                  <div v-if="divisions.length === 0" class="form-hint">
+                    Belum ada divisi yang dibuat.
+                  </div>
                 </div>
-                <span class="form-hint" v-if="formData.divisionIds?.length === 0 && divisions.length > 0">
+                <span
+                  class="form-hint"
+                  v-if="formData.divisionIds?.length === 0 && divisions.length > 0"
+                >
                   Harap pilih minimal satu divisi.
                 </span>
               </div>
@@ -637,16 +800,30 @@ async function deleteData(id) {
               <!-- Custom Dropdown Status Shift -->
               <div class="form-group">
                 <label>Status Shift</label>
-                <div class="custom-select" @click.stop="showStatusMenu = !showStatusMenu; showClockInMenu = false; showClockOutMenu = false">
+                <div
+                  class="custom-select"
+                  @click.stop="
+                    showStatusMenu = !showStatusMenu
+                    showClockInMenu = false
+                    showClockOutMenu = false
+                  "
+                >
                   <span>{{ formData.status }}</span>
-                  <Icon icon="material-symbols:keyboard-arrow-down-rounded" width="18" height="18" />
+                  <Icon
+                    icon="material-symbols:keyboard-arrow-down-rounded"
+                    width="18"
+                    height="18"
+                  />
 
                   <div v-if="showStatusMenu" class="select-menu">
                     <button
                       type="button"
                       class="select-item"
                       :class="{ active: formData.status === 'Aktif' }"
-                      @click.stop="formData.status = 'Aktif'; showStatusMenu = false"
+                      @click.stop="
+                        formData.status = 'Aktif'
+                        showStatusMenu = false
+                      "
                     >
                       Aktif
                     </button>
@@ -654,7 +831,10 @@ async function deleteData(id) {
                       type="button"
                       class="select-item"
                       :class="{ active: formData.status === 'Tidak Aktif' }"
-                      @click.stop="formData.status = 'Tidak Aktif'; showStatusMenu = false"
+                      @click.stop="
+                        formData.status = 'Tidak Aktif'
+                        showStatusMenu = false
+                      "
                     >
                       Tidak Aktif
                     </button>
@@ -667,16 +847,29 @@ async function deleteData(id) {
             <template v-else>
               <div class="form-group">
                 <label>Nama Divisi</label>
-                <input v-model="formData.name" type="text" class="form-input" placeholder="Misal: Human Resources" required />
+                <input
+                  v-model="formData.name"
+                  type="text"
+                  class="form-input"
+                  placeholder="Misal: Human Resources"
+                  required
+                />
               </div>
               <div class="form-group">
                 <label>Deskripsi Divisi</label>
-                <textarea v-model="formData.description" class="form-input textarea-input" rows="3" placeholder="Jelaskan peran divisi ini..."></textarea>
+                <textarea
+                  v-model="formData.description"
+                  class="form-input textarea-input"
+                  rows="3"
+                  placeholder="Jelaskan peran divisi ini..."
+                ></textarea>
               </div>
             </template>
 
             <div class="modal-footer">
-              <button type="button" class="btn-ghost" @click="closeModal" :disabled="saving">Batal</button>
+              <button type="button" class="btn-ghost" @click="closeModal" :disabled="saving">
+                Batal
+              </button>
               <button type="submit" class="btn-primary" :disabled="saving">
                 {{ saving ? 'Menyimpan...' : 'Simpan Data' }}
               </button>
@@ -709,6 +902,43 @@ async function deleteData(id) {
 .shift-divisi-page select,
 .shift-divisi-page textarea {
   font-family: inherit;
+}
+
+/* Toast Notifikasi */
+.toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.2);
+  animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast.success {
+  background: #1f9d67;
+}
+.toast.error {
+  background: #d92d20;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 /* Panel Perusahaan */
@@ -796,19 +1026,40 @@ async function deleteData(id) {
   display: grid;
   place-items: center;
 }
-.summary-icon svg { width: 18px; height: 18px; }
-.summary-icon.green { background: #e0f5e9; color: #17a057; }
-.summary-icon.amber { background: #fff2d9; color: #efb34f; }
-.summary-icon.blue { background: #e8ebf5; color: var(--blue-900); }
+.summary-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.summary-icon.green {
+  background: #e0f5e9;
+  color: #17a057;
+}
+.summary-icon.amber {
+  background: #fff2d9;
+  color: #efb34f;
+}
+.summary-icon.blue {
+  background: #e8ebf5;
+  color: var(--blue-900);
+}
 .summary-tag {
   padding: 4px 7px;
   border-radius: 4px;
   font-size: 9px;
   font-weight: 800;
 }
-.summary-tag.green { color: #15924f; background: #e5f5e9; }
-.summary-tag.amber { color: #b17a18; background: #fff0d3; }
-.summary-tag.blue { color: var(--blue-900); background: #e8ebf5; }
+.summary-tag.green {
+  color: #15924f;
+  background: #e5f5e9;
+}
+.summary-tag.amber {
+  color: #b17a18;
+  background: #fff0d3;
+}
+.summary-tag.blue {
+  color: var(--blue-900);
+  background: #e8ebf5;
+}
 .summary-label {
   display: block;
   color: var(--ink-soft);
@@ -822,10 +1073,19 @@ async function deleteData(id) {
   margin-bottom: 9px;
   font-weight: 800;
 }
-.summary-card small { color: var(--ink-soft); font-size: 11px; }
-.summary-card .green-text { color: #17a057; }
-.summary-card .amber-text { color: #efb34f; }
-.summary-card .blue-text { color: var(--blue-900); }
+.summary-card small {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+.summary-card .green-text {
+  color: #17a057;
+}
+.summary-card .amber-text {
+  color: #efb34f;
+}
+.summary-card .blue-text {
+  color: var(--blue-900);
+}
 
 /* Main card */
 .card {
@@ -921,8 +1181,13 @@ async function deleteData(id) {
   cursor: pointer;
   white-space: nowrap;
 }
-.btn-primary:hover { background: #252f58; }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary:hover {
+  background: #252f58;
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .btn-ghost {
   display: inline-flex;
@@ -937,8 +1202,13 @@ async function deleteData(id) {
   color: var(--ink-soft);
   cursor: pointer;
 }
-.btn-ghost:hover { background: #f4f5f8; }
-.btn-ghost:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-ghost:hover {
+  background: #f4f5f8;
+}
+.btn-ghost:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* Table */
 .table-wrap {
@@ -949,7 +1219,13 @@ async function deleteData(id) {
   border-collapse: collapse;
   font-size: 14px;
 }
-.table thead tr { background-color: var(--blue-900); border: none; }
+.table {
+  border-bottom: 1px solid var(--line);
+}
+.table thead tr {
+  background-color: var(--blue-900);
+  border: none;
+}
 .table th {
   text-align: left;
   padding: 14px 24px;
@@ -959,17 +1235,42 @@ async function deleteData(id) {
   text-transform: uppercase;
   color: #ffffff;
 }
-.action-column { text-align: right; width: 1%; white-space: nowrap; }
-.col-actions { text-align: right; width: 1%; white-space: nowrap; }
-.table tbody tr { border-bottom: 1px solid #f1f2f5; }
-.table tbody tr:hover { background: #fafbfc; }
+.action-column {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+.col-actions {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+.table tbody tr {
+  border-bottom: 1px solid #f1f2f5;
+}
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+.table tbody tr:hover {
+  background: #fafbfc;
+}
 .table td {
   padding: 14px 24px;
   vertical-align: middle;
 }
-.text-dark { color: var(--ink-dark); font-weight: 600; }
-.text-soft { color: var(--ink-soft); font-size: 13px; }
-.empty-cell { text-align: center; color: var(--ink-soft); padding: 40px; }
+.text-dark {
+  color: var(--ink-dark);
+  font-weight: 600;
+}
+.text-soft {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.empty-cell {
+  text-align: center;
+  color: var(--ink-soft);
+  padding: 40px;
+}
 
 /* Badges & Time Boxes */
 .badge {
@@ -979,9 +1280,18 @@ async function deleteData(id) {
   padding: 4px 10px;
   border-radius: 6px;
 }
-.badge-divisi { background: #e8ebf5; color: var(--blue-900); }
-.badge-green { background: #e9f9ef; color: #1b8a5a; }
-.badge-gray { background: #f1f2f5; color: var(--ink-soft); }
+.badge-divisi {
+  background: #e8ebf5;
+  color: var(--blue-900);
+}
+.badge-green {
+  background: #e9f9ef;
+  color: #1b8a5a;
+}
+.badge-gray {
+  background: #f1f2f5;
+  color: var(--ink-soft);
+}
 
 .time-box {
   display: inline-block;
@@ -993,8 +1303,12 @@ async function deleteData(id) {
   border: 1px solid var(--line);
   background: #ffffff;
 }
-.time-box.in { color: #1b8a5a; }
-.time-box.out { color: #c53030; }
+.time-box.in {
+  color: #1b8a5a;
+}
+.time-box.out {
+  color: #c53030;
+}
 
 .actions {
   display: flex;
@@ -1014,9 +1328,19 @@ async function deleteData(id) {
   cursor: pointer;
   transition: all 0.2s;
 }
-.icon-btn:hover { background: #e8ebf5; color: var(--blue-900); }
-.icon-btn-danger:hover { background: #fdeeee; color: #c53030; }
-.empty-row { text-align: center; padding: 48px 24px; color: var(--ink-soft); }
+.icon-btn:hover {
+  background: #e8ebf5;
+  color: var(--blue-900);
+}
+.icon-btn-danger:hover {
+  background: #fdeeee;
+  color: #c53030;
+}
+.empty-row {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--ink-soft);
+}
 .back-btn {
   width: 36px;
   height: 36px;
@@ -1054,60 +1378,130 @@ async function deleteData(id) {
   padding: 16px 24px;
   font-size: 13px;
   color: var(--ink-soft);
-  border-top: 1px solid var(--line);
   background: var(--bg);
   border-radius: 0 0 12px 12px;
 }
-.table-footer-content { display: flex; align-items: center; gap: 16px; }
-.pager { display: flex; align-items: center; gap: 6px; }
+.table-footer-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .pager-btn {
-  width: 32px; height: 32px;
-  border-radius: 6px; border: 1px solid var(--line);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
   background: #fff;
-  display: inline-flex; align-items: center; justify-content: center;
-  cursor: pointer; color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--ink-soft);
 }
-.pager-btn:hover:not(:disabled) { border-color: var(--blue-900); color: var(--blue-900); }
-.pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-input-wrapper { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.pager-btn:hover:not(:disabled) {
+  border-color: var(--blue-900);
+  color: var(--blue-900);
+}
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
 .page-input {
-  width: 44px; height: 32px; text-align: center;
-  border: 1px solid var(--line); border-radius: 6px;
-  font-weight: 700; font-size: 13px; outline: none;
+  width: 44px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  outline: none;
 }
-.page-input:focus { border-color: var(--blue-900); }
+.page-input:focus {
+  border-color: var(--blue-900);
+}
 .per-page-select select {
-  height: 32px; padding: 0 10px;
-  border: 1px solid var(--line); border-radius: 6px;
-  font-weight: 600; outline: none; cursor: pointer;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
 }
 
 /* Modals */
 .modal-overlay {
-  position: fixed; inset: 0;
+  position: fixed;
+  inset: 0;
   background: rgba(20, 25, 45, 0.5);
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px; z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
 }
 .modal {
   background: #fff;
   border-radius: 16px;
-  width: 100%; max-width: 500px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   overflow: visible;
 }
 .modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px; border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
 }
-.modal-header h2 { font-size: 18px; margin: 0; color: var(--ink-dark); }
-.icon-btn-plain { background: none; border: none; color: var(--ink-soft); cursor: pointer; }
-.icon-btn-plain:hover { color: var(--ink-dark); }
-.modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.modal-header h2 {
+  font-size: 18px;
+  margin: 0;
+  color: var(--ink-dark);
+}
+.icon-btn-plain {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.icon-btn-plain:hover {
+  color: var(--ink-dark);
+}
+.modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group label { font-size: 13px; font-weight: 700; color: var(--ink-dark); }
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-group label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-dark);
+}
 
 .form-input {
   padding: 10px 14px;
@@ -1118,14 +1512,30 @@ async function deleteData(id) {
   outline: none;
   transition: border 0.2s;
 }
-.form-input:focus { border-color: var(--blue-900); box-shadow: 0 0 0 3px rgba(47, 59, 105, 0.1); }
-.select-input { cursor: pointer; appearance: auto; }
-.form-hint { color: var(--ink-soft); font-size: 12px; }
-.textarea-input { resize: vertical; min-height: 80px; font-family: inherit; }
+.form-input:focus {
+  border-color: var(--blue-900);
+  box-shadow: 0 0 0 3px rgba(47, 59, 105, 0.1);
+}
+.select-input {
+  cursor: pointer;
+  appearance: auto;
+}
+.form-hint {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.textarea-input {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
 
 .modal-footer {
-  display: flex; justify-content: flex-end; gap: 12px;
-  margin-top: 8px; padding-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 20px;
   border-top: 1px solid var(--line);
 }
 
@@ -1149,7 +1559,7 @@ async function deleteData(id) {
   color: var(--ink-dark);
   cursor: pointer;
 }
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -1308,9 +1718,19 @@ async function deleteData(id) {
 }
 
 @media (max-width: 640px) {
-  .card-toolbar { flex-direction: column; align-items: stretch; }
-  .toolbar-actions { justify-content: space-between; width: 100%; }
-  .search-box input { width: 100%; }
-  .form-row { grid-template-columns: 1fr; }
+  .card-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .toolbar-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .search-box input {
+    width: 100%;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

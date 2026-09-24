@@ -5,6 +5,14 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../api'
 
+// Import Base Components & Composables
+import BaseButton from '../components/BaseButton.vue'
+import BaseActionBtn from '../components/BaseActionBtn.vue'
+import GlobalConfirm from '../components/GlobalConfirm.vue'
+import { useConfirm } from '../composables/UseConfirm'
+
+const confirmDialog = useConfirm()
+
 // Data & State Utama
 const locations = ref([])
 const loading = ref(false)
@@ -97,9 +105,7 @@ async function fetchLocations() {
   }
 }
 
-function onSearchInput() {
-  // Tempat pencarian server-side jika diperlukan
-}
+function onSearchInput() {}
 
 /* ---------------- Modal Tambah Lokasi Baru ---------------- */
 const showModal = ref(false)
@@ -209,11 +215,7 @@ function closeModal(force = false) {
 
 function showToast(message, type = 'success') {
   toast.value = { show: true, type, message }
-
-  if (toastTimer) {
-    clearTimeout(toastTimer)
-  }
-
+  if (toastTimer) clearTimeout(toastTimer)
   toastTimer = setTimeout(() => {
     toast.value.show = false
   }, 2600)
@@ -294,7 +296,6 @@ async function submitLocation() {
   const longitude = Number(form.value.longitude)
   const radius = Number(form.value.radius)
 
-  // 🔹 VALIDASI MENGGUNAKAN TOAST NOTIFIKASI
   if (!trimmedName) {
     showToast('Nama lokasi wajib diisi.', 'error')
     return
@@ -354,18 +355,29 @@ async function submitLocation() {
       handleMissingBackendFeature(actionText)
     } else {
       const backendMessage = err.response?.data?.message || err.response?.data?.error || ''
-      showToast(backendMessage ? `Gagal ${actionText}: ${backendMessage}` : `Gagal ${actionText} lokasi.`, 'error')
+      showToast(
+        backendMessage ? `Gagal ${actionText}: ${backendMessage}` : `Gagal ${actionText} lokasi.`,
+        'error',
+      )
     }
   } finally {
     saving.value = false
   }
 }
 
+// 🔹 Fungsi Delete yang diintegrasikan dengan GlobalConfirm
 async function deleteLocation(location) {
   if (!location?.id) return
 
-  const confirmed = window.confirm(`Hapus lokasi "${location.name}"?`)
-  if (!confirmed) return
+  const isConfirmed = await confirmDialog.showConfirm({
+    title: 'Hapus Data Lokasi',
+    message: `Apakah Anda yakin ingin menghapus lokasi "${location.name}"? Tindakan ini tidak dapat dibatalkan.`,
+    type: 'danger',
+    confirmText: 'Hapus',
+    cancelText: 'Batal',
+  })
+
+  if (!isConfirmed) return
 
   deletingId.value = location.id
   try {
@@ -395,17 +407,24 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="lokasi">
-    <!-- Teleport Toast di Luar Hierarchy DOM agar Selalu Melayang di Atas Modal -->
+    <!-- Teleport Toast di Luar Hierarchy DOM -->
     <Teleport to="body">
       <div v-if="toast.show" class="toast" :class="toast.type">
         <Icon
-          :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
+          :icon="
+            toast.type === 'success'
+              ? 'material-symbols:check-circle-rounded'
+              : 'material-symbols:error-rounded'
+          "
           width="18"
           height="18"
         />
         <span>{{ toast.message }}</span>
       </div>
     </Teleport>
+
+    <!-- Komponen Konfirmasi Global -->
+    <GlobalConfirm />
 
     <section class="panel table-panel">
       <div class="table-head">
@@ -454,19 +473,12 @@ onBeforeUnmount(() => {
             </td>
             <td class="action-cell">
               <div class="action-actions">
-                <button type="button" class="action-btn edit-btn" @click="openEditModal(loc)">
-                  <Icon icon="material-symbols:edit-outline-rounded" width="16" height="16" />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  class="action-btn delete-btn"
+                <BaseActionBtn variant="edit" @click="openEditModal(loc)" />
+                <BaseActionBtn
+                  variant="delete"
                   @click="deleteLocation(loc)"
                   :disabled="deletingId === loc.id"
-                >
-                  <Icon icon="material-symbols:delete-outline-rounded" width="16" height="16" />
-                  {{ deletingId === loc.id ? 'Menghapus...' : 'Delete' }}
-                </button>
+                />
               </div>
             </td>
           </tr>
@@ -532,7 +544,11 @@ onBeforeUnmount(() => {
           <div class="modal-head">
             <div class="modal-title">
               <Icon
-                :icon="editingLocationId ? 'material-symbols:edit-location-alt-rounded' : 'material-symbols:add-location-alt-outline'"
+                :icon="
+                  editingLocationId
+                    ? 'material-symbols:edit-location-alt-rounded'
+                    : 'material-symbols:add-location-alt-outline'
+                "
                 width="22"
                 height="22"
               />
@@ -549,42 +565,46 @@ onBeforeUnmount(() => {
             <div class="field-row">
               <div class="field">
                 <label>Latitude</label>
-                <input 
-                  type="number" 
-                  v-model="form.latitude" 
-                  min="-90" 
-                  max="90" 
-                  step="0.000001" 
-                  placeholder="-6.2088" 
+                <input
+                  type="number"
+                  v-model="form.latitude"
+                  min="-90"
+                  max="90"
+                  step="0.000001"
+                  placeholder="-6.2088"
                 />
               </div>
               <div class="field">
                 <label>Longitude</label>
-                <input 
-                  type="number" 
-                  v-model="form.longitude" 
-                  min="-180" 
-                  max="180" 
-                  step="0.000001" 
-                  placeholder="106.8456" 
+                <input
+                  type="number"
+                  v-model="form.longitude"
+                  min="-180"
+                  max="180"
+                  step="0.000001"
+                  placeholder="106.8456"
                 />
               </div>
             </div>
 
-          <div class="field-row">
-            <div class="field">
-              <label>Alamat</label>
-              <div class="input-suffix">
-                <input type="text" v-model="form.address" placeholder="Contoh: Jl. Raya Bogor No. 123" />
+            <div class="field-row">
+              <div class="field">
+                <label>Alamat</label>
+                <div class="input-suffix">
+                  <input
+                    type="text"
+                    v-model="form.address"
+                    placeholder="Contoh: Jl. Raya Bogor No. 123"
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label>Radius Absensi (Meter)</label>
+                <div class="input-suffix">
+                  <input type="number" v-model="form.radius" min="1" placeholder="25" />
+                </div>
               </div>
             </div>
-            <div class="field">
-              <label>Radius Absensi (Meter)</label>
-              <div class="input-suffix">
-                <input type="number" v-model="form.radius" min="1" placeholder="25" />
-              </div>
-            </div>
-          </div>
 
             <div class="field">
               <label>Pilih Lokasi di Peta</label>
@@ -631,7 +651,15 @@ onBeforeUnmount(() => {
             <button class="btn-cancel" @click="closeModal" :disabled="saving">Batal</button>
             <button class="btn-save" @click="submitLocation" :disabled="saving">
               <Icon icon="material-symbols:save-outline" width="18" height="18" />
-              {{ saving ? (editingLocationId ? 'Menyimpan perubahan...' : 'Menyimpan...') : (editingLocationId ? 'Simpan Perubahan' : 'Simpan Lokasi') }}
+              {{
+                saving
+                  ? editingLocationId
+                    ? 'Menyimpan perubahan...'
+                    : 'Menyimpan...'
+                  : editingLocationId
+                    ? 'Simpan Perubahan'
+                    : 'Simpan Lokasi'
+              }}
             </button>
           </div>
         </div>
@@ -674,7 +702,7 @@ onBeforeUnmount(() => {
   padding: 22px 0 0;
 }
 .action-column {
-  width: 170px;
+  width: 200px;
   text-align: center;
 }
 .action-cell {
@@ -687,38 +715,6 @@ onBeforeUnmount(() => {
   gap: 8px;
   flex-wrap: nowrap;
   white-space: nowrap;
-}
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s ease;
-  white-space: nowrap;
-}
-.edit-btn {
-  background: #edf4ff;
-  color: #1d4ed8;
-}
-.edit-btn:hover {
-  background: #dfeeff;
-}
-.delete-btn {
-  background: #ffe9eb;
-  color: #c92d40;
-}
-.delete-btn:hover:not(:disabled) {
-  background: #ffd9de;
-}
-.delete-btn:disabled {
-  cursor: wait;
-  opacity: 0.7;
 }
 .table-head {
   display: flex;
@@ -1212,7 +1208,7 @@ tbody tr:last-child td {
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: #2C3964;
+  background: #2c3964;
   color: #fff;
   font-size: 14px;
   font-weight: 700;
