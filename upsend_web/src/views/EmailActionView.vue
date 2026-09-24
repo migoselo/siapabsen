@@ -1,10 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import api from '../api'
 
 const route = useRoute()
-const router = useRouter()
 const isReset = computed(() => route.path === '/reset-password')
 const token = String(route.query.token || '')
 const password = ref('')
@@ -58,7 +57,6 @@ async function submit() {
       </form>
       <p v-if="message" class="success">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
-      <button v-if="message" class="login-link" type="button" @click="router.push('/login')">Ke halaman login</button>
     </section>
   </main>
 </template>
@@ -75,5 +73,4 @@ button { padding: 12px; border: 0; border-radius: 8px; background: #2f3b69; colo
 button:disabled { opacity: .6; cursor: wait; }
 .success { color: #16804b; font-weight: 700; }
 .error { color: #c53030; font-weight: 600; }
-.login-link { margin-top: 12px; width: 100%; }
 </style>

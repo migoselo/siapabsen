@@ -16,6 +16,7 @@ const perPage = ref(20)
 const pageInput = ref(1)
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
+const resendingInvitationId = ref(null)
 
 watch(currentPage, (newPage) => {
   pageInput.value = newPage
@@ -113,6 +114,19 @@ function splitHierarchyLabel(label) {
   return [value]
 }
 
+function getActivationStatus(user) {
+  if (user?.is_active) {
+    return { label: 'Aktif', className: 'active' }
+  }
+
+  const expiresAt = user?.invitation_expires_at ? new Date(user.invitation_expires_at) : null
+  if (expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt <= new Date()) {
+    return { label: 'Link Kedaluwarsa', className: 'expired' }
+  }
+
+  return { label: 'Menunggu Aktivasi', className: 'pending' }
+}
+
 const companyTree = computed(() => {
   const roots = []
   const nodes = new Map()
@@ -177,6 +191,7 @@ const companyTree = computed(() => {
       addNode(path)
 
     if (target) {
+      const activationStatus = getActivationStatus(emp)
       target.employees.push({
         id: emp.id,
         name: employeeName,
@@ -186,6 +201,9 @@ const companyTree = computed(() => {
         shift: emp.shift
           ? `${emp.shift.name} (${String(emp.shift.work_start_time).slice(0, 5)}-${String(emp.shift.work_end_time).slice(0, 5)})`
           : 'Gunakan jam lokasi',
+        isActive: Boolean(emp.is_active),
+        statusLabel: activationStatus.label,
+        statusClass: activationStatus.className,
         raw: emp
       })
       target.count = target.employees.length
@@ -270,6 +288,35 @@ function handleMissingBackendFeature(action) {
 function goToEmployeeDetail(employee) {
   if (!employee?.id) return
   router.push(`/dashboard/karyawan/${employee.id}`)
+}
+
+async function resendInvitation(employee) {
+  if (!employee?.id || employee.isActive || resendingInvitationId.value) return
+
+  resendingInvitationId.value = employee.id
+  try {
+    await api.post(`/users/${employee.id}/resend-invitation`)
+    await fetchEmployees(currentPage.value)
+    showToast('Link aktivasi berhasil dikirim ulang.')
+  } catch (err) {
+    console.error('Gagal mengirim ulang link aktivasi:', err)
+    const status = err.response?.status
+    if (status === 401) {
+      showToast('Sesi login sudah berakhir. Silakan login kembali.', 'error')
+    } else if (status === 403) {
+      showToast('Anda tidak memiliki akses untuk mengirim ulang link aktivasi.', 'error')
+    } else if (status === 404) {
+      showToast(err.response?.data?.message || 'Data karyawan tidak ditemukan.', 'error')
+    } else if (status === 405) {
+      handleMissingBackendFeature('mengirim ulang link aktivasi')
+    } else if (String(err.message).includes('Network Error')) {
+      showToast('Backend tidak dapat dihubungi. Periksa koneksi API.', 'error')
+    } else {
+      showToast(err.response?.data?.message || 'Gagal mengirim ulang link aktivasi.', 'error')
+    }
+  } finally {
+    resendingInvitationId.value = null
+  }
 }
 
 function openAddModal() {
@@ -495,12 +542,13 @@ onBeforeUnmount(() => {
             <th>Nomor HP</th>
             <th>Divisi</th>
             <th>Jam Kerja / Shift</th>
+            <th>Status</th>
             <th class="action-column">Aksi</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="currentEmployees.length === 0">
-            <td colspan="7" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
+            <td colspan="8" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
           </tr>
           <tr v-for="emp in currentEmployees" :key="emp.id">
             <td class="emp-id-cell">{{ emp.id }}</td>
@@ -512,10 +560,33 @@ onBeforeUnmount(() => {
             <td>{{ emp.no_hp || '-' }}</td>
             <td>{{ emp.division }}</td>
             <td>{{ emp.shift }}</td>
+            <td>
+              <span class="status-badge" :class="emp.statusClass">{{ emp.statusLabel }}</span>
+            </td>
             <td class="action-cell">
-              <!-- Hanya Tombol "Lihat" saja -->
               <button type="button" class="detail-link-btn" @click="goToEmployeeDetail(emp)">
                 Lihat
+              </button>
+              <button
+                v-if="!emp.isActive"
+                type="button"
+                class="resend-link-btn"
+                :disabled="resendingInvitationId === emp.id"
+                @click="resendInvitation(emp)"
+                :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
+              >
+                <Icon
+                  :icon="resendingInvitationId === emp.id ? 'line-md:loading-twotone-loop' : 'material-symbols:mail-outline-rounded'"
+                  width="16"
+                  height="16"
+                />
+                {{
+                  resendingInvitationId === emp.id
+                    ? 'Mengirim...'
+                    : emp.statusClass === 'expired'
+                      ? 'Minta Aktivasi Ulang'
+                      : 'Kirim Ulang Link'
+                }}
               </button>
             </td>
           </tr>
@@ -882,6 +953,28 @@ tbody tr:last-child td {
   text-align: center;
 }
 
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-badge.active {
+  color: #16704a;
+  background: #dff6e9;
+}
+.status-badge.pending {
+  color: #8a5a00;
+  background: #fff2cc;
+}
+.status-badge.expired {
+  color: #b42318;
+  background: #fee4e2;
+}
+
 /* Tombol Detail/Lihat */
 .detail-link-btn {
   display: inline-flex;
@@ -896,6 +989,26 @@ tbody tr:last-child td {
 }
 .detail-link-btn:hover {
   text-decoration: underline;
+}
+
+.resend-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  color: #2f3b69;
+  font-size: 12px;
+  font-weight: 700;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.resend-link-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.resend-link-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 /* Footer Pagination */
