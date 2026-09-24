@@ -77,17 +77,15 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
     _cameraPermissionFlowInProgress = true;
     final requestedStatus = await Permission.camera.request();
     if (!mounted) return;
-    if (requestedStatus.isPermanentlyDenied) {
-      setState(() => _cameraPermissionPermanentlyDenied = true);
-      _cameraPermissionFlowInProgress = false;
-      return;
-    }
 
+    // Kalau setelah balik dari Pengaturan izin tetap belum diberikan,
+    // tetap tampilkan halaman "Buka Pengaturan" (jangan jatuh ke halaman kosong).
+    final granted = requestedStatus.isGranted;
     setState(() {
-      _cameraPermissionDenied = !requestedStatus.isGranted;
-      _cameraPermissionPermanentlyDenied = false;
+      _cameraPermissionDenied = !granted;
+      _cameraPermissionPermanentlyDenied = !granted;
     });
-    if (requestedStatus.isGranted) {
+    if (granted) {
       await _initializeGrantedCamera(context.read<AttendanceBloc>().state);
     }
     _cameraPermissionFlowInProgress = false;
@@ -121,8 +119,23 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
     }
   }
 
+  /// Minta izin kamera. Android hanya menampilkan dialog izin maksimal 2x,
+  /// jadi kalau ditolak sekali kita langsung minta sekali lagi. Hasilnya
+  /// pasti: granted = true, atau false (ditolak dua kali / permanen).
+  Future<bool> _requestCameraPermission() async {
+    var status = await Permission.camera.request();
+    if (!status.isGranted && !status.isPermanentlyDenied) {
+      if (!mounted) return false;
+      status = await Permission.camera.request();
+    }
+    return status.isGranted;
+  }
+
   Future<void> _ensureCameraInitializedIfNeeded(AttendanceState state) async {
     if (_cameraInitialized || _cameraInitInProgress) return;
+    // Fungsi ini dipanggil dari build(), jadi harus berhenti kalau izin
+    // sudah ditolak — kalau tidak, tiap rebuild akan meminta izin lagi.
+    if (_cameraPermissionDenied || _cameraPermissionPermanentlyDenied) return;
     if (state.selectedLocation == null ||
         state.latitude == null ||
         state.longitude == null) {
@@ -130,14 +143,14 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
     }
 
     _cameraInitInProgress = true;
-    final status = await Permission.camera.request();
-    if (!status.isGranted) {
-      if (!mounted) return;
-      if (status.isPermanentlyDenied) {
-        _cameraPermissionPermanentlyDenied = true;
-      }
+    final granted = await _requestCameraPermission();
+    if (!mounted) return;
+
+    if (!granted) {
+      // Ditolak 2x -> langsung tampilkan halaman "Buka Pengaturan".
       setState(() {
         _cameraPermissionDenied = true;
+        _cameraPermissionPermanentlyDenied = true;
         _cameraInitInProgress = false;
       });
       return;

@@ -462,7 +462,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                         ? TextAlign.center
                         : TextAlign.left,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF1E1E1E),
                     ),

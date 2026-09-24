@@ -26,7 +26,7 @@ class CheckoutCameraPage extends StatefulWidget {
 }
 
 class _CheckoutCameraPageState extends State<CheckoutCameraPage>
-  with WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final CameraService _cameraService = CameraService();
   bool _cameraInitialized = false;
   bool _cameraInitInProgress = false;
@@ -61,8 +61,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        _waitingForCameraSettings) {
+    if (state == AppLifecycleState.resumed && _waitingForCameraSettings) {
       _resumeCameraFlow();
     }
   }
@@ -74,17 +73,15 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage>
     _cameraPermissionFlowInProgress = true;
     final requestedStatus = await Permission.camera.request();
     if (!mounted) return;
-    if (requestedStatus.isPermanentlyDenied) {
-      setState(() => _cameraPermissionPermanentlyDenied = true);
-      _cameraPermissionFlowInProgress = false;
-      return;
-    }
 
+    // Kalau setelah balik dari Pengaturan izin tetap belum diberikan,
+    // tetap tampilkan halaman "Buka Pengaturan" (jangan jatuh ke halaman kosong).
+    final granted = requestedStatus.isGranted;
     setState(() {
-      _cameraPermissionDenied = !requestedStatus.isGranted;
-      _cameraPermissionPermanentlyDenied = false;
+      _cameraPermissionDenied = !granted;
+      _cameraPermissionPermanentlyDenied = !granted;
     });
-    if (requestedStatus.isGranted) {
+    if (granted) {
       await _initializeGrantedCamera();
     }
     _cameraPermissionFlowInProgress = false;
@@ -112,18 +109,30 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage>
     }
   }
 
+  /// Minta izin kamera. Android hanya menampilkan dialog izin maksimal 2x,
+  /// jadi kalau ditolak sekali kita langsung minta sekali lagi. Hasilnya
+  /// pasti: granted = true, atau false (ditolak dua kali / permanen).
+  Future<bool> _requestCameraPermission() async {
+    var status = await Permission.camera.request();
+    if (!status.isGranted && !status.isPermanentlyDenied) {
+      if (!mounted) return false;
+      status = await Permission.camera.request();
+    }
+    return status.isGranted;
+  }
+
   Future<void> _ensureCameraInitialized() async {
     if (_cameraInitialized || _cameraInitInProgress) return;
 
     _cameraInitInProgress = true;
-    final status = await Permission.camera.request();
-    if (!status.isGranted) {
-      if (status.isPermanentlyDenied) {
-        _cameraPermissionPermanentlyDenied = true;
-      }
-      if (!mounted) return;
+    final granted = await _requestCameraPermission();
+    if (!mounted) return;
+
+    if (!granted) {
+      // Ditolak 2x -> langsung tampilkan halaman "Buka Pengaturan".
       setState(() {
         _cameraPermissionDenied = true;
+        _cameraPermissionPermanentlyDenied = true;
         _cameraInitInProgress = false;
       });
       return;
@@ -145,6 +154,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage>
       _cameraInitInProgress = false;
     }
   }
+
   Future<void> _captureAndSubmit() async {
     if (_isProcessing) return;
     if (!_cameraInitialized || _cameraService.controller == null) {
@@ -410,7 +420,7 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage>
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2B3A8F),
+                      backgroundColor: const Color(0xFF2F3B69),
                       minimumSize: const Size.fromHeight(54),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -431,12 +441,12 @@ class _CheckoutCameraPageState extends State<CheckoutCameraPage>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                            'Checkout Sekarang',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                                'Simpan',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
