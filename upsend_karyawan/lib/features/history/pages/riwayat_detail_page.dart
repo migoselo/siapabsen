@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/api/api.dart';
@@ -7,26 +10,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 class RiwayatDetailPage extends StatelessWidget {
   final AttendanceModel record;
   const RiwayatDetailPage({super.key, required this.record});
-
-  String _resolvePhotoUrl(String? photoPath) {
-    final value = photoPath?.trim() ?? '';
-    if (value.isEmpty) return '';
-
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-
-    final normalized = value.startsWith('/') ? value.substring(1) : value;
-    final baseUri = Uri.parse(Api.dio.options.baseUrl);
-    final origin =
-        '${baseUri.scheme}://${baseUri.host}${baseUri.hasPort ? ':${baseUri.port}' : ''}';
-
-    if (normalized.startsWith('storage/')) {
-      return '$origin/$normalized';
-    }
-
-    return '$origin/storage/$normalized';
-  }
 
   // Sama persis dengan label & warna di RiwayatCard — biar konsisten
   // di seluruh app untuk status yang sama.
@@ -78,10 +61,9 @@ class RiwayatDetailPage extends StatelessWidget {
     final checkOutTime = record.checkOutTime != null
         ? DateFormat('HH:mm').format(record.checkOutTime!.toLocal())
         : null;
-    final checkInPhotoUrl = _resolvePhotoUrl(record.checkInPhoto);
-    final hasValidCheckInPhoto = checkInPhotoUrl.isNotEmpty;
-    final checkOutPhotoUrl = _resolvePhotoUrl(record.checkOutPhoto);
-    final hasValidCheckOutPhoto = checkOutPhotoUrl.isNotEmpty;
+    final hasValidCheckInPhoto = record.checkInPhoto.trim().isNotEmpty;
+    final hasValidCheckOutPhoto =
+        record.checkOutPhoto?.trim().isNotEmpty ?? false;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -205,8 +187,8 @@ class RiwayatDetailPage extends StatelessWidget {
                                 children: [
                                   Center(
                                     child: InteractiveViewer(
-                                      child: Image.network(
-                                        checkInPhotoUrl,
+                                      child: _AuthenticatedAttendanceImage(
+                                        attendanceId: record.id,
                                         fit: BoxFit.contain,
                                       ),
                                     ),
@@ -243,19 +225,9 @@ class RiwayatDetailPage extends StatelessWidget {
                             ? Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  Image.network(
-                                    checkInPhotoUrl,
+                                  _AuthenticatedAttendanceImage(
+                                    attendanceId: record.id,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: const Color(0xFFF3F4F6),
-                                      child: const Center(
-                                        child: Icon(
-                                          Icons.image_not_supported_outlined,
-                                          color: Color(0xFF9CA3AF),
-                                          size: 32,
-                                        ),
-                                      ),
-                                    ),
                                   ),
                                   Positioned(
                                     bottom: 8,
@@ -382,8 +354,9 @@ class RiwayatDetailPage extends StatelessWidget {
                               children: [
                                 Center(
                                   child: InteractiveViewer(
-                                    child: Image.network(
-                                      checkOutPhotoUrl,
+                                    child: _AuthenticatedAttendanceImage(
+                                      attendanceId: record.id,
+                                      checkout: true,
                                       fit: BoxFit.contain,
                                     ),
                                   ),
@@ -418,19 +391,10 @@ class RiwayatDetailPage extends StatelessWidget {
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
-                                Image.network(
-                                  checkOutPhotoUrl,
+                                _AuthenticatedAttendanceImage(
+                                  attendanceId: record.id,
+                                  checkout: true,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: const Color(0xFFF3F4F6),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.image_not_supported_outlined,
-                                        color: Color(0xFF9CA3AF),
-                                        size: 32,
-                                      ),
-                                    ),
-                                  ),
                                 ),
                                 Positioned(
                                   bottom: 8,
@@ -501,6 +465,70 @@ class RiwayatDetailPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AuthenticatedAttendanceImage extends StatefulWidget {
+  final int attendanceId;
+  final bool checkout;
+  final BoxFit fit;
+
+  const _AuthenticatedAttendanceImage({
+    required this.attendanceId,
+    required this.fit,
+    this.checkout = false,
+  });
+
+  @override
+  State<_AuthenticatedAttendanceImage> createState() =>
+      _AuthenticatedAttendanceImageState();
+}
+
+class _AuthenticatedAttendanceImageState
+    extends State<_AuthenticatedAttendanceImage> {
+  late final Future<Uint8List> _photoFuture = _loadPhoto();
+
+  Future<Uint8List> _loadPhoto() async {
+    final suffix = widget.checkout ? 'my-checkout-photo' : 'my-photo';
+    final response = await Api.dio.get(
+      '/attendances/${widget.attendanceId}/$suffix',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final data = response.data;
+    if (data is Uint8List) return data;
+    if (data is List<int>) return Uint8List.fromList(data);
+    throw StateError('Format foto absensi tidak valid.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: _photoFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          return Image.memory(snapshot.data!, fit: widget.fit);
+        }
+        if (snapshot.hasError) {
+          return Container(
+            color: const Color(0xFFF3F4F6),
+            child: const Center(
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                color: Color(0xFF9CA3AF),
+                size: 32,
+              ),
+            ),
+          );
+        }
+        return const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
     );
   }
 }

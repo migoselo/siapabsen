@@ -10,6 +10,7 @@ use App\Models\LeaveRequest;
 use App\Services\AttendanceStatusService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -165,6 +166,30 @@ class AttendanceController extends Controller
             ->first();
 
         return response()->json(['open_session' => $session]);
+    }
+
+    public function photo(Request $request, Attendance $attendance)
+    {
+        return $this->serveAttendancePhoto($request, $attendance, 'check_in_photo');
+    }
+
+    public function checkoutPhoto(Request $request, Attendance $attendance)
+    {
+        return $this->serveAttendancePhoto($request, $attendance, 'check_out_photo');
+    }
+
+    private function serveAttendancePhoto(Request $request, Attendance $attendance, string $column)
+    {
+        if ((int) $attendance->employee_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Bukan data absensi kamu.'], 403);
+        }
+
+        $photoPath = $attendance->{$column};
+        if (!$photoPath || !Storage::disk('public')->exists($photoPath)) {
+            return response()->json(['message' => 'Foto absensi tidak ditemukan.'], 404);
+        }
+
+        return response()->file(Storage::disk('public')->path($photoPath));
     }
 
     private function closeOverdueSessions(int $employeeId): void
