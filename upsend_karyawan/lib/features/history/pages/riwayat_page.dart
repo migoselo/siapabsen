@@ -381,7 +381,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
                             : TextAlign.left,
                         style: const TextStyle(
                           fontFamily: 'PlusJakartaSans',
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
