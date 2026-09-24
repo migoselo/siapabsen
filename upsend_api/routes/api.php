@@ -36,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ==== Attendance - sisi karyawan (semua role login bisa akses) ====
     Route::prefix('attendances')->group(function () {
+        Route::get('/{attendance}/my-photo', [AttendanceController::class, 'photo']);
+        Route::get('/{attendance}/my-checkout-photo', [AttendanceController::class, 'checkoutPhoto']);
         Route::get('/nearby-locations', [AttendanceController::class, 'nearbyLocations']);
         Route::post('/check-in', [AttendanceController::class, 'checkIn']);
         Route::patch('/{attendance}/check-out', [AttendanceController::class, 'checkOut']);

@@ -39,6 +39,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'is_active' => 'boolean',
+        'tenant_id' => 'integer',
         'joined_at' => 'date:Y-m-d',
         'birth_date' => 'date:Y-m-d',
         'children_count' => 'integer',
