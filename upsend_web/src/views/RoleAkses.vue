@@ -3,6 +3,13 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
+// Import Komponen Dialog
+import GlobalConfirm from '../components/GlobalConfirm.vue'
+import { useConfirm } from '../composables/UseConfirm'
+import BaseActionBtn from '../components/BaseActionBtn.vue'
+
+const confirmDialog = useConfirm()
+
 /* ================= Data Dummy Roles ================= */
 const roles = ref([
   {
@@ -11,15 +18,16 @@ const roles = ref([
     hak_akses: 'Semua Akses System',
     deskripsi: 'Akses penuh ke seluruh fitur dan pengaturan aplikasi',
     levels: ['Level 4 - Eksekutif'],
-    divisis: ['IT & System Operations']
+    divisis: ['IT & System Operations'],
   },
   {
     id: 'ROLE-002',
     name: 'HR & People Operations Lead',
     hak_akses: 'Kelola Karyawan, Payroll & KPI',
-    deskripsi: 'Pengelolaan data karyawan, rekapitulasi payroll bulanan, onboarding, dan evaluasi performa tim operasional.',
+    deskripsi:
+      'Pengelolaan data karyawan, rekapitulasi payroll bulanan, onboarding, dan evaluasi performa tim operasional.',
     levels: ['Level 3 - Manajerial'],
-    divisis: ['HR & People Operations']
+    divisis: ['HR & People Operations'],
   },
   {
     id: 'ROLE-003',
@@ -27,7 +35,7 @@ const roles = ref([
     hak_akses: 'Lihat Laporan & Approval',
     deskripsi: 'Melihat laporan harian dan menyetujui pengajuan izin',
     levels: ['Level 3 - Manajerial'],
-    divisis: ['Operasional']
+    divisis: ['Operasional'],
   },
   {
     id: 'ROLE-004',
@@ -35,7 +43,7 @@ const roles = ref([
     hak_akses: 'Absensi & Profile',
     deskripsi: 'Akses melakukan absensi masuk/keluar dan edit profil',
     levels: ['Level 1 - Operasional'],
-    divisis: ['Umum']
+    divisis: ['Umum'],
   },
 ])
 
@@ -103,7 +111,7 @@ const filteredRoles = computed(() => {
       r.name.toLowerCase().includes(q) ||
       r.hak_akses.toLowerCase().includes(q) ||
       r.deskripsi.toLowerCase().includes(q) ||
-      r.id.toLowerCase().includes(q)
+      r.id.toLowerCase().includes(q),
   )
 })
 
@@ -143,7 +151,12 @@ function changePerPage() {
 
 function initials(name) {
   if (!name) return ''
-  return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 }
 
 /* ================= Toast Notifikasi ================= */
@@ -170,41 +183,77 @@ const permissions = reactive({
       { id: 'ess_profile_view', label: 'Lihat Profil Mandiri', checked: true },
       { id: 'ess_profile_edit', label: 'Ajukan Perubahan Data Pribadi', checked: true },
       { id: 'ess_profile_tax', label: 'Edit NIK & Nomor Rekening Pajak', checked: false },
-      { id: 'ess_payslip_download', label: 'Unduh Slip Gaji Digital (PDF terenkripsi)', checked: true },
-      { id: 'ess_directory_view', label: 'Akses Direktori Kontak Lengkap Pegawai', checked: false }
+      {
+        id: 'ess_payslip_download',
+        label: 'Unduh Slip Gaji Digital (PDF terenkripsi)',
+        checked: true,
+      },
+      { id: 'ess_directory_view', label: 'Akses Direktori Kontak Lengkap Pegawai', checked: false },
     ],
     presensi: [
-      { id: 'ess_clock_in_out', label: 'Clock-in / Clock-out (GPS Geolocation & Selfie)', checked: true },
-      { id: 'ess_leave_request', label: 'Pengajuan Cuti Tahunan, Khusus & Izin Sakit', checked: true },
+      {
+        id: 'ess_clock_in_out',
+        label: 'Clock-in / Clock-out (GPS Geolocation & Selfie)',
+        checked: true,
+      },
+      {
+        id: 'ess_leave_request',
+        label: 'Pengajuan Cuti Tahunan, Khusus & Izin Sakit',
+        checked: true,
+      },
       { id: 'ess_overtime_history', label: 'Lihat Riwayat Jam Kerja & Lembur', checked: true },
-      { id: 'ess_shift_swap', label: 'Permohonan Tukar Shift Rekan Kerja', checked: true }
+      { id: 'ess_shift_swap', label: 'Permohonan Tukar Shift Rekan Kerja', checked: true },
     ],
     reimbursement: [
       { id: 'ess_reimburse_claim', label: 'Ajukan Klaim Rawat Jalan & Kacamata', checked: true },
       { id: 'ess_reimburse_cancel', label: 'Batalkan Pengajuan Klaim Mandiri', checked: false },
-      { id: 'ess_reimburse_status', label: 'Pantau Status Pencairan Dana Reimbursement', checked: true }
-    ]
+      {
+        id: 'ess_reimburse_status',
+        label: 'Pantau Status Pencairan Dana Reimbursement',
+        checked: true,
+      },
+    ],
   },
   admin: {
     karyawan: [
       { id: 'adm_emp_view', label: 'Lihat Master Database Seluruh Pegawai', checked: true },
       { id: 'adm_emp_add', label: 'Tambah & Onboard Karyawan Baru', checked: true },
       { id: 'adm_emp_edit', label: 'Edit Kontrak, Grade, & Jabatan Organisasi', checked: true },
-      { id: 'adm_emp_offboard', label: 'Nonaktifkan / Offboarding / Resignasi Karyawan', checked: false },
-      { id: 'adm_org_chart', label: 'Kelola Bagan Struktur Organisasi & Divisi', checked: true }
+      {
+        id: 'adm_emp_offboard',
+        label: 'Nonaktifkan / Offboarding / Resignasi Karyawan',
+        checked: false,
+      },
+      { id: 'adm_org_chart', label: 'Kelola Bagan Struktur Organisasi & Divisi', checked: true },
     ],
     payroll: [
       { id: 'adm_payroll_view', label: 'Lihat Laporan Rekapitulasi Gaji Tim', checked: true },
-      { id: 'adm_payroll_approve', label: 'Hitung & Finalisasi Approval Payroll Bulanan', checked: false },
-      { id: 'adm_payroll_export', label: 'Ekspor File Disposisi Bank Transfer (BCA/Mandiri)', checked: false },
-      { id: 'adm_payroll_config', label: 'Konfigurasi Formula Tunjangan, PPh 21 & BPJS', checked: true }
+      {
+        id: 'adm_payroll_approve',
+        label: 'Hitung & Finalisasi Approval Payroll Bulanan',
+        checked: false,
+      },
+      {
+        id: 'adm_payroll_export',
+        label: 'Ekspor File Disposisi Bank Transfer (BCA/Mandiri)',
+        checked: false,
+      },
+      {
+        id: 'adm_payroll_config',
+        label: 'Konfigurasi Formula Tunjangan, PPh 21 & BPJS',
+        checked: true,
+      },
     ],
     kpi: [
       { id: 'adm_kpi_create', label: 'Buat Periode Review KPI & OKR Perusahaan', checked: true },
-      { id: 'adm_kpi_evaluate', label: 'Evaluasi Kinerja Staf Bawahan (360 Feedback)', checked: true },
-      { id: 'adm_kpi_promote', label: 'Setujui Hasil Kenaikan Grade / Promosi', checked: true }
-    ]
-  }
+      {
+        id: 'adm_kpi_evaluate',
+        label: 'Evaluasi Kinerja Staf Bawahan (360 Feedback)',
+        checked: true,
+      },
+      { id: 'adm_kpi_promote', label: 'Setujui Hasil Kenaikan Grade / Promosi', checked: true },
+    ],
+  },
 })
 
 function isGroupAllChecked(groupList) {
@@ -271,9 +320,16 @@ function submitRole() {
   closeModal()
 }
 
-function deleteRole(role) {
-  const confirmed = window.confirm(`Hapus role "${role.name}"?`)
-  if (!confirmed) return
+async function deleteRole(role) {
+  const isConfirmed = await confirmDialog.showConfirm({
+    title: 'Hapus Role',
+    message: `Apakah Anda yakin ingin menghapus role "${role.name}"?`,
+    type: 'danger',
+    confirmText: 'Hapus',
+    cancelText: 'Batal',
+  })
+
+  if (!isConfirmed) return
 
   roles.value = roles.value.filter((r) => r.id !== role.id)
   showToast('Role berhasil dihapus.')
@@ -284,17 +340,22 @@ onMounted(fetchOffices)
 
 <template>
   <div class="role-akses">
-    <!-- Toast Notifikasi -->
+    <!-- Toast Notifikasi & Global Confirm -->
     <Teleport to="body">
       <div v-if="toast.show" class="toast" :class="toast.type">
         <Icon
-          :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
+          :icon="
+            toast.type === 'success'
+              ? 'material-symbols:check-circle-rounded'
+              : 'material-symbols:error-rounded'
+          "
           width="18"
           height="18"
         />
         <span>{{ toast.message }}</span>
       </div>
     </Teleport>
+    <GlobalConfirm />
 
     <!-- PILIH KANTOR TERLEBIH DAHULU -->
     <section v-if="!selectedOffice" class="panel table-panel office-panel">
@@ -325,7 +386,9 @@ onMounted(fetchOffices)
             <td colspan="3" class="empty-cell">Tidak ada kantor ditemukan.</td>
           </tr>
           <tr v-for="office in filteredOffices" v-else :key="office.id">
-            <td><strong>{{ office.name }}</strong></td>
+            <td>
+              <strong>{{ office.name }}</strong>
+            </td>
             <td>{{ office.address || office.alamat || '-' }}</td>
             <td class="action-cell">
               <button type="button" class="detail-link-btn" @click="selectOffice(office)">
@@ -340,7 +403,12 @@ onMounted(fetchOffices)
     <!-- TABEL ROLE SETELAH KANTOR DIPILIH -->
     <section v-else class="panel table-panel">
       <div class="role-location-bar">
-        <button type="button" class="back-btn" @click="backToOfficeList" title="Kembali ke daftar kantor">
+        <button
+          type="button"
+          class="back-btn"
+          @click="backToOfficeList"
+          title="Kembali ke daftar kantor"
+        >
           <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
         </button>
         <div>
@@ -352,11 +420,7 @@ onMounted(fetchOffices)
       <div class="table-head">
         <div class="search">
           <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-          <input
-            type="text"
-            v-model="searchQuery"
-            placeholder="Cari role ..."
-          />
+          <input type="text" v-model="searchQuery" placeholder="Cari role ..." />
         </div>
         <button class="icon-btn-solid" @click="openAddModal" title="Tambah Role">
           <Icon icon="material-symbols:add-rounded" width="20" height="20" />
@@ -388,19 +452,9 @@ onMounted(fetchOffices)
             <td>{{ item.hak_akses }}</td>
             <td class="deskripsi-cell">{{ item.deskripsi }}</td>
             <td class="action-cell">
-              <div class="action-actions">
-                <button type="button" class="action-btn edit-btn" @click="openEditModal(item)">
-                  <Icon icon="material-symbols:edit-outline-rounded" width="16" height="16" />
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  class="action-btn delete-btn"
-                  @click="deleteRole(item)"
-                >
-                  <Icon icon="material-symbols:delete-outline-rounded" width="16" height="16" />
-                  Delete
-                </button>
+              <div class="actions">
+                <BaseActionBtn variant="edit" @click="openEditModal(item)" />
+                <BaseActionBtn variant="delete" @click="deleteRole(item)" />
               </div>
             </td>
           </tr>
@@ -411,12 +465,7 @@ onMounted(fetchOffices)
       <div class="table-footer">
         <div class="table-footer-content">
           <div class="pager">
-            <button
-              type="button"
-              class="pager-btn"
-              :disabled="currentPage === 1"
-              @click="prevPage"
-            >
+            <button type="button" class="pager-btn" :disabled="currentPage === 1" @click="prevPage">
               <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
             </button>
 
@@ -465,7 +514,12 @@ onMounted(fetchOffices)
           <!-- Header Modal -->
           <div class="modal-header">
             <div class="header-title">
-              <Icon icon="material-symbols:admin-panel-settings-outline" width="24" height="24" class="header-icon" />
+              <Icon
+                icon="material-symbols:admin-panel-settings-outline"
+                width="24"
+                height="24"
+                class="header-icon"
+              />
               <div>
                 <h3>{{ editingRoleId ? 'Edit Role' : 'Tambah Role' }}</h3>
                 <p>Nama role, deskripsi, dan hak akses</p>
@@ -505,7 +559,6 @@ onMounted(fetchOffices)
                     ></textarea>
                   </div>
                 </div>
-
               </div>
             </div>
 
@@ -530,7 +583,9 @@ onMounted(fetchOffices)
                     </div>
                     <div>
                       <h5 class="column-title">Portal Employee Self-Service (ESS)</h5>
-                      <p class="column-desc">Hak akses untuk aplikasi mobile & portal mandiri karyawan</p>
+                      <p class="column-desc">
+                        Hak akses untuk aplikasi mobile & portal mandiri karyawan
+                      </p>
                     </div>
                   </div>
 
@@ -538,12 +593,22 @@ onMounted(fetchOffices)
                   <div class="module-box">
                     <div class="module-header">
                       <h6>Profil & Kepegawaian</h6>
-                      <button type="button" class="btn-toggle-all" @click="toggleGroupSelectAll(permissions.ess.profil)">
-                        {{ isGroupAllChecked(permissions.ess.profil) ? 'Batal Semua' : 'Pilih Semua' }}
+                      <button
+                        type="button"
+                        class="btn-toggle-all"
+                        @click="toggleGroupSelectAll(permissions.ess.profil)"
+                      >
+                        {{
+                          isGroupAllChecked(permissions.ess.profil) ? 'Batal Semua' : 'Pilih Semua'
+                        }}
                       </button>
                     </div>
                     <div class="checkbox-list">
-                      <label v-for="item in permissions.ess.profil" :key="item.id" class="custom-checkbox ess-check">
+                      <label
+                        v-for="item in permissions.ess.profil"
+                        :key="item.id"
+                        class="custom-checkbox ess-check"
+                      >
                         <input type="checkbox" v-model="item.checked" />
                         <span class="checkmark"></span>
                         <span class="label-text">{{ item.label }}</span>
@@ -555,12 +620,24 @@ onMounted(fetchOffices)
                   <div class="module-box">
                     <div class="module-header">
                       <h6>Presensi, Cuti & Lembur</h6>
-                      <button type="button" class="btn-toggle-all" @click="toggleGroupSelectAll(permissions.ess.presensi)">
-                        {{ isGroupAllChecked(permissions.ess.presensi) ? 'Batal Semua' : 'Pilih Semua' }}
+                      <button
+                        type="button"
+                        class="btn-toggle-all"
+                        @click="toggleGroupSelectAll(permissions.ess.presensi)"
+                      >
+                        {{
+                          isGroupAllChecked(permissions.ess.presensi)
+                            ? 'Batal Semua'
+                            : 'Pilih Semua'
+                        }}
                       </button>
                     </div>
                     <div class="checkbox-list">
-                      <label v-for="item in permissions.ess.presensi" :key="item.id" class="custom-checkbox ess-check">
+                      <label
+                        v-for="item in permissions.ess.presensi"
+                        :key="item.id"
+                        class="custom-checkbox ess-check"
+                      >
                         <input type="checkbox" v-model="item.checked" />
                         <span class="checkmark"></span>
                         <span class="label-text">{{ item.label }}</span>
@@ -572,12 +649,24 @@ onMounted(fetchOffices)
                   <div class="module-box">
                     <div class="module-header">
                       <h6>Reimbursement & Klaim Medis</h6>
-                      <button type="button" class="btn-toggle-all" @click="toggleGroupSelectAll(permissions.ess.reimbursement)">
-                        {{ isGroupAllChecked(permissions.ess.reimbursement) ? 'Batal Semua' : 'Pilih Semua' }}
+                      <button
+                        type="button"
+                        class="btn-toggle-all"
+                        @click="toggleGroupSelectAll(permissions.ess.reimbursement)"
+                      >
+                        {{
+                          isGroupAllChecked(permissions.ess.reimbursement)
+                            ? 'Batal Semua'
+                            : 'Pilih Semua'
+                        }}
                       </button>
                     </div>
                     <div class="checkbox-list">
-                      <label v-for="item in permissions.ess.reimbursement" :key="item.id" class="custom-checkbox ess-check">
+                      <label
+                        v-for="item in permissions.ess.reimbursement"
+                        :key="item.id"
+                        class="custom-checkbox ess-check"
+                      >
                         <input type="checkbox" v-model="item.checked" />
                         <span class="checkmark"></span>
                         <span class="label-text">{{ item.label }}</span>
@@ -594,7 +683,9 @@ onMounted(fetchOffices)
                     </div>
                     <div>
                       <h5 class="column-title">HR Admin Portal & Backoffice</h5>
-                      <p class="column-desc">Hak akses operasional backoffice HR, payroll, & analitik browser</p>
+                      <p class="column-desc">
+                        Hak akses operasional backoffice HR, payroll, & analitik browser
+                      </p>
                     </div>
                   </div>
 
@@ -602,12 +693,24 @@ onMounted(fetchOffices)
                   <div class="module-box">
                     <div class="module-header">
                       <h6>Manajemen Karyawan & Onboarding</h6>
-                      <button type="button" class="btn-toggle-all" @click="toggleGroupSelectAll(permissions.admin.karyawan)">
-                        {{ isGroupAllChecked(permissions.admin.karyawan) ? 'Batal Semua' : 'Pilih Semua' }}
+                      <button
+                        type="button"
+                        class="btn-toggle-all"
+                        @click="toggleGroupSelectAll(permissions.admin.karyawan)"
+                      >
+                        {{
+                          isGroupAllChecked(permissions.admin.karyawan)
+                            ? 'Batal Semua'
+                            : 'Pilih Semua'
+                        }}
                       </button>
                     </div>
                     <div class="checkbox-list">
-                      <label v-for="item in permissions.admin.karyawan" :key="item.id" class="custom-checkbox admin-check">
+                      <label
+                        v-for="item in permissions.admin.karyawan"
+                        :key="item.id"
+                        class="custom-checkbox admin-check"
+                      >
                         <input type="checkbox" v-model="item.checked" />
                         <span class="checkmark"></span>
                         <span class="label-text">{{ item.label }}</span>
@@ -619,12 +722,24 @@ onMounted(fetchOffices)
                   <div class="module-box">
                     <div class="module-header">
                       <h6>Penggajian & Kompensasi (Payroll)</h6>
-                      <button type="button" class="btn-toggle-all" @click="toggleGroupSelectAll(permissions.admin.payroll)">
-                        {{ isGroupAllChecked(permissions.admin.payroll) ? 'Batal Semua' : 'Pilih Semua' }}
+                      <button
+                        type="button"
+                        class="btn-toggle-all"
+                        @click="toggleGroupSelectAll(permissions.admin.payroll)"
+                      >
+                        {{
+                          isGroupAllChecked(permissions.admin.payroll)
+                            ? 'Batal Semua'
+                            : 'Pilih Semua'
+                        }}
                       </button>
                     </div>
                     <div class="checkbox-list">
-                      <label v-for="item in permissions.admin.payroll" :key="item.id" class="custom-checkbox admin-check">
+                      <label
+                        v-for="item in permissions.admin.payroll"
+                        :key="item.id"
+                        class="custom-checkbox admin-check"
+                      >
                         <input type="checkbox" v-model="item.checked" />
                         <span class="checkmark"></span>
                         <span class="label-text">{{ item.label }}</span>
@@ -636,12 +751,22 @@ onMounted(fetchOffices)
                   <div class="module-box">
                     <div class="module-header">
                       <h6>Penilaian Kinerja (KPI & Performance)</h6>
-                      <button type="button" class="btn-toggle-all" @click="toggleGroupSelectAll(permissions.admin.kpi)">
-                        {{ isGroupAllChecked(permissions.admin.kpi) ? 'Batal Semua' : 'Pilih Semua' }}
+                      <button
+                        type="button"
+                        class="btn-toggle-all"
+                        @click="toggleGroupSelectAll(permissions.admin.kpi)"
+                      >
+                        {{
+                          isGroupAllChecked(permissions.admin.kpi) ? 'Batal Semua' : 'Pilih Semua'
+                        }}
                       </button>
                     </div>
                     <div class="checkbox-list">
-                      <label v-for="item in permissions.admin.kpi" :key="item.id" class="custom-checkbox admin-check">
+                      <label
+                        v-for="item in permissions.admin.kpi"
+                        :key="item.id"
+                        class="custom-checkbox admin-check"
+                      >
                         <input type="checkbox" v-model="item.checked" />
                         <span class="checkmark"></span>
                         <span class="label-text">{{ item.label }}</span>
@@ -693,9 +818,13 @@ onMounted(fetchOffices)
   overflow: hidden;
 }
 
-.table-panel { padding: 22px 0 0; }
+.table-panel {
+  padding: 22px 0 0;
+}
 
-.office-panel { padding-top: 0; }
+.office-panel {
+  padding-top: 0;
+}
 
 .office-head,
 .role-location-bar {
@@ -800,15 +929,22 @@ onMounted(fetchOffices)
   transition: background 0.15s ease;
 }
 
-.icon-btn-solid:hover { background: #273258; }
-.icon-btn-solid svg, .icon-btn-solid .iconify { color: #fff; }
+.icon-btn-solid:hover {
+  background: #273258;
+}
+.icon-btn-solid svg,
+.icon-btn-solid .iconify {
+  color: #fff;
+}
 
 table {
   width: 100%;
   border-collapse: collapse;
 }
 
-thead tr { background: var(--blue-900); }
+thead tr {
+  background: var(--blue-900);
+}
 
 thead th {
   color: #eef0f7;
@@ -828,7 +964,9 @@ tbody td {
   color: var(--ink);
 }
 
-tbody tr:last-child td { border-bottom: none; }
+tbody tr:last-child td {
+  border-bottom: none;
+}
 
 .empty-cell {
   text-align: center;
@@ -837,7 +975,9 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 14.5px;
 }
 
-.role-id-cell { color: var(--ink-soft); }
+.role-id-cell {
+  color: var(--ink-soft);
+}
 
 .role-info {
   display: flex;
@@ -870,11 +1010,13 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .action-column {
-  width: 170px;
+  width: 130px;
   text-align: center;
 }
 
-.action-cell { text-align: center; }
+.action-cell {
+  text-align: center;
+}
 
 .detail-link-btn {
   border: none;
@@ -885,34 +1027,17 @@ tbody tr:last-child td { border-bottom: none; }
   cursor: pointer;
 }
 
-.detail-link-btn:hover { text-decoration: underline; }
+.detail-link-btn:hover {
+  text-decoration: underline;
+}
 
-.action-actions {
+/* Action Buttons (Consistent with Divisi/Shift) */
+.actions {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   gap: 8px;
 }
-
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.edit-btn { background: #edf4ff; color: #1d4ed8; }
-.edit-btn:hover { background: #dfeeff; }
-
-.delete-btn { background: #ffe9eb; color: #c92d40; }
-.delete-btn:hover { background: #ffd9de; }
 
 /* Table Footer Pagination */
 .table-footer {
@@ -1053,7 +1178,9 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 12px;
 }
 
-.header-icon { color: var(--blue-900); }
+.header-icon {
+  color: var(--blue-900);
+}
 
 .header-title h3 {
   margin: 0;
@@ -1077,7 +1204,9 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 8px;
 }
 
-.btn-close:hover { background: var(--line); }
+.btn-close:hover {
+  background: var(--line);
+}
 
 .modal-body {
   padding: 24px 28px;
@@ -1096,7 +1225,9 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 20px;
 }
 
-.card-info-header { margin-bottom: 16px; }
+.card-info-header {
+  margin-bottom: 16px;
+}
 
 .card-title {
   font-weight: 700;
@@ -1122,13 +1253,16 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 6px;
 }
 
-.field label, .group-label {
+.field label,
+.group-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-soft);
 }
 
-.required { color: #ef4444; }
+.required {
+  color: #ef4444;
+}
 
 /* Styling Penegasan Border Input (Tegas 1.5px) */
 .field input,
@@ -1189,7 +1323,9 @@ tbody tr:last-child td { border-bottom: none; }
   flex-shrink: 0;
 }
 
-.btn-remove-field:hover { background: #ffd9de; }
+.btn-remove-field:hover {
+  background: #ffd9de;
+}
 
 /* Tombol Tambah Komponen ala Gambar Tunjangan */
 .btn-add-component {
@@ -1254,8 +1390,12 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 50%;
 }
 
-.dot-ess { background: #4E62AF; }
-.dot-admin { background: #2C3964; }
+.dot-ess {
+  background: #4e62af;
+}
+.dot-admin {
+  background: #2c3964;
+}
 
 .permissions-grid {
   display: grid;
@@ -1271,8 +1411,14 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 16px;
 }
 
-.column-ess { background: #ffffff; border: 1.5px solid #4E62AF; }
-.column-admin { background: #ffffff; border: 1.5px solid #2C3964; }
+.column-ess {
+  background: #ffffff;
+  border: 1.5px solid #4e62af;
+}
+.column-admin {
+  background: #ffffff;
+  border: 1.5px solid #2c3964;
+}
 
 .column-header {
   display: flex;
@@ -1292,8 +1438,14 @@ tbody tr:last-child td { border-bottom: none; }
   flex-shrink: 0;
 }
 
-.ess-icon { background: var(--mint-light); color: var(--mint-primary); }
-.admin-icon { background: #f1f5f9; color: var(--blue-dark); }
+.ess-icon {
+  background: var(--mint-light);
+  color: var(--mint-primary);
+}
+.admin-icon {
+  background: #f1f5f9;
+  color: var(--blue-dark);
+}
 
 .column-title {
   margin: 0;
@@ -1338,7 +1490,9 @@ tbody tr:last-child td { border-bottom: none; }
   cursor: pointer;
 }
 
-.btn-toggle-all:hover { text-decoration: underline; }
+.btn-toggle-all:hover {
+  text-decoration: underline;
+}
 
 .checkbox-list {
   display: flex;
@@ -1379,19 +1533,19 @@ tbody tr:last-child td { border-bottom: none; }
   flex-shrink: 0;
 }
 
-.ess-check input:checked + .checkmark{
-    background-color: #4E62AF;
-    border-color: #4E62AF;
-    box-shadow: none;
+.ess-check input:checked + .checkmark {
+  background-color: #4e62af;
+  border-color: #4e62af;
+  box-shadow: none;
 }
 .admin-check input:checked + .checkmark {
-  background-color: #2C3964;
-  border-color: #2C3964;
+  background-color: #2c3964;
+  border-color: #2c3964;
   box-shadow: none;
 }
 
 .checkmark::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 7px;
   top: 2px;
@@ -1446,7 +1600,7 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 12px 22px;
   border-radius: 10px;
   border: none;
-  background: #2C3964;
+  background: #2c3964;
   color: #fff;
   font-size: 14px;
   font-weight: 700;
@@ -1481,16 +1635,30 @@ tbody tr:last-child td { border-bottom: none; }
   animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.toast.success { background: #1f9d67; }
-.toast.error { background: #d92d20; }
+.toast.success {
+  background: #1f9d67;
+}
+.toast.error {
+  background: #d92d20;
+}
 
 @keyframes toastIn {
-  from { opacity: 0; transform: translate(-50%, -20px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 @media (max-width: 868px) {
-  .permissions-grid { grid-template-columns: 1fr; }
-  .form-row-grid { grid-template-columns: 1fr; }
+  .permissions-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-row-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

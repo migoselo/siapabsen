@@ -1,8 +1,12 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
+
+// Import Base Components
+import BasePageHeader from '../components/BasePageHeader.vue'
+import BaseSelect from '../components/BaseSelect.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,6 +14,27 @@ const router = useRouter()
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
 const loading = ref(true)
+
+// State untuk menyimpan data dari KelolaDivisiShift
+const divisions = ref([]) 
+const shifts = ref([])
+
+// Format opsi agar kompatibel dengan BaseSelect (array of objects {label, value})
+const divisionOptions = computed(() => {
+  return divisions.value.map((division) => ({
+    label: division.name,
+    value: Number(division.id),
+  }))
+})
+
+const shiftOptions = computed(() => {
+  return shifts.value.map(s => {
+    const start = s.work_start_time ? String(s.work_start_time).slice(0, 5) : ''
+    const end = s.work_end_time ? String(s.work_end_time).slice(0, 5) : ''
+    const timeLabel = start && end ? ` (${start} - ${end})` : ''
+    return { label: `${s.name}${timeLabel}`, value: s.id }
+  })
+})
 
 function showToast(message, type = 'success') {
   toast.value = { show: true, type, message }
@@ -26,11 +51,16 @@ const employee = reactive({
   jabatan_header: '-',
   lokasi_header: '-',
   avatar_url: null,
+  home_location_id: null, 
   pekerjaan: {
     id_karyawan: '-',
     nama_panggilan: '-',
     departemen: '-',
     jabatan: '-',
+    divisi: '-',
+    divisi_id: '', 
+    shift: '-',
+    shift_id: '',
     golongan: '-',
     cabang: '-',
     tipe_karyawan: '-',
@@ -58,8 +88,6 @@ const employee = reactive({
     bpjs_tk: '-',
     bpjs_kes: '-',
   },
-
-  // Section 5: Pendidikan & Keluarga
   pendidikan: {
     pendidikan_terakhir: '-',
     institusi: '-',
@@ -79,7 +107,6 @@ const isOpen = reactive({
   pendidikan: true,
 })
 
-// State Mode Edit per Section
 const isEditing = reactive({
   pekerjaan: false,
   pribadi: false,
@@ -95,10 +122,8 @@ function toggleAccordion(section) {
 }
 
 function startEdit(section) {
-  // Buka accordion jika dalam kondisi tertutup
   isOpen[section] = true
   isEditing[section] = true
-  // Copy data asli ke buffer temporary form
   tempForm[section] = JSON.parse(JSON.stringify(employee[section]))
 }
 
@@ -107,14 +132,46 @@ function cancelEdit(section) {
   delete tempForm[section]
 }
 
-function saveEdit(section) {
-  // Simpan data temporary ke state utama
+async function saveEdit(section) {
+  // Simpan ke state lokal untuk tampilan instan
   Object.assign(employee[section], tempForm[section])
   
-  // Update header profil jika nama/email/jabatan ikut diubah
   if (section === 'pekerjaan') {
     employee.name = employee.pekerjaan.nama_panggilan || employee.name
     employee.jabatan_header = employee.pekerjaan.jabatan || employee.jabatan_header
+    
+    // Perbarui label Divisi berdasarkan opsi dropdown yang dipilih
+     if (tempForm.pekerjaan.divisi_id) {
+       const selectedDiv = divisions.value.find((division) => String(division.id) === String(tempForm.pekerjaan.divisi_id))
+       if (selectedDiv) {
+         employee.pekerjaan.divisi = selectedDiv.name
+       }
+    }
+    
+    // Perbarui label Shift berdasarkan opsi dropdown yang dipilih
+    if (tempForm.pekerjaan.shift_id) {
+       const selectedShift = shifts.value.find(s => String(s.id) === String(tempForm.pekerjaan.shift_id))
+       if (selectedShift) {
+         const start = selectedShift.work_start_time ? String(selectedShift.work_start_time).slice(0, 5) : ''
+         const end = selectedShift.work_end_time ? String(selectedShift.work_end_time).slice(0, 5) : ''
+         employee.pekerjaan.shift = `${selectedShift.name} (${start} - ${end})`
+       }
+    }
+  }
+
+  // Integrasi penyimpanan ke backend (Jika endpoint PUT /users/:id tersedia)
+  try {
+    let payload = { ...tempForm[section] }
+    // Normalisasi ID agar tersimpan ke backend
+    if (section === 'pekerjaan') {
+      payload.division_id = tempForm.pekerjaan.divisi_id
+        ? Number(tempForm.pekerjaan.divisi_id)
+        : null
+      payload.shift_id = tempForm.pekerjaan.shift_id || null
+    }
+    await api.put(`/users/${employee.id}`, payload)
+  } catch (err) {
+    console.warn('Penyimpanan API diabaikan, belum ada endpoint update.', err)
   }
 
   isEditing[section] = false
@@ -123,7 +180,10 @@ function saveEdit(section) {
 }
 
 function goBack() {
-  router.back()
+  router.push({ 
+    path: '/dashboard/karyawan', 
+    query: { location_id: employee.home_location_id } 
+  })
 }
 
 function displayValue(value) {
@@ -153,11 +213,39 @@ function initials(name) {
     .toUpperCase()
 }
 
+// Fetch Opsi Divisi & Shift secara paralel
+async function fetchDivisionsAndShifts(tenantId = null) {
+  try {
+    const config = tenantId ? { params: { tenant_id: tenantId } } : {}
+    const [divRes, shiftRes] = await Promise.all([
+      api.get('/divisions', config),
+      api.get('/shifts', config)
+    ])
+    divisions.value = Array.isArray(divRes.data) ? divRes.data : []
+    shifts.value = Array.isArray(shiftRes.data) ? shiftRes.data : []
+  } catch (err) {
+    console.error('Gagal mengambil opsi divisi dan shift:', err)
+  }
+}
+
 function mapEmployee(data) {
   const locationName = data.homeLocation?.name || data.home_location?.name || '-'
+  const locationId = data.homeLocation?.id || data.home_location?.id || data.home_location_id || null
+  const tenantId = data.homeLocation?.tenant_id || data.home_location?.tenant_id || data.tenant_id || null
   const name = displayValue(data.name)
   const role = roleLabel(data.role)
-  const division = displayValue(data.division ?? data.divisi)
+  
+  // Mapping Divisi
+  const divisionName = displayValue(data.division?.name ?? data.division_name ?? data.divisi)
+  const divisionId = data.division?.id ?? data.division_id ?? ''
+
+  // Mapping Shift
+  const shiftName = displayValue(
+    data.shift?.name 
+      ? `${data.shift.name} (${String(data.shift.work_start_time).slice(0, 5)} - ${String(data.shift.work_end_time).slice(0, 5)})` 
+      : data.shift_name ?? data.shift
+  )
+  const shiftId = data.shift?.id ?? data.shift_id ?? ''
 
   Object.assign(employee, {
     id: displayValue(data.id ?? route.params.id),
@@ -166,11 +254,15 @@ function mapEmployee(data) {
     jabatan_header: role,
     lokasi_header: displayValue(locationName),
     avatar_url: data.avatar_url || data.avatar || null,
+    home_location_id: locationId,
     pekerjaan: {
       id_karyawan: displayValue(data.employee_id || data.id),
       nama_panggilan: name,
       departemen: displayValue(data.department),
-      divisi: division,
+      divisi: divisionName,
+      divisi_id: divisionId,
+      shift: shiftName,
+      shift_id: shiftId,
       jabatan: role,
       golongan: displayValue(data.grade),
       cabang: displayValue(locationName),
@@ -209,6 +301,9 @@ function mapEmployee(data) {
       jumlah_anak: displayValue(data.children_count),
     },
   })
+
+  // Fetch daftar divisi & shift sesuai lokasi/tenant
+  fetchDivisionsAndShifts(tenantId)
 }
 
 async function fetchEmployee() {
@@ -222,14 +317,14 @@ async function fetchEmployee() {
 
       const listRes = await api.get('/users', { params: { per_page: 100 } })
       const users = Array.isArray(listRes.data?.data) ? listRes.data.data : []
-      const employee = users.find(
+      const found = users.find(
         (item) =>
           String(item.id) === String(route.params.id) ||
           String(item.employee_id) === String(route.params.id),
       )
 
-      if (!employee) throw err
-      mapEmployee(employee)
+      if (!found) throw err
+      mapEmployee(found)
     }
   } catch (err) {
     console.error('Gagal mengambil data karyawan:', err)
@@ -244,7 +339,6 @@ onMounted(fetchEmployee)
 
 <template>
   <div class="biodata-view">
-    <!-- Toast Notification -->
     <Teleport to="body">
       <div v-if="toast.show" class="toast" :class="toast.type">
         <Icon
@@ -256,17 +350,11 @@ onMounted(fetchEmployee)
       </div>
     </Teleport>
 
-    <!-- Header Navigation -->
-    <div class="page-title-bar">
-      <button class="btn-back" @click="goBack" title="Kembali">
-        <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
-      </button>
-      <h2>Biodata Karyawan</h2>
-    </div>
+    <!-- Header Components -->
+    <BasePageHeader title="Biodata Karyawan" @back="goBack" />
 
-    <!-- Main Container Layout -->
     <div class="biodata-container">
-      <!-- Card Banner Profile Atas -->
+      <!-- Profile Header -->
       <div class="profile-card">
         <img v-if="employee.avatar_url" :src="employee.avatar_url" alt="Avatar" class="profile-avatar" />
         <div v-else class="profile-avatar profile-initials">{{ initials(employee.name) }}</div>
@@ -330,11 +418,32 @@ onMounted(fetchEmployee)
               <span v-else class="value">{{ employee.pekerjaan.departemen }}</span>
             </div>
 
+            <!-- Divisi Dropdown (Terhubung ke KelolaDivisiShift) -->
             <div class="detail-row">
               <span class="label">Divisi</span>
               <span class="separator">:</span>
-              <input v-if="isEditing.pekerjaan" v-model="tempForm.pekerjaan.divisi" class="edit-input" />
+              <div v-if="isEditing.pekerjaan" class="edit-input-wrapper">
+                <BaseSelect 
+                  v-model="tempForm.pekerjaan.divisi_id" 
+                  :options="divisionOptions" 
+                  placeholder="Pilih Divisi" 
+                />
+              </div>
               <span v-else class="value">{{ employee.pekerjaan.divisi }}</span>
+            </div>
+
+            <!-- Jam Kerja / Shift Dropdown (Terhubung ke KelolaDivisiShift) -->
+            <div class="detail-row">
+              <span class="label">Jam Kerja / Shift</span>
+              <span class="separator">:</span>
+              <div v-if="isEditing.pekerjaan" class="edit-input-wrapper">
+                <BaseSelect 
+                  v-model="tempForm.pekerjaan.shift_id" 
+                  :options="shiftOptions" 
+                  placeholder="Gunakan Jam Lokasi" 
+                />
+              </div>
+              <span v-else class="value">{{ employee.pekerjaan.shift }}</span>
             </div>
 
             <div class="detail-row">
@@ -417,10 +526,13 @@ onMounted(fetchEmployee)
             <div class="detail-row">
               <span class="label">Jenis Kelamin</span>
               <span class="separator">:</span>
-              <select v-if="isEditing.pribadi" v-model="tempForm.pribadi.jenis_kelamin" class="edit-input">
-                <option value="Laki-laki">Laki-laki</option>
-                <option value="Perempuan">Perempuan</option>
-              </select>
+              <div v-if="isEditing.pribadi" class="edit-input-wrapper">
+                <BaseSelect 
+                  v-model="tempForm.pribadi.jenis_kelamin" 
+                  :options="['Laki-laki', 'Perempuan']" 
+                  placeholder="Pilih Gender" 
+                />
+              </div>
               <span v-else class="value">{{ employee.pribadi.jenis_kelamin }}</span>
             </div>
 
@@ -671,44 +783,13 @@ onMounted(fetchEmployee)
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-/* Page Title Bar */
-.page-title-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.btn-back {
-  border: none;
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  border-radius: 8px;
-}
-
-.btn-back:hover {
-  background: var(--line);
-}
-
-.page-title-bar h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--ink);
-}
-
 .biodata-container {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-/* Card Profile Banner (Warna Biru Header Persis Gambar) */
+/* Card Profile Banner */
 .profile-card {
   background: var(--blue-900);
   border-radius: 16px;
@@ -795,7 +876,6 @@ onMounted(fetchEmployee)
 .section-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
   gap: 8px;
 }
 
@@ -901,12 +981,21 @@ onMounted(fetchEmployee)
   max-width: 320px;
   width: 100%;
 }
-
-.edit-input:focus {
+.edit-input-wrapper {
+  max-width: 320px;
+  width: 100%;
+}
+.edit-input-wrapper :deep(.custom-select) {
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  height: 34px; 
+}
+.edit-input:focus,
+.edit-input-wrapper :deep(.custom-select):focus-within {
   border-color: var(--blue-900);
 }
 
-/* Toast Notifikasi Melayang */
+/* Toast Notifikasi */
 .toast {
   position: fixed;
   top: 24px;
@@ -939,15 +1028,9 @@ onMounted(fetchEmployee)
     align-items: flex-start;
     gap: 4px;
   }
-  .label {
-    width: 100%;
-  }
-  .separator {
-    display: none;
-  }
-  .profile-card {
-    flex-direction: column;
-    text-align: center;
-  }
+  .label { width: 100%; }
+  .separator { display: none; }
+  .profile-card { flex-direction: column; text-align: center; }
+  .edit-input-wrapper { max-width: 100%; }
 }
 </style>

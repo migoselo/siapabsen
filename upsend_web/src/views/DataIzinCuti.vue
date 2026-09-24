@@ -210,16 +210,16 @@ function isOvertimeRow(row = {}) {
   return false
 }
 
-function mkReq(name, position, departmentId, locationName, leaveTypeId, start, end, workDays, reason, status, createdAt) {
+function mkReq(name, position, departmentId, locationName, leaveTypeId, start, end, workDays, reason, status, createdAt, baseId) {
   return reactive({
-    id: crypto.randomUUID ? crypto.randomUUID() : nextId('req'),
+    id: baseId || (crypto.randomUUID ? crypto.randomUUID() : nextId('req')),
     requester: { name, position, departmentId, locationName, avatarUrl: '' },
     leaveTypeId,
     startDate: start,
     endDate: end,
     workDaysLabel: workDays === 1 ? '1 Hari' : `${workDays} Hari Kerja`,
     reason,
-    status,
+    status, // Menjaga status (approved, rejected, atau pending)
     createdAt,
   })
 }
@@ -239,12 +239,13 @@ function normalizeApiRequest(item) {
   
   const normalizedStatus = String(payload.status || 'pending').toLowerCase()
   const createdAt = payload.createdAt || payload.created_at || payload.startDate || payload.start_date || new Date().toISOString()
+  const baseId = payload.id || null;
 
   return mkReq(
     name, position, departmentId, locationName, normalizedLeaveTypeId,
     payload.startDate || payload.start_date || '',
     payload.endDate || payload.end_date || '',
-    workDays, payload.reason || '', normalizedStatus, createdAt
+    workDays, payload.reason || '', normalizedStatus, createdAt, baseId
   )
 }
 
@@ -463,15 +464,31 @@ function changePerPage() {
 /* ------------------------------------------------------------------ */
 /* Detail, Approval & Ekspor Laporan                                   */
 /* ------------------------------------------------------------------ */
-function approveRequest(id, comment = '') {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'approved'
-  if (selectedRequest.value?.id === id) closeDetail()
+async function approveRequest(id, comment = '') {
+  try {
+     const payload = { status: 'approved', comment: comment }
+     await api.put(`/admin/leave-requests/${id}/status`, payload)
+     
+     // Update data local tanpa hapus
+     const r = requests.find((x) => x.id === id)
+     if (r) r.status = 'approved'
+     if (selectedRequest.value?.id === id) closeDetail()
+  } catch (error) {
+     console.error("Gagal menerima request izin cuti", error)
+  }
 }
-function rejectRequest(id, comment = '') {
-  const r = requests.find((x) => x.id === id)
-  if (r) r.status = 'rejected'
-  if (selectedRequest.value?.id === id) closeDetail()
+async function rejectRequest(id, comment = '') {
+  try {
+      const payload = { status: 'rejected', comment: comment }
+      await api.put(`/admin/leave-requests/${id}/status`, payload)
+      
+      // Update data local, request tidak dihapus
+      const r = requests.find((x) => x.id === id)
+      if (r) r.status = 'rejected'
+      if (selectedRequest.value?.id === id) closeDetail()
+   } catch(error) {
+       console.error("Gagal menolak request izin cuti", error)
+   }
 }
 
 const selectedRequest = ref(null)
