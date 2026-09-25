@@ -20,6 +20,9 @@ class AuthController extends Controller
             'home_location_id' => 'nullable',
         ]);
 
+        $tenant = app()->bound('currentTenant') ? app('currentTenant') : null;
+        $tenantId = is_object($tenant) && isset($tenant->id) ? $tenant->id : (is_numeric($tenant) ? (int) $tenant : 1);
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -28,6 +31,8 @@ class AuthController extends Controller
             'role' => 'karyawan',
             'home_location_id' => $request->home_location_id,
             'is_active' => true,
+            'tenant_id' => $tenantId,
+            'employee_id' => User::generateEmployeeId($tenantId),
         ]);
 
         return response()->json([

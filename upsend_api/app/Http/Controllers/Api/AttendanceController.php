@@ -211,9 +211,11 @@ class AttendanceController extends Controller
     {
         $this->closeOverdueSessions($request->user()->id);
         $timezone = config('app.timezone');
-        $startDate = $request->filled('start_date')
+        $registeredAt = Carbon::parse($request->user()->created_at, $timezone)->startOfDay();
+        $requestedStartDate = $request->filled('start_date')
             ? Carbon::parse($request->start_date, $timezone)->startOfDay()
-            : Carbon::parse($request->user()->created_at, $timezone)->startOfDay();
+            : $registeredAt->copy();
+        $startDate = $requestedStartDate->max($registeredAt);
         $endDate = $request->filled('end_date')
             ? Carbon::parse($request->end_date, $timezone)->endOfDay()
             : Carbon::now($timezone)->endOfDay();

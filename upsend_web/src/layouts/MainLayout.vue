@@ -18,7 +18,7 @@ const profile = computed(() => ({
   avatarUrl: authStore.user?.avatarUrl ?? '',
 }))
 
-const navigation = [
+const navigation = computed(() => [
   {
     id: 'dashboard',
     text: 'Dashboard',
@@ -26,6 +26,17 @@ const navigation = [
     activeIcon: 'material-symbols:dashboard',
     path: '/dashboard',
   },
+  ...(authStore.user?.role === 'super_admin' || authStore.user?.role === 'superadmin'
+    ? [
+        {
+          id: 'perusahaan',
+          text: 'Perusahaan',
+          icon: 'material-symbols:business-outline',
+          activeIcon: 'material-symbols:business',
+          path: '/dashboard/perusahaan',
+        },
+      ]
+    : []),
   {
     id: 'lokasi',
     text: 'Lokasi Kerja',
@@ -82,7 +93,7 @@ const navigation = [
     activeIcon: 'material-symbols:domain-rounded',
     path: '/dashboard/divisi-shift',
   },
-]
+])
 
 function isActive(item) {
   if (item.id === 'dashboard') return route.path === item.path
@@ -101,7 +112,7 @@ function iconFor(item) {
   return isActive(item) ? item.activeIcon : item.icon
 }
 const currentRouteName = computed(() => {
-  const current = navigation.find((n) => isActive(n))
+  const current = navigation.value.find((n) => isActive(n))
   return current ? current.text : 'Dashboard'
 })
 

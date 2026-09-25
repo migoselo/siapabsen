@@ -5,12 +5,20 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Location;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class LocationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Location::orderBy('name')->get());
+        $query = Location::query()->orderBy('name');
+        $tenantId = $this->tenantId($request);
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return response()->json($query->get());
     }
 
     public function store(Request $request)
@@ -25,7 +33,7 @@ class LocationController extends Controller
             'work_end_time' => 'nullable|date_format:H:i|after:work_start_time',
         ]);
 
-        $data['tenant_id'] = $data['tenant_id'] ?? $request->user()->tenant_id ?? 1;
+        $data['tenant_id'] = $this->tenantId($request);
 
         $location = Location::create($data);
 
@@ -34,11 +42,13 @@ class LocationController extends Controller
 
     public function show(Location $location)
     {
+        $this->ensureVisible($location);
         return response()->json($location);
     }
 
     public function update(Request $request, Location $location)
     {
+        $this->ensureVisible($location);
         $data = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'address' => 'sometimes|nullable|string|max:1000',
@@ -49,10 +59,6 @@ class LocationController extends Controller
             'work_end_time' => 'sometimes|date_format:H:i|after:work_start_time',
         ]);
 
-        if (empty($location->tenant_id)) {
-            $location->tenant_id = $request->user()->tenant_id ?? 1;
-        }
-
         $location->update($data);
 
         return response()->json($location);
@@ -60,6 +66,7 @@ class LocationController extends Controller
 
     public function destroy(Location $location)
     {
+        $this->ensureVisible($location);
         $location->delete();
 
         return response()->json(['message' => 'Lokasi berhasil dihapus.']);
@@ -72,5 +79,27 @@ class LocationController extends Controller
             ->get();
 
         return response()->json($locations);
+    }
+
+    private function tenantId(Request $request): int
+    {
+        $user = $request->user();
+        if ($this->isSuperAdmin() && $request->filled('tenant_id')) {
+            return (int) $request->integer('tenant_id');
+        }
+
+        return (int) ($user?->tenant_id ?? 1);
+    }
+
+    private function isSuperAdmin(): bool
+    {
+        return in_array(Auth::user()?->role, ['super_admin', 'superadmin'], true);
+    }
+
+    private function ensureVisible(Location $location): void
+    {
+        if (!$this->isSuperAdmin()) {
+            abort_unless((int) $location->tenant_id === (int) (Auth::user()?->tenant_id ?? 1), 404);
+        }
     }
 }
