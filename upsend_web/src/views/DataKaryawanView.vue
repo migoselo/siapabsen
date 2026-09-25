@@ -4,6 +4,11 @@ import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
+import BaseButton from '../components/BaseButton.vue'
+import BaseToast from '../components/BaseToast.vue'
+import GlobalConfirm from '../components/GlobalConfirm.vue'
+import { useConfirm } from '../composables/UseConfirm'
+
 const router = useRouter()
 const confirmDialog = useConfirm()
 
@@ -31,6 +36,8 @@ const shifts = ref([])
 const companies = ref([])
 const selectedCompany = ref(null)
 const selectedBranch = ref(null)
+const showPassword = ref(false)
+
 const form = ref({
   name: '',
   email: '',
@@ -41,8 +48,6 @@ const form = ref({
   division_id: '',
   shift_id: '',
 })
-
-const showPassword = ref(false)
 
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -73,12 +78,6 @@ function goBackToCompanies() {
 function goBackToCompany() {
   selectedBranch.value = null
 }
-
-const currentLevelLabel = computed(() => {
-  if (!selectedCompany.value) return 'Daftar Perusahaan'
-  if (!selectedBranch.value && currentCompanyChildren.value.length) return 'Daftar Cabang / Anak Perusahaan'
-  return 'Daftar Karyawan'
-})
 
 const currentCompanyChildren = computed(() => {
   if (!selectedCompany.value) return companyTree.value
@@ -244,15 +243,11 @@ async function fetchEmployees(page = 1) {
 function onSearchInput() {}
 
 function prevPage() {
-  if (currentPage.value > 1) {
-    fetchEmployees(currentPage.value - 1)
-  }
+  if (currentPage.value > 1) fetchEmployees(currentPage.value - 1)
 }
 
 function nextPage() {
-  if (currentPage.value < lastPage.value) {
-    fetchEmployees(currentPage.value + 1)
-  }
+  if (currentPage.value < lastPage.value) fetchEmployees(currentPage.value + 1)
 }
 
 function goToInputPage() {
@@ -278,9 +273,7 @@ function showToast(message, type = 'success') {
 }
 
 function handleMissingBackendFeature(action) {
-  const message =
-    `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia atau belum dihubungkan. ` +
-    'Silakan sambungkan API dari backend teman Anda.'
+  const message = `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia. Silakan hubungkan API.`
   showToast(message, 'error')
 }
 
@@ -339,7 +332,7 @@ function closeModal(force = false) {
   showModal.value = false
 }
 
-async function submitNewEmployee() {
+async function submitEmployeeForm() {
   const name = String(form.value.name || '').trim()
   const email = String(form.value.email || '').trim()
   const no_hp = String(form.value.no_hp || '').trim()
@@ -352,14 +345,12 @@ async function submitNewEmployee() {
     showToast('Nama minimal 2 karakter dan hanya boleh berisi huruf.', 'error')
     return
   }
-
   if (!email || !emailRegex.test(email) || email.length > 254) {
-    showToast('Format email tidak valid (contoh: user@domain.com).', 'error')
+    showToast('Format email tidak valid.', 'error')
     return
   }
-
   if (no_hp && !phoneRegex.test(no_hp)) {
-    showToast('Nomor HP tidak valid. Gunakan format Indonesia (contoh: 08123456789).', 'error')
+    showToast('Nomor HP tidak valid.', 'error')
     return
   }
 
@@ -370,9 +361,7 @@ async function submitNewEmployee() {
       email,
       no_hp: no_hp || null,
       role: form.value.role,
-      ...(form.value.home_location_id
-        ? { home_location_id: Number(form.value.home_location_id) }
-        : {}),
+      ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
       ...(form.value.division_id ? { division_id: Number(form.value.division_id) } : {}),
       ...(form.value.shift_id ? { shift_id: Number(form.value.shift_id) } : {}),
     }
@@ -396,10 +385,7 @@ async function submitNewEmployee() {
   }
 }
 
-// Integrasi GlobalConfirm yang sudah benar
-// Integrasi GlobalConfirm yang sudah diperbaiki
 async function deleteEmployee(emp) {
-  // PANGGIL showConfirm (sesuai dengan nama fungsi di UseConfirm.js)
   const isConfirmed = await confirmDialog.showConfirm({
     title: 'Hapus Data Karyawan',
     message: `Apakah Anda yakin ingin menghapus data karyawan "${emp.name}"? Tindakan ini tidak dapat dibatalkan.`,
@@ -408,10 +394,8 @@ async function deleteEmployee(emp) {
     cancelText: 'Batal',
   })
 
-  // Jika user klik "Batal" atau area luar modal, hentikan proses
   if (!isConfirmed) return
 
-  // Jika user klik "Hapus", jalankan API delete
   try {
     const response = await api.delete(`/users/${emp.id}`)
     await fetchEmployees(currentPage.value)
@@ -465,21 +449,12 @@ onBeforeUnmount(() => {
 <template>
   <div class="karyawan">
     <BaseToast :show="toast.show" :type="toast.type" :message="toast.message" />
-
-    <!-- Memastikan komponen Dialog ikut di-render ke DOM -->
     <GlobalConfirm />
 
     <section class="panel table-panel">
-      <!-- Filter Bar & Navigation -->
       <div class="filter-bar">
         <div class="breadcrumb-wrap">
-          <button
-            v-if="selectedCompany || selectedBranch"
-            type="button"
-            class="back-btn"
-            @click="selectedBranch ? goBackToCompany() : goBackToCompanies()"
-            title="Kembali"
-          >
+          <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
             <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
           </button>
           <div v-if="!selectedCompany" class="table-heading">
@@ -494,12 +469,7 @@ onBeforeUnmount(() => {
 
         <div class="search">
           <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-          <input
-            type="text"
-            v-model="searchQuery"
-            @input="onSearchInput"
-            placeholder="Cari kantor..."
-          />
+          <input type="text" v-model="searchQuery" @input="onSearchInput" placeholder="Cari kantor..." />
         </div>
 
         <button class="icon-btn-solid" @click="openAddModal" title="Tambah Karyawan">
@@ -507,15 +477,8 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <!-- Pembungkus tabel untuk mengaktifkan scroll horizontal -->
       <div class="table-responsive">
-        <!-- TABEL DAFTAR PERUSAHAAN / CABANG -->
-        <table
-          v-if="
-            !selectedCompany ||
-            (selectedCompany && !selectedBranch && currentCompanyChildren.length)
-          "
-        >
+        <table v-if="!selectedCompany || (selectedCompany && !selectedBranch && currentCompanyChildren.length)">
           <thead>
             <tr>
               <th>Nama Perusahaan</th>
@@ -528,52 +491,32 @@ onBeforeUnmount(() => {
             <tr v-if="loading && employees.length === 0">
               <td colspan="4" class="empty-cell">Memuat data...</td>
             </tr>
-            <tr
-              v-else-if="
-                (!selectedCompany && companyTree.length === 0) ||
-                (selectedCompany && currentCompanyChildren.length === 0)
-              "
-            >
+            <tr v-else-if="(!selectedCompany && companyTree.length === 0) || (selectedCompany && currentCompanyChildren.length === 0)">
               <td colspan="4" class="empty-cell">Data tidak ditemukan.</td>
             </tr>
             <template v-if="!selectedCompany">
               <tr v-for="node in companyTree" :key="node.id">
-                <td>
-                  <strong>{{ node.name }}</strong>
-                </td>
+                <td><strong>{{ node.name }}</strong></td>
                 <td>{{ node.address || '-' }}</td>
-                <td>
-                  <span class="count-badge">{{ node.count || 0 }} Orang</span>
-                </td>
+                <td><span class="count-badge">{{ node.count || 0 }} Orang</span></td>
                 <td class="action-cell">
-                  <button type="button" class="detail-link-btn" @click="goToCompany(node)">
-                    Lihat Karyawan
-                  </button>
+                  <button type="button" class="detail-link-btn" @click="goToCompany(node)">Lihat Karyawan</button>
                 </td>
               </tr>
             </template>
-            <template
-              v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length"
-            >
+            <template v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length">
               <tr v-for="node in currentCompanyChildren" :key="node.id">
-                <td>
-                  <strong>{{ node.name }}</strong>
-                </td>
+                <td><strong>{{ node.name }}</strong></td>
                 <td>{{ node.address || '-' }}</td>
-                <td>
-                  <span class="count-badge">{{ node.count || 0 }} Orang</span>
-                </td>
+                <td><span class="count-badge">{{ node.count || 0 }} Orang</span></td>
                 <td class="action-cell">
-                  <button type="button" class="detail-link-btn" @click="goToBranch(node)">
-                    Lihat Karyawan
-                  </button>
+                  <button type="button" class="detail-link-btn" @click="goToBranch(node)">Lihat Karyawan</button>
                 </td>
               </tr>
             </template>
           </tbody>
         </table>
 
-        <!-- TABEL DAFTAR KARYAWAN -->
         <table v-else>
           <thead>
             <tr>
@@ -583,137 +526,53 @@ onBeforeUnmount(() => {
               <th>Nomor HP</th>
               <th>Divisi</th>
               <th>Jam Kerja / Shift</th>
+              <th>Status</th>
               <th class="action-column">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="currentEmployees.length === 0">
-              <td colspan="7" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
+              <td colspan="8" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
             </tr>
             <tr v-for="emp in currentEmployees" :key="emp.id">
               <td class="emp-id-cell">{{ emp.employee_id }}</td>
-              <td>
-                <strong>{{ emp.name }}</strong>
-              </td>
+              <td><strong>{{ emp.name }}</strong></td>
               <td>{{ emp.email }}</td>
               <td>{{ emp.no_hp || '-' }}</td>
               <td>{{ emp.division }}</td>
               <td>{{ emp.shift }}</td>
+              <td>
+                <span class="status-badge" :class="emp.statusClass">{{ emp.statusLabel }}</span>
+              </td>
               <td class="action-cell employee-actions">
+                <BaseButton variant="ghost" icon="material-symbols:visibility-outline" @click="goToEmployeeDetail(emp)" title="Lihat Detail"></BaseButton>
                 <BaseButton
+                  v-if="!emp.isActive"
                   variant="ghost"
-                  icon="material-symbols:visibility-outline"
-                  @click="goToEmployeeDetail(emp)"
-                  title="Lihat Detail"
+                  :icon="resendingInvitationId === emp.id ? 'line-md:loading-twotone-loop' : 'material-symbols:mail-outline-rounded'"
+                  :disabled="resendingInvitationId === emp.id"
+                  @click="resendInvitation(emp)"
+                  :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
                 ></BaseButton>
-                <BaseButton
-                  variant="danger"
-                  icon="material-symbols:delete-outline"
-                  @click="deleteEmployee(emp)"
-                  title="Hapus Karyawan"
-                ></BaseButton>
+                <BaseButton variant="danger" icon="material-symbols:delete-outline" @click="deleteEmployee(emp)" title="Hapus Karyawan"></BaseButton>
               </td>
             </tr>
-          </template>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
 
-      <!-- TABEL DAFTAR KARYAWAN -->
-      <table v-else>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nama Karyawan</th>
-            <th>Email</th>
-            <th>Nomor HP</th>
-            <th>Divisi</th>
-            <th>Jam Kerja / Shift</th>
-            <th>Status</th>
-            <th class="action-column">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="currentEmployees.length === 0">
-            <td colspan="8" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
-          </tr>
-          <tr v-for="emp in currentEmployees" :key="emp.id">
-            <td class="emp-id-cell">{{ emp.id }}</td>
-            <td>
-              <!-- Tanpa Kotak Avatar -->
-              <strong>{{ emp.name }}</strong>
-            </td>
-            <td>{{ emp.email }}</td>
-            <td>{{ emp.no_hp || '-' }}</td>
-            <td>{{ emp.division }}</td>
-            <td>{{ emp.shift }}</td>
-            <td>
-              <span class="status-badge" :class="emp.statusClass">{{ emp.statusLabel }}</span>
-            </td>
-            <td class="action-cell">
-              <button type="button" class="detail-link-btn" @click="goToEmployeeDetail(emp)">
-                Lihat
-              </button>
-              <button
-                v-if="!emp.isActive"
-                type="button"
-                class="resend-link-btn"
-                :disabled="resendingInvitationId === emp.id"
-                @click="resendInvitation(emp)"
-                :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
-              >
-                <Icon
-                  :icon="resendingInvitationId === emp.id ? 'line-md:loading-twotone-loop' : 'material-symbols:mail-outline-rounded'"
-                  width="16"
-                  height="16"
-                />
-                {{
-                  resendingInvitationId === emp.id
-                    ? 'Mengirim...'
-                    : emp.statusClass === 'expired'
-                      ? 'Minta Aktivasi Ulang'
-                      : 'Kirim Ulang Link'
-                }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <!-- Table Footer -->
       <div class="table-footer">
         <div class="table-footer-content">
           <div class="pager">
-            <button
-              type="button"
-              class="pager-btn"
-              :disabled="currentPage === 1 || loading"
-              @click="prevPage"
-              title="Halaman Sebelumnya"
-            >
+            <button type="button" class="pager-btn" :disabled="currentPage === 1 || loading" @click="prevPage">
               <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
             </button>
-
             <div class="page-input-wrapper">
               <span>Halaman</span>
-              <input
-                type="number"
-                v-model.number="pageInput"
-                @keydown.enter="goToInputPage"
-                @blur="goToInputPage"
-                min="1"
-                :max="lastPage"
-                class="page-input"
-              />
+              <input type="number" v-model.number="pageInput" @keydown.enter="goToInputPage" @blur="goToInputPage" min="1" :max="lastPage" class="page-input" />
               <span>dari {{ lastPage }}</span>
             </div>
-
-            <button
-              type="button"
-              class="pager-btn"
-              :disabled="currentPage === lastPage || loading"
-              @click="nextPage"
-              title="Halaman Berikutnya"
-            >
+            <button type="button" class="pager-btn" :disabled="currentPage === lastPage || loading" @click="nextPage">
               <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
             </button>
           </div>
@@ -732,7 +591,6 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <!-- Modal Form Tambah Karyawan Baru -->
     <Teleport to="body">
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal">
@@ -752,19 +610,10 @@ onBeforeUnmount(() => {
               <label class="required">Email</label>
               <input type="email" v-model="form.email" maxlength="254" placeholder="Email" />
             </div>
-            <p class="activation-note">
-              Link aktivasi untuk membuat password akan dikirim ke email karyawan.
-            </p>
+            <p class="activation-note">Link aktivasi untuk membuat password akan dikirim ke email karyawan.</p>
             <div class="field">
               <label class="required">Nomor HP</label>
-              <input
-                type="text"
-                inputmode="numeric"
-                v-model="form.no_hp"
-                maxlength="15"
-                @input="form.no_hp = form.no_hp.replace(/\D/g, '')"
-                placeholder="Contoh: 081234567890"
-              />
+              <input type="text" inputmode="numeric" v-model="form.no_hp" maxlength="15" @input="form.no_hp = form.no_hp.replace(/\D/g, '')" placeholder="Contoh: 081234567890" />
             </div>
             <div class="field-row">
               <div class="field">
@@ -778,9 +627,7 @@ onBeforeUnmount(() => {
                 <label class="required">Lokasi Cabang</label>
                 <select v-model="form.home_location_id">
                   <option value="" disabled>Pilih lokasi</option>
-                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">
-                    {{ loc.name }}
-                  </option>
+                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
                 </select>
               </div>
             </div>
@@ -789,24 +636,15 @@ onBeforeUnmount(() => {
                 <label>Divisi</label>
                 <select v-model="form.division_id">
                   <option value="">Tanpa divisi</option>
-                  <option v-for="division in divisions" :key="division.id" :value="division.id">
-                    {{ division.name }}
-                  </option>
+                  <option v-for="division in divisions" :key="division.id" :value="division.id">{{ division.name }}</option>
                 </select>
               </div>
               <div class="field">
                 <label>Jam Kerja / Shift</label>
                 <select v-model="form.shift_id">
                   <option value="">Gunakan jam lokasi</option>
-                  <option
-                    v-for="shift in shifts.filter(
-                      (item) => !form.division_id || item.division_id === Number(form.division_id),
-                    )"
-                    :key="shift.id"
-                    :value="shift.id"
-                  >
-                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} -
-                    {{ shift.work_end_time.slice(0, 5) }})
+                  <option v-for="shift in shifts.filter((item) => !form.division_id || item.division_id === Number(form.division_id))" :key="shift.id" :value="shift.id">
+                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} - {{ shift.work_end_time.slice(0, 5) }})
                   </option>
                 </select>
               </div>
@@ -814,17 +652,10 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="modal-footer">
-            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">
-              Batal
-            </button>
-            <BaseButton
-              variant="primary"
-              icon="material-symbols:save-outline"
-              @click="submitEmployeeForm"
-              :disabled="saving"
-            >
+            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
+            <BaseButton variant="primary" icon="material-symbols:save-outline" @click="submitEmployeeForm" :disabled="saving">
               {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
-            </button>
+            </BaseButton>
           </div>
         </div>
       </div>
@@ -846,6 +677,11 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .panel {
   background: var(--card);
   border: 1px solid var(--line);
@@ -854,7 +690,6 @@ onBeforeUnmount(() => {
 .table-panel {
   position: relative;
   padding: 0;
-  overflow: visible;
 }
 .table-panel::after {
   content: '';
@@ -865,8 +700,6 @@ onBeforeUnmount(() => {
   pointer-events: none;
   z-index: 25;
 }
-
-/* Filter Bar Header */
 .filter-bar {
   display: flex;
   align-items: center;
@@ -878,7 +711,6 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   border-radius: 15px 15px 0 0;
 }
-
 .breadcrumb-wrap {
   display: flex;
   align-items: center;
@@ -907,27 +739,6 @@ onBeforeUnmount(() => {
   font-size: 18px;
   font-weight: 700;
 }
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--ink-soft);
-}
-.breadcrumb-root {
-  cursor: pointer;
-  color: var(--blue-900);
-  font-weight: 700;
-}
-.breadcrumb-current {
-  color: var(--blue-900);
-  font-weight: 700;
-}
-.breadcrumb-separator {
-  color: var(--ink-soft);
-}
-
-/* Tombol Back Persis DetailAbsenView */
 .back-btn {
   background: #ffffff;
   border: 1px solid #e4e7ec;
@@ -941,11 +752,9 @@ onBeforeUnmount(() => {
   color: #2c3345;
   transition: background 0.2s;
 }
-
 .back-btn:hover {
   background: #f4f5f8;
 }
-
 .search {
   display: flex;
   align-items: center;
@@ -973,7 +782,6 @@ onBeforeUnmount(() => {
   font-family: inherit;
   background: transparent;
 }
-
 .icon-btn-solid {
   width: 40px;
   height: 40px;
@@ -994,10 +802,9 @@ onBeforeUnmount(() => {
 .icon-btn-solid .iconify {
   color: #fff;
 }
-
-/* Styling Tabel */
 table {
   width: 100%;
+  min-width: 900px;
   border-collapse: collapse;
 }
 thead tr {
@@ -1011,6 +818,7 @@ thead th {
   text-align: left;
   padding: 14px 24px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 tbody td {
   padding: 16px 24px;
@@ -1027,7 +835,6 @@ tbody tr:last-child td {
   color: var(--ink-soft);
   padding: 32px;
 }
-
 .count-badge {
   display: inline-flex;
   font-size: 12px;
@@ -1037,19 +844,22 @@ tbody tr:last-child td {
   padding: 4px 10px;
   font-weight: 700;
 }
-
 .emp-id-cell {
   color: var(--ink-soft);
 }
-
 .action-column {
-  width: 170px;
+  width: 200px;
   text-align: center;
 }
 .action-cell {
   text-align: center;
 }
-
+.employee-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -1071,8 +881,6 @@ tbody tr:last-child td {
   color: #b42318;
   background: #fee4e2;
 }
-
-/* Tombol Detail/Lihat */
 .detail-link-btn {
   display: inline-flex;
   align-items: center;
@@ -1087,28 +895,6 @@ tbody tr:last-child td {
 .detail-link-btn:hover {
   text-decoration: underline;
 }
-
-.resend-link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  color: #2f3b69;
-  font-size: 12px;
-  font-weight: 700;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-.resend-link-btn:hover:not(:disabled) {
-  text-decoration: underline;
-}
-.resend-link-btn:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-/* Footer Pagination */
 .table-footer {
   display: flex;
   justify-content: flex-end;
@@ -1191,8 +977,6 @@ tbody tr:last-child td {
   color: var(--ink-soft);
   white-space: nowrap;
 }
-
-/* Modal Form Styles */
 .required {
   color: #d92d20;
   margin-left: 2px;
@@ -1211,6 +995,7 @@ label.required::after {
   justify-content: center;
   z-index: 1000;
   padding: 24px;
+  backdrop-filter: blur(2px);
 }
 .modal {
   width: 100%;
@@ -1303,69 +1088,9 @@ label.required::after {
   font-weight: 600;
   cursor: pointer;
 }
-.btn-save {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 22px;
-  border-radius: 10px;
-  border: none;
-  background: #2C3964;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.input-eye-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.input-eye-wrap input {
-  width: 100%;
-  padding-right: 42px;
-}
-.eye-toggle {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 4px;
-  color: var(--ink-soft);
-}
-
-.toast {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2000;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.2);
-}
-.toast.success { background: #1f9d67; }
-.toast.error { background: #d92d20; }
-
 @media (max-width: 700px) {
-  .filter-bar {
-    padding: 14px;
-  }
-  .search {
-    width: 100%;
-    margin-left: 0;
-  }
-  table {
-    min-width: 700px;
-  }
+  .filter-bar { padding: 14px; }
+  .search { width: 100%; margin-left: 0; }
+  table { min-width: 700px; }
 }
 </style>
