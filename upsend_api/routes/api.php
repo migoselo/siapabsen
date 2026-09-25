@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\ShiftDivisionController;
+use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\Admin\AttendanceAdminController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
@@ -63,7 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::apiResource('locations', LocationController::class);
 
-        Route::get('/tenants', [ShiftDivisionController::class, 'indexTenants']);
+        Route::apiResource('tenants', TenantController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::get('/divisions', [ShiftDivisionController::class, 'indexDivisions']);
         Route::post('/divisions', [ShiftDivisionController::class, 'storeDivision']);
         Route::put('/divisions/{division}', [ShiftDivisionController::class, 'updateDivision']);
