@@ -5,6 +5,7 @@ import { Icon } from '@iconify/vue'
 import api from '../api'
 
 const router = useRouter()
+const confirmDialog = useConfirm()
 
 const employees = ref([])
 const loading = ref(false)
@@ -185,15 +186,13 @@ const companyTree = computed(() => {
 
     const path = splitHierarchyLabel(companyName)
     const exactKey = path.join(' / ')
-    const target =
-      nodes.get(exactKey) ||
-      nodes.get(path[path.length - 1]) ||
-      addNode(path)
+    const target = nodes.get(exactKey) || nodes.get(path[path.length - 1]) || addNode(path)
 
     if (target) {
       const activationStatus = getActivationStatus(emp)
       target.employees.push({
         id: emp.id,
+        employee_id: emp.employee_id || '-',
         name: employeeName,
         email: emp.email || '-',
         no_hp: emp.no_hp || '-',
@@ -204,7 +203,7 @@ const companyTree = computed(() => {
         isActive: Boolean(emp.is_active),
         statusLabel: activationStatus.label,
         statusClass: activationStatus.className,
-        raw: emp
+        raw: emp,
       })
       target.count = target.employees.length
     }
@@ -371,7 +370,9 @@ async function submitNewEmployee() {
       email,
       no_hp: no_hp || null,
       role: form.value.role,
-      ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
+      ...(form.value.home_location_id
+        ? { home_location_id: Number(form.value.home_location_id) }
+        : {}),
       ...(form.value.division_id ? { division_id: Number(form.value.division_id) } : {}),
       ...(form.value.shift_id ? { shift_id: Number(form.value.shift_id) } : {}),
     }
@@ -392,6 +393,37 @@ async function submitNewEmployee() {
     }
   } finally {
     saving.value = false
+  }
+}
+
+// Integrasi GlobalConfirm yang sudah benar
+// Integrasi GlobalConfirm yang sudah diperbaiki
+async function deleteEmployee(emp) {
+  // PANGGIL showConfirm (sesuai dengan nama fungsi di UseConfirm.js)
+  const isConfirmed = await confirmDialog.showConfirm({
+    title: 'Hapus Data Karyawan',
+    message: `Apakah Anda yakin ingin menghapus data karyawan "${emp.name}"? Tindakan ini tidak dapat dibatalkan.`,
+    type: 'danger',
+    confirmText: 'Hapus',
+    cancelText: 'Batal',
+  })
+
+  // Jika user klik "Batal" atau area luar modal, hentikan proses
+  if (!isConfirmed) return
+
+  // Jika user klik "Hapus", jalankan API delete
+  try {
+    const response = await api.delete(`/users/${emp.id}`)
+    await fetchEmployees(currentPage.value)
+    showToast(response.data?.message || 'Karyawan berhasil dihapus.')
+  } catch (err) {
+    console.error('Gagal menghapus karyawan:', err)
+    const status = err.response?.status
+    if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
+      handleMissingBackendFeature('menghapus')
+    } else {
+      showToast(err.response?.data?.message || 'Gagal menghapus data karyawan.', 'error')
+    }
   }
 }
 
@@ -432,23 +464,22 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="karyawan">
-    <Teleport to="body">
-      <div v-if="toast.show" class="toast" :class="toast.type">
-        <Icon
-          :icon="toast.type === 'success' ? 'material-symbols:check-circle-rounded' : 'material-symbols:error-rounded'"
-          width="18"
-          height="18"
-        />
-        <span>{{ toast.message }}</span>
-      </div>
-    </Teleport>
+    <BaseToast :show="toast.show" :type="toast.type" :message="toast.message" />
+
+    <!-- Memastikan komponen Dialog ikut di-render ke DOM -->
+    <GlobalConfirm />
 
     <section class="panel table-panel">
       <!-- Filter Bar & Navigation -->
       <div class="filter-bar">
         <div class="breadcrumb-wrap">
-          <!-- Tombol Back Bergaya Sama Seperti DetailAbsen -->
-          <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
+          <button
+            v-if="selectedCompany || selectedBranch"
+            type="button"
+            class="back-btn"
+            @click="selectedBranch ? goBackToCompany() : goBackToCompanies()"
+            title="Kembali"
+          >
             <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
           </button>
           <div v-if="!selectedCompany" class="table-heading">
@@ -476,56 +507,111 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <!-- TABEL DAFTAR PERUSAHAAN / CABANG -->
-      <table v-if="!selectedCompany || (selectedCompany && !selectedBranch && currentCompanyChildren.length)">
-        <thead>
-          <tr>
-            <th>Nama Perusahaan</th>
-            <th>Alamat</th>
-            <th>Jumlah Karyawan</th>
-            <th class="action-column">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading && employees.length === 0">
-            <td colspan="4" class="empty-cell">Memuat data...</td>
-          </tr>
-          <tr v-else-if="(!selectedCompany && companyTree.length === 0) || (selectedCompany && currentCompanyChildren.length === 0)">
-            <td colspan="4" class="empty-cell">Data tidak ditemukan.</td>
-          </tr>
-          <!-- Mode Level 1: Daftar Perusahaan Root -->
-          <template v-if="!selectedCompany">
-            <tr v-for="node in companyTree" :key="node.id">
-              <td>
-                <!-- Tanpa Kotak Icon -->
-                <strong>{{ node.name }}</strong>
-              </td>
-              <td>{{ node.address || '-' }}</td>
-              <td>
-                <span class="count-badge">{{ node.count || 0 }} Orang</span>
-              </td>
-              <td class="action-cell">
-                <button type="button" class="detail-link-btn" @click="goToCompany(node)">
-                  Lihat Karyawan
-                </button>
-              </td>
+      <!-- Pembungkus tabel untuk mengaktifkan scroll horizontal -->
+      <div class="table-responsive">
+        <!-- TABEL DAFTAR PERUSAHAAN / CABANG -->
+        <table
+          v-if="
+            !selectedCompany ||
+            (selectedCompany && !selectedBranch && currentCompanyChildren.length)
+          "
+        >
+          <thead>
+            <tr>
+              <th>Nama Perusahaan</th>
+              <th>Alamat</th>
+              <th>Jumlah Karyawan</th>
+              <th class="action-column">Aksi</th>
             </tr>
-          </template>
-          <!-- Mode Level 2: Daftar Cabang / Anak Perusahaan -->
-          <template v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length">
-            <tr v-for="node in currentCompanyChildren" :key="node.id">
+          </thead>
+          <tbody>
+            <tr v-if="loading && employees.length === 0">
+              <td colspan="4" class="empty-cell">Memuat data...</td>
+            </tr>
+            <tr
+              v-else-if="
+                (!selectedCompany && companyTree.length === 0) ||
+                (selectedCompany && currentCompanyChildren.length === 0)
+              "
+            >
+              <td colspan="4" class="empty-cell">Data tidak ditemukan.</td>
+            </tr>
+            <template v-if="!selectedCompany">
+              <tr v-for="node in companyTree" :key="node.id">
+                <td>
+                  <strong>{{ node.name }}</strong>
+                </td>
+                <td>{{ node.address || '-' }}</td>
+                <td>
+                  <span class="count-badge">{{ node.count || 0 }} Orang</span>
+                </td>
+                <td class="action-cell">
+                  <button type="button" class="detail-link-btn" @click="goToCompany(node)">
+                    Lihat Karyawan
+                  </button>
+                </td>
+              </tr>
+            </template>
+            <template
+              v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length"
+            >
+              <tr v-for="node in currentCompanyChildren" :key="node.id">
+                <td>
+                  <strong>{{ node.name }}</strong>
+                </td>
+                <td>{{ node.address || '-' }}</td>
+                <td>
+                  <span class="count-badge">{{ node.count || 0 }} Orang</span>
+                </td>
+                <td class="action-cell">
+                  <button type="button" class="detail-link-btn" @click="goToBranch(node)">
+                    Lihat Karyawan
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+
+        <!-- TABEL DAFTAR KARYAWAN -->
+        <table v-else>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nama Karyawan</th>
+              <th>Email</th>
+              <th>Nomor HP</th>
+              <th>Divisi</th>
+              <th>Jam Kerja / Shift</th>
+              <th class="action-column">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="currentEmployees.length === 0">
+              <td colspan="7" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
+            </tr>
+            <tr v-for="emp in currentEmployees" :key="emp.id">
+              <td class="emp-id-cell">{{ emp.employee_id }}</td>
               <td>
-                <!-- Tanpa Kotak Icon -->
-                <strong>{{ node.name }}</strong>
+                <strong>{{ emp.name }}</strong>
               </td>
-              <td>{{ node.address || '-' }}</td>
-              <td>
-                <span class="count-badge">{{ node.count || 0 }} Orang</span>
-              </td>
-              <td class="action-cell">
-                <button type="button" class="detail-link-btn" @click="goToBranch(node)">
-                  Lihat Karyawan
-                </button>
+              <td>{{ emp.email }}</td>
+              <td>{{ emp.no_hp || '-' }}</td>
+              <td>{{ emp.division }}</td>
+              <td>{{ emp.shift }}</td>
+              <td class="action-cell employee-actions">
+                <BaseButton
+                  variant="ghost"
+                  icon="material-symbols:visibility-outline"
+                  @click="goToEmployeeDetail(emp)"
+                  title="Lihat Detail"
+                ></BaseButton>
+                <BaseButton
+                  variant="danger"
+                  icon="material-symbols:delete-outline"
+                  @click="deleteEmployee(emp)"
+                  title="Hapus Karyawan"
+                ></BaseButton>
               </td>
             </tr>
           </template>
@@ -692,7 +778,9 @@ onBeforeUnmount(() => {
                 <label class="required">Lokasi Cabang</label>
                 <select v-model="form.home_location_id">
                   <option value="" disabled>Pilih lokasi</option>
-                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
+                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">
+                    {{ loc.name }}
+                  </option>
                 </select>
               </div>
             </div>
@@ -711,11 +799,14 @@ onBeforeUnmount(() => {
                 <select v-model="form.shift_id">
                   <option value="">Gunakan jam lokasi</option>
                   <option
-                    v-for="shift in shifts.filter((item) => !form.division_id || item.division_id === Number(form.division_id))"
+                    v-for="shift in shifts.filter(
+                      (item) => !form.division_id || item.division_id === Number(form.division_id),
+                    )"
                     :key="shift.id"
                     :value="shift.id"
                   >
-                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} - {{ shift.work_end_time.slice(0, 5) }})
+                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} -
+                    {{ shift.work_end_time.slice(0, 5) }})
                   </option>
                 </select>
               </div>
@@ -723,9 +814,15 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="modal-footer">
-            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
-            <button class="btn-save" type="button" @click="submitNewEmployee" :disabled="saving">
-              <Icon icon="material-symbols:save-outline" width="18" height="18" />
+            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">
+              Batal
+            </button>
+            <BaseButton
+              variant="primary"
+              icon="material-symbols:save-outline"
+              @click="submitEmployeeForm"
+              :disabled="saving"
+            >
               {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
             </button>
           </div>
@@ -1266,9 +1363,6 @@ label.required::after {
   .search {
     width: 100%;
     margin-left: 0;
-  }
-  .table-panel {
-    overflow-x: auto;
   }
   table {
     min-width: 700px;
