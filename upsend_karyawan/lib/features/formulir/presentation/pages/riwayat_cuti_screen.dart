@@ -104,7 +104,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
             e.type == DioExceptionType.connectionTimeout ||
                     e.type == DioExceptionType.receiveTimeout
                 ? 'Server terlalu lama merespons.'
-                : 'Gagal memuat riwayat cuti.';
+                : 'Gagal memuat riwayat formulir.';
       });
       if (showLoading) {
         ScaffoldMessenger.of(context).showSnackBar(
