@@ -6,6 +6,7 @@ class UserModel extends Equatable {
   final String email;
   final String noHp;
   final String role;
+  final String? employeeId;
   final int? homeLocationId;
   final String? homeLocationName;
   final bool isActive;
@@ -17,13 +18,14 @@ class UserModel extends Equatable {
     required this.email,
     required this.noHp,
     required this.role,
+    this.employeeId,
     this.homeLocationId,
     this.homeLocationName,
     required this.isActive,
     this.biodata = const {},
   });
 
-  String get employeeCode => 'EMP-${id.toString().padLeft(4, '0')}';
+  String get employeeCode => employeeId ?? '-';
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     final homeLocation = json['home_location'];
@@ -34,6 +36,7 @@ class UserModel extends Equatable {
       email: json['email'] ?? '',
       noHp: json['no_hp'] ?? '',
       role: json['role'] ?? '',
+      employeeId: json['employee_id']?.toString(),
       homeLocationId: _parseInt(json['home_location_id']),
       homeLocationName: homeLocation != null
           ? homeLocation['name']?.toString()
@@ -91,6 +94,7 @@ class UserModel extends Equatable {
     email,
     noHp,
     role,
+    employeeId,
     homeLocationId,
     homeLocationName,
     isActive,
