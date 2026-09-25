@@ -1,10 +1,18 @@
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
+// Import Base Components & Composables
+import BaseButton from '../components/BaseButton.vue'
+import BaseActionBtn from '../components/BaseActionBtn.vue'
+import GlobalConfirm from '../components/GlobalConfirm.vue'
+import { useConfirm } from '../composables/UseConfirm'
+
 const router = useRouter()
+const route = useRoute()
+const confirmDialog = useConfirm()
 
 const employees = ref([])
 const loading = ref(false)
@@ -51,18 +59,28 @@ const filteredEmployees = computed(() => {
   )
 })
 
+// === PERBAIKAN: Update URL agar status terpilih tersimpan di riwayat browser ===
 function resetDrillDown() {
   selectedCompany.value = null
   selectedBranch.value = null
+  const query = { ...route.query }
+  delete query.location_id
+  router.replace({ query })
 }
 
 function goToCompany(node) {
   selectedCompany.value = node
   selectedBranch.value = null
+  if (node.companyId) {
+    router.replace({ query: { ...route.query, location_id: node.companyId } })
+  }
 }
 
 function goToBranch(node) {
   selectedBranch.value = node
+  if (node.companyId) {
+    router.replace({ query: { ...route.query, location_id: node.companyId } })
+  }
 }
 
 function goBackToCompanies() {
@@ -71,7 +89,15 @@ function goBackToCompanies() {
 
 function goBackToCompany() {
   selectedBranch.value = null
+  if (selectedCompany.value?.companyId) {
+    router.replace({ query: { ...route.query, location_id: selectedCompany.value.companyId } })
+  } else {
+    const query = { ...route.query }
+    delete query.location_id
+    router.replace({ query })
+  }
 }
+// ==============================================================================
 
 const currentLevelLabel = computed(() => {
   if (!selectedCompany.value) return 'Daftar Perusahaan'
@@ -226,6 +252,29 @@ const companyTree = computed(() => {
   return roots
 })
 
+function restoreSelectedOffice() {
+  const locationId = route.query.location_id
+  if (!locationId) return
+
+  const findNodePath = (nodes, targetId, parents = []) => {
+    for (const node of nodes) {
+      const nodePath = [...parents, node]
+      if (String(node.companyId) === String(targetId)) return nodePath
+
+      const childPath = findNodePath(node.children || [], targetId, nodePath)
+      if (childPath) return childPath
+    }
+
+    return null
+  }
+
+  const nodePath = findNodePath(companyTree.value, locationId)
+  if (!nodePath) return
+
+  selectedCompany.value = nodePath[0]
+  selectedBranch.value = nodePath.length > 1 ? nodePath[nodePath.length - 1] : null
+}
+
 async function fetchEmployees(page = 1) {
   loading.value = true
   try {
@@ -316,6 +365,34 @@ async function resendInvitation(employee) {
     }
   } finally {
     resendingInvitationId.value = null
+  }
+}
+
+async function deleteEmployee(emp) {
+  if (!emp?.id) return
+
+  const isConfirmed = await confirmDialog.showConfirm({
+    title: 'Hapus Data Karyawan',
+    message: `Apakah Anda yakin ingin menghapus data karyawan "${emp.name}"? Tindakan ini tidak dapat dibatalkan.`,
+    type: 'danger',
+    confirmText: 'Hapus',
+    cancelText: 'Batal',
+  })
+
+  if (!isConfirmed) return
+
+  try {
+    await api.delete(`/users/${emp.id}`)
+    showToast('Karyawan berhasil dihapus.')
+    await fetchEmployees(currentPage.value)
+  } catch (err) {
+    console.error('Gagal menghapus karyawan:', err)
+    const status = err.response?.status
+    if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
+      handleMissingBackendFeature('menghapus karyawan')
+    } else {
+      showToast('Gagal menghapus data karyawan. Silakan coba lagi.', 'error')
+    }
   }
 }
 
@@ -419,10 +496,10 @@ async function fetchShiftSettings() {
   }
 }
 
-onMounted(() => {
-  fetchEmployees()
-  fetchLocations()
-  fetchShiftSettings()
+onMounted(async () => {
+  await Promise.all([fetchEmployees(), fetchLocations(), fetchShiftSettings()])
+  // Pastikan URL param dimuat
+  restoreSelectedOffice()
 })
 
 onBeforeUnmount(() => {
@@ -443,11 +520,13 @@ onBeforeUnmount(() => {
       </div>
     </Teleport>
 
+    <!-- Komponen GlobalConfirm untuk Delete -->
+    <GlobalConfirm />
+
     <section class="panel table-panel">
       <!-- Filter Bar & Navigation -->
       <div class="filter-bar">
         <div class="breadcrumb-wrap">
-          <!-- Tombol Back Bergaya Sama Seperti DetailAbsen -->
           <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
             <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
           </button>
@@ -497,7 +576,6 @@ onBeforeUnmount(() => {
           <template v-if="!selectedCompany">
             <tr v-for="node in companyTree" :key="node.id">
               <td>
-                <!-- Tanpa Kotak Icon -->
                 <strong>{{ node.name }}</strong>
               </td>
               <td>{{ node.address || '-' }}</td>
@@ -515,7 +593,6 @@ onBeforeUnmount(() => {
           <template v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length">
             <tr v-for="node in currentCompanyChildren" :key="node.id">
               <td>
-                <!-- Tanpa Kotak Icon -->
                 <strong>{{ node.name }}</strong>
               </td>
               <td>{{ node.address || '-' }}</td>
@@ -553,7 +630,6 @@ onBeforeUnmount(() => {
           <tr v-for="emp in currentEmployees" :key="emp.id">
             <td class="emp-id-cell">{{ emp.id }}</td>
             <td>
-              <!-- Tanpa Kotak Avatar -->
               <strong>{{ emp.name }}</strong>
             </td>
             <td>{{ emp.email }}</td>
@@ -564,30 +640,30 @@ onBeforeUnmount(() => {
               <span class="status-badge" :class="emp.statusClass">{{ emp.statusLabel }}</span>
             </td>
             <td class="action-cell">
-              <button type="button" class="detail-link-btn" @click="goToEmployeeDetail(emp)">
-                Lihat
-              </button>
-              <button
-                v-if="!emp.isActive"
-                type="button"
-                class="resend-link-btn"
-                :disabled="resendingInvitationId === emp.id"
-                @click="resendInvitation(emp)"
-                :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
-              >
-                <Icon
+              <!-- Inline Flexbox untuk Ikon -->
+              <div class="action-actions">
+                <BaseButton
+                  v-if="!emp.isActive"
+                  variant="ghost"
                   :icon="resendingInvitationId === emp.id ? 'line-md:loading-twotone-loop' : 'material-symbols:mail-outline-rounded'"
-                  width="16"
-                  height="16"
+                  :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
+                  :disabled="resendingInvitationId === emp.id"
+                  @click="resendInvitation(emp)"
                 />
-                {{
-                  resendingInvitationId === emp.id
-                    ? 'Mengirim...'
-                    : emp.statusClass === 'expired'
-                      ? 'Minta Aktivasi Ulang'
-                      : 'Kirim Ulang Link'
-                }}
-              </button>
+                
+                <BaseButton
+                  variant="ghost"
+                  icon="material-symbols:visibility-outline-rounded"
+                  title="Lihat Detail (Biodata)"
+                  @click="goToEmployeeDetail(emp)"
+                />
+
+                <BaseActionBtn
+                  variant="delete"
+                  title="Hapus Karyawan"
+                  @click="deleteEmployee(emp)"
+                />
+              </div>
             </td>
           </tr>
         </tbody>
@@ -830,7 +906,7 @@ onBeforeUnmount(() => {
   color: var(--ink-soft);
 }
 
-/* Tombol Back Persis DetailAbsenView */
+/* Tombol Back */
 .back-btn {
   background: #ffffff;
   border: 1px solid #e4e7ec;
@@ -880,7 +956,6 @@ onBeforeUnmount(() => {
 .icon-btn-solid {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
   background: var(--blue-900);
   border: none;
   display: flex;
@@ -953,6 +1028,16 @@ tbody tr:last-child td {
   text-align: center;
 }
 
+/* Flex layout untuk aksi tombol karyawan */
+.action-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -975,7 +1060,7 @@ tbody tr:last-child td {
   background: #fee4e2;
 }
 
-/* Tombol Detail/Lihat */
+/* Tombol Detail/Lihat untuk List Perusahaan (Level 1/2) */
 .detail-link-btn {
   display: inline-flex;
   align-items: center;
@@ -989,26 +1074,6 @@ tbody tr:last-child td {
 }
 .detail-link-btn:hover {
   text-decoration: underline;
-}
-
-.resend-link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  color: #2f3b69;
-  font-size: 12px;
-  font-weight: 700;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-.resend-link-btn:hover:not(:disabled) {
-  text-decoration: underline;
-}
-.resend-link-btn:disabled {
-  opacity: 0.6;
-  cursor: wait;
 }
 
 /* Footer Pagination */

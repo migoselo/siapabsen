@@ -48,7 +48,6 @@ const attendanceColumns = [
   { key: 'checkIn', label: 'Check In' },
   { key: 'checkOut', label: 'Check Out' },
   { key: 'status', label: 'Status' },
-  { key: 'actions', label: 'Detail' },
 ]
 
 function goToLocation(loc) {

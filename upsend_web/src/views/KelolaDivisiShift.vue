@@ -165,6 +165,12 @@ function selectCompany(company) {
   fetchDataForCompany()
 }
 
+function goBackToCompanies() {
+  selectedCompany.value = null
+  divisions.value = []
+  shifts.value = []
+}
+
 async function fetchDataForCompany() {
   if (!selectedCompany.value) return
   loading.value = true
@@ -210,6 +216,29 @@ function handleOutsideClick(e) {
     showClockInMenu.value = false
     showClockOutMenu.value = false
   }
+}
+
+function toggleClockInMenu() {
+  showClockInMenu.value = !showClockInMenu.value
+  showClockOutMenu.value = false
+  showStatusMenu.value = false
+}
+
+function toggleClockOutMenu() {
+  showClockOutMenu.value = !showClockOutMenu.value
+  showClockInMenu.value = false
+  showStatusMenu.value = false
+}
+
+function toggleStatusMenu() {
+  showStatusMenu.value = !showStatusMenu.value
+  showClockInMenu.value = false
+  showClockOutMenu.value = false
+}
+
+function selectStatus(status) {
+  formData.value.status = status
+  showStatusMenu.value = false
 }
 
 onMounted(() => {
@@ -398,11 +427,7 @@ async function deleteData(id) {
         <button
           type="button"
           class="back-btn"
-          @click="
-            selectedCompany = null
-            divisions = []
-            shifts = []
-          "
+          @click="goBackToCompanies"
         >
           <Icon icon="material-symbols:arrow-back-rounded" width="18" />
         </button>
@@ -555,8 +580,8 @@ async function deleteData(id) {
                   </td>
                   <td>
                     <div class="actions">
-                      <BaseActionBtn variant="edit" @click="openEditModal(item)" />
-                      <BaseActionBtn variant="delete" @click="deleteRole(item)" />
+                      <BaseActionBtn variant="edit" @click="openModal('edit', shift)" />
+                      <BaseActionBtn variant="delete" @click="deleteData(shift.id)" />
                     </div>
                   </td>
                 </tr>
@@ -576,16 +601,8 @@ async function deleteData(id) {
                   </td>
                   <td>
                     <div class="actions">
-                      <button class="icon-btn" title="Edit" @click="openModal('edit', div)">
-                        <Icon icon="material-symbols:edit-outline" width="16" />
-                      </button>
-                      <button
-                        class="icon-btn icon-btn-danger"
-                        title="Hapus"
-                        @click="deleteData(div.id)"
-                      >
-                        <Icon icon="material-symbols:delete-outline" width="16" />
-                      </button>
+                      <BaseActionBtn variant="edit" @click="openModal('edit', div)" />
+                      <BaseActionBtn variant="delete" @click="deleteData(div.id)" />
                     </div>
                   </td>
                 </tr>
@@ -666,11 +683,7 @@ async function deleteData(id) {
                   <label>Jam Masuk (Clock In)</label>
                   <div
                     class="custom-select time-select"
-                    @click.stop="
-                      showClockInMenu = !showClockInMenu
-                      showClockOutMenu = false
-                      showStatusMenu = false
-                    "
+                    @click.stop="toggleClockInMenu"
                   >
                     <Icon
                       icon="material-symbols:schedule-outline"
@@ -718,11 +731,7 @@ async function deleteData(id) {
                   <label>Jam Pulang (Clock Out)</label>
                   <div
                     class="custom-select time-select"
-                    @click.stop="
-                      showClockOutMenu = !showClockOutMenu
-                      showClockInMenu = false
-                      showStatusMenu = false
-                    "
+                    @click.stop="toggleClockOutMenu"
                   >
                     <Icon
                       icon="material-symbols:schedule-outline"
@@ -802,11 +811,7 @@ async function deleteData(id) {
                 <label>Status Shift</label>
                 <div
                   class="custom-select"
-                  @click.stop="
-                    showStatusMenu = !showStatusMenu
-                    showClockInMenu = false
-                    showClockOutMenu = false
-                  "
+                  @click.stop="toggleStatusMenu"
                 >
                   <span>{{ formData.status }}</span>
                   <Icon
@@ -820,10 +825,7 @@ async function deleteData(id) {
                       type="button"
                       class="select-item"
                       :class="{ active: formData.status === 'Aktif' }"
-                      @click.stop="
-                        formData.status = 'Aktif'
-                        showStatusMenu = false
-                      "
+                      @click.stop="selectStatus('Aktif')"
                     >
                       Aktif
                     </button>
@@ -831,10 +833,7 @@ async function deleteData(id) {
                       type="button"
                       class="select-item"
                       :class="{ active: formData.status === 'Tidak Aktif' }"
-                      @click.stop="
-                        formData.status = 'Tidak Aktif'
-                        showStatusMenu = false
-                      "
+                      @click.stop="selectStatus('Tidak Aktif')"
                     >
                       Tidak Aktif
                     </button>
@@ -1315,6 +1314,9 @@ async function deleteData(id) {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+.actions :deep(.icon-btn-danger) {
+  color: #d92d20;
 }
 .icon-btn {
   width: 30px;

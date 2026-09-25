@@ -15,6 +15,9 @@ defineEmits(['back'])
       <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
     </button>
     <h2>{{ title }}</h2>
+    <div class="page-title-actions">
+      <slot />
+    </div>
   </div>
 </template>
 
@@ -49,5 +52,12 @@ defineEmits(['back'])
   font-size: 20px;
   font-weight: 700;
   color: #1c1c19;
+}
+
+.page-title-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 </style>
