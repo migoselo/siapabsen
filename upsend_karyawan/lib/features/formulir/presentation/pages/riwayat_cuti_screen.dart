@@ -34,9 +34,11 @@ class RiwayatCutiScreen extends StatefulWidget {
 
 class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   DateTime? _selectedDate;
-  DateTimeRange?
-  _selectedRange; // BARU — nampung hasil pick range dari kalender
-  String? _selectedKategori;
+  DateTimeRange? _selectedRange;
+  
+  // UBAH DI SINI: Set default ke 'semua' agar bar "Semua" terpilih saat awal dibuka
+  String? _selectedKategori = 'semua';
+  
   PeriodeRiwayat _periode = PeriodeRiwayat.mingguan;
 
   final DateTime _today = DateTime.now();
@@ -100,9 +102,9 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         if (showLoading) _isLoading = false;
         _loadError =
             e.type == DioExceptionType.connectionTimeout ||
-                e.type == DioExceptionType.receiveTimeout
-            ? 'Server terlalu lama merespons.'
-            : 'Gagal memuat riwayat cuti.';
+                    e.type == DioExceptionType.receiveTimeout
+                ? 'Server terlalu lama merespons.'
+                : 'Gagal memuat riwayat cuti.';
       });
       if (showLoading) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -179,8 +181,6 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
     Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
   }
 
-  // Rentang tanggal yang lagi aktif — dari pick range manual (prioritas),
-  // atau dihitung dari periode toggle kalau nggak ada range manual
   DateTimeRange get _activeRange {
     if (_selectedRange != null) return _selectedRange!;
 
@@ -208,12 +208,11 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
     setState(() {
       _periode = periode;
       _selectedDate = _today;
-      _selectedRange = null; // reset range manual tiap ganti toggle
-      _selectedKategori = null;
+      _selectedRange = null;
+      _selectedKategori = 'semua'; // Pertahankan default 'semua' saat ganti periode
     });
   }
 
-  // Geser mundur satu unit waktu sesuai periode aktif.
   void _goToPrevious() {
     setState(() {
       final anchor = _selectedDate ?? _today;
@@ -229,11 +228,10 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           break;
       }
       _selectedRange = null;
-      _selectedKategori = null;
+      _selectedKategori = 'semua'; // Pertahankan default 'semua'
     });
   }
 
-  // Geser maju satu unit waktu — dibatasi supaya tidak bisa lompat ke masa depan.
   void _goToNext() {
     if (!_canGoNext) return;
     setState(() {
@@ -250,11 +248,10 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           break;
       }
       _selectedRange = null;
-      _selectedKategori = null;
+      _selectedKategori = 'semua'; // Pertahankan default 'semua'
     });
   }
 
-  // Tombol "next" mati kalau unit waktu berikutnya sudah melewati hari ini.
   bool get _canGoNext {
     final anchor = _selectedDate ?? _today;
     switch (_periode) {
@@ -297,14 +294,12 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
           break;
         case RiwayatCalendarMode.range:
           _selectedDate = selection.date;
-          _selectedRange = selection.range; // ini kuncinya — akhirnya ketampung
+          _selectedRange = selection.range;
           break;
         case RiwayatCalendarMode.single:
-          // Halaman ini selalu memanggil dialog dalam mode range (default),
-          // jadi mode single tidak pernah muncul di sini — hanya untuk lengkapi switch.
           break;
       }
-      _selectedKategori = null;
+      _selectedKategori = 'semua'; // Pertahankan default 'semua' saat pilih tanggal
     });
   }
 
@@ -340,9 +335,9 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
         final sameYear = start.year == end.year;
         return sameYear
             ? '${DateFormat('d MMM', 'id_ID').format(start)} - '
-                  '${DateFormat('d MMM yyyy', 'id_ID').format(end)}'
+                '${DateFormat('d MMM yyyy', 'id_ID').format(end)}'
             : '${DateFormat('d MMM yyyy', 'id_ID').format(start)} - '
-                  '${DateFormat('d MMM yyyy', 'id_ID').format(end)}';
+                '${DateFormat('d MMM yyyy', 'id_ID').format(end)}';
     }
   }
 
@@ -350,22 +345,20 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
   Widget build(BuildContext context) {
     final range = _activeRange;
 
-    // filter tahap 1: berdasarkan rentang tanggal aktif (periode atau range manual)
     final rangeFiltered = _cutiHistory
         .where((cuti) => cutiOverlapsPeriode(cuti, range.start, range.end))
         .toList();
 
-    // filter tahap 2: berdasarkan kategori yang dipilih (kalau ada)
     final filteredCuti =
         _selectedKategori == null || _selectedKategori == 'semua'
-        ? rangeFiltered
-        : rangeFiltered
-              .where(
-                (cuti) => cuti.title.toLowerCase().contains(
-                  _selectedKategori!.toLowerCase(),
-                ),
-              )
-              .toList();
+            ? rangeFiltered
+            : rangeFiltered
+                .where(
+                  (cuti) => cuti.title.toLowerCase().contains(
+                    _selectedKategori!.toLowerCase(),
+                  ),
+                )
+                .toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -506,7 +499,6 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Kalau lagi pakai range manual, kasih tombol buat balik ke mode periode
             if (_selectedRange != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -536,9 +528,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
             KategoriBarChart(
               title: 'Kategori Cuti',
               kategoriList: kategoriCutiList,
-              counts: hitungKategoriCuti(
-                rangeFiltered,
-              ), // sekarang ikut rentang aktif
+              counts: hitungKategoriCuti(rangeFiltered),
               selectedKategori: _selectedKategori,
               onKategoriTap: (key) {
                 setState(() => _selectedKategori = key);
@@ -546,7 +536,6 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Daftar Kartu Cuti
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
@@ -583,7 +572,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   'Belum ada pengajuan.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
-                    color: Color(0xFF9A9A9A),
+                    color: const Color(0xFF9A9A9A),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -595,7 +584,7 @@ class _RiwayatCutiScreenState extends State<RiwayatCutiScreen> {
                   'Belum ada pengajuan pada periode ini.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
-                    color: Color(0xFF9A9A9A),
+                    color: const Color(0xFF9A9A9A),
                     fontWeight: FontWeight.w500,
                   ),
                 ),

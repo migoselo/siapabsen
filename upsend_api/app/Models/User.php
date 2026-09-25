@@ -15,19 +15,49 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, HasTenant;
 
     protected $fillable = [
-        'name', 'email', 'password', 'no_hp', 'role', 'home_location_id', 'is_active',
+        'name',
+        'email',
+        'password',
+        'no_hp',
+        'role',
+        'home_location_id',
+        'is_active',
         'employee_id',
-        'division_id', 'shift_id',
-        'department', 'grade', 'employee_type', 'joined_at', 'nik', 'birth_place',
-        'birth_date', 'gender', 'religion', 'blood_type', 'marital_status', 'address',
-        'emergency_contact', 'bank_name', 'bank_account_number', 'bank_account_name',
-        'tax_number', 'bpjs_employment', 'bpjs_health', 'last_education',
-        'education_institution', 'certification', 'spouse_name', 'father_name',
-        'mother_name', 'children_count',
+        'division_id',
+        'shift_id',
+        'department',
+        'grade',
+        'employee_type',
+        'joined_at',
+        'nik',
+        'birth_place',
+        'birth_date',
+        'gender',
+        'religion',
+        'blood_type',
+        'marital_status',
+        'address',
+        'emergency_contact',
+        'bank_name',
+        'bank_account_number',
+        'bank_account_name',
+        'tax_number',
+        'bpjs_employment',
+        'bpjs_health',
+        'last_education',
+        'education_institution',
+        'certification',
+        'spouse_name',
+        'father_name',
+        'mother_name',
+        'children_count',
         // tenant_id ditambahkan supaya bisa di-set oleh migration/bootHasTenant
         'tenant_id',
-        'invitation_token', 'invitation_expires_at', 'invited_at',
-        'password_reset_token', 'password_reset_expires_at',
+        'invitation_token',
+        'invitation_expires_at',
+        'invited_at',
+        'password_reset_token',
+        'password_reset_expires_at',
     ];
 
     protected $hidden = [
@@ -78,5 +108,25 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    public static function generateEmployeeId(int $tenantId): string
+    {
+        $prefix = 'EMP';
+
+        do {
+            $lastNumber = static::where('tenant_id', $tenantId)
+                ->where('employee_id', 'like', $prefix . '%')
+                ->get()
+                ->map(function ($user) use ($prefix) {
+                    $numeric = substr($user->employee_id, strlen($prefix));
+                    return ctype_digit($numeric) ? (int) $numeric : 0;
+                })
+                ->max() ?? 0;
+
+            $employeeId = $prefix . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        } while (static::where('tenant_id', $tenantId)->where('employee_id', $employeeId)->exists());
+
+        return $employeeId;
     }
 }

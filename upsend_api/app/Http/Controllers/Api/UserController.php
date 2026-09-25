@@ -57,7 +57,7 @@ class UserController extends Controller
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => ['required','email'],
+            'email' => ['required', 'email'],
             'password' => 'nullable|string|min:6',
             'no_hp' => 'nullable|string|max:255',
             'role' => 'required|in:admin,karyawan',
@@ -111,7 +111,7 @@ class UserController extends Controller
         $invitationToken = Str::random(64);
         $data['password'] = Hash::make(Str::random(40));
         $data['tenant_id'] = (int) $tenantId;
-        $data['employee_id'] = $this->generateEmployeeId((int) $tenantId);
+        $data['employee_id'] = User::generateEmployeeId((int) $tenantId);
         $data['is_active'] = false;
         $data['invitation_token'] = hash('sha256', $invitationToken);
         $data['invitation_expires_at'] = now()->addHours(48);
@@ -131,15 +131,6 @@ class UserController extends Controller
             'message' => 'Karyawan berhasil dibuat. Link aktivasi telah dikirim ke email karyawan.',
             'user' => $user->load(['homeLocation', 'division', 'shift']),
         ], 201);
-    }
-
-    protected function generateEmployeeId(int $tenantId): string
-    {
-        do {
-            $employeeId = 'EMP-' . $tenantId . '-' . now()->format('YmdHis') . '-' . random_int(1000, 9999);
-        } while (User::where('tenant_id', $tenantId)->where('employee_id', $employeeId)->exists());
-
-        return $employeeId;
     }
 
     public function show(User $user)
@@ -188,7 +179,7 @@ class UserController extends Controller
 
         $data = $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'email' => ['sometimes','required','email',$emailRule],
+            'email' => ['sometimes', 'required', 'email', $emailRule],
             'no_hp' => 'nullable|string|max:255',
             'role' => 'sometimes|required|in:admin,karyawan',
             'is_active' => 'sometimes|boolean',
