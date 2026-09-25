@@ -7,13 +7,18 @@ import api from '../api'
 // Import Base Components
 import BasePageHeader from '../components/BasePageHeader.vue'
 import BaseSelect from '../components/BaseSelect.vue'
+import BaseButton from '../components/BaseButton.vue'
+import { useConfirm } from '../composables/UseConfirm'
+import GlobalConfirm from '../components/GlobalConfirm.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { showConfirm } = useConfirm()
 
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
 const loading = ref(true)
+const deleting = ref(false)
 
 // State untuk menyimpan data dari KelolaDivisiShift
 const divisions = ref([]) 
@@ -156,6 +161,7 @@ async function saveEdit(section) {
          const end = selectedShift.work_end_time ? String(selectedShift.work_end_time).slice(0, 5) : ''
          employee.pekerjaan.shift = `${selectedShift.name} (${start} - ${end})`
        }
+      
     }
   }
 
@@ -180,10 +186,42 @@ async function saveEdit(section) {
 }
 
 function goBack() {
-  router.push({ 
-    path: '/dashboard/karyawan', 
-    query: { location_id: employee.home_location_id } 
+  // Menggunakan history router bawaan agar kembali ke state/halaman sebelumnya secara presisi.
+  // Jika tidak ada history (buka link langsung), fallback ke halaman daftar karyawan.
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push({ 
+      path: '/dashboard/karyawan', 
+      query: { location_id: employee.home_location_id } 
+    })
+  }
+}
+
+async function deleteEmployee() {
+  const ok = await showConfirm({
+    title: 'Hapus Karyawan',
+    message: 'Apakah Anda yakin ingin menghapus karyawan ini?',
+    confirmText: 'Ya, Hapus',
+    cancelText: 'Batal',
+    type: 'danger',
   })
+  if (!ok) return
+
+  deleting.value = true
+  try {
+    await api.delete(`/users/${employee.id}`)
+    showToast('Karyawan berhasil dihapus.')
+    router.push({
+      path: '/dashboard/karyawan',
+      query: { location_id: employee.home_location_id },
+    })
+  } catch (err) {
+    console.error('Gagal menghapus karyawan:', err)
+    showToast(err.response?.data?.message || 'Gagal menghapus karyawan.', 'error')
+  } finally {
+    deleting.value = false
+  }
 }
 
 function displayValue(value) {
@@ -350,8 +388,20 @@ onMounted(fetchEmployee)
       </div>
     </Teleport>
 
+    <!-- Komponen GlobalConfirm untuk Modal Dialog -->
+    <GlobalConfirm />
+
     <!-- Header Components -->
-    <BasePageHeader title="Biodata Karyawan" @back="goBack" />
+    <BasePageHeader title="Biodata Karyawan" @back="goBack">
+      <BaseButton
+        variant="danger"
+        icon="material-symbols:delete-outline-rounded"
+        :disabled="deleting"
+        @click="deleteEmployee"
+      >
+        {{ deleting ? 'Menghapus...' : 'Hapus Karyawan' }}
+      </BaseButton>
+    </BasePageHeader>
 
     <div class="biodata-container">
       <!-- Profile Header -->

@@ -431,15 +431,6 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
               <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
             </div>
           </div>
-          
-          <div class="search-wrap">
-            <BaseSearch 
-              v-model="search" 
-              @update:modelValue="resetPage"
-              placeholder="Cari nama, NIK, atau kantor..." 
-              width="260px"
-            />
-          </div>
         </div>
 
         <!-- Baris Filter Dropdown & Aksi -->
@@ -476,12 +467,31 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
           </div>
 
           <div class="actions-group">
-            <BaseButton variant="primary" icon="material-symbols:add-rounded" @click="handleCreateNewSalary">
+            <BaseButton
+              v-if="selectedCompany"
+              variant="primary"
+              icon="material-symbols:add-rounded"
+              @click="handleCreateNewSalary"
+            >
               Gaji Baru
             </BaseButton>
-            <BaseButton variant="ghost" icon="material-symbols:download-rounded" @click="handleExport">
+            <BaseButton
+              v-if="selectedCompany"
+              variant="ghost"
+              icon="material-symbols:download-rounded"
+              @click="handleExport"
+            >
               Ekspor
             </BaseButton>
+          </div>
+
+          <div class="search-wrap">
+            <BaseSearch
+              v-model="search"
+              @update:modelValue="resetPage"
+              placeholder="Cari nama, NIK, atau kantor..."
+              width="260px"
+            />
           </div>
         </div>
       </div>
