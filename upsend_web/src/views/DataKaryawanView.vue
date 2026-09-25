@@ -4,13 +4,6 @@ import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
-// Import Base Components & Composables
-import BaseButton from '../components/BaseButton.vue'
-import BaseToast from '../components/BaseToast.vue'
-import GlobalConfirm from '../components/GlobalConfirm.vue' // Memanggil komponen visual dialog
-import { useConfirm } from '../composables/UseConfirm'
-import BaseActionBtn from '../components/BaseActionBtn.vue'
-
 const router = useRouter()
 const confirmDialog = useConfirm()
 
@@ -38,16 +31,18 @@ const shifts = ref([])
 const companies = ref([])
 const selectedCompany = ref(null)
 const selectedBranch = ref(null)
-
 const form = ref({
   name: '',
   email: '',
+  password: '',
   no_hp: '',
   role: 'karyawan',
   home_location_id: '',
   division_id: '',
   shift_id: '',
 })
+
+const showPassword = ref(false)
 
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -78,6 +73,12 @@ function goBackToCompanies() {
 function goBackToCompany() {
   selectedBranch.value = null
 }
+
+const currentLevelLabel = computed(() => {
+  if (!selectedCompany.value) return 'Daftar Perusahaan'
+  if (!selectedBranch.value && currentCompanyChildren.value.length) return 'Daftar Cabang / Anak Perusahaan'
+  return 'Daftar Karyawan'
+})
 
 const currentCompanyChildren = computed(() => {
   if (!selectedCompany.value) return companyTree.value
@@ -243,11 +244,15 @@ async function fetchEmployees(page = 1) {
 function onSearchInput() {}
 
 function prevPage() {
-  if (currentPage.value > 1) fetchEmployees(currentPage.value - 1)
+  if (currentPage.value > 1) {
+    fetchEmployees(currentPage.value - 1)
+  }
 }
 
 function nextPage() {
-  if (currentPage.value < lastPage.value) fetchEmployees(currentPage.value + 1)
+  if (currentPage.value < lastPage.value) {
+    fetchEmployees(currentPage.value + 1)
+  }
 }
 
 function goToInputPage() {
@@ -273,7 +278,9 @@ function showToast(message, type = 'success') {
 }
 
 function handleMissingBackendFeature(action) {
-  const message = `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia. Silakan hubungkan API.`
+  const message =
+    `Fitur ${action} sudah dibuat di frontend, tetapi endpoint backend belum tersedia atau belum dihubungkan. ` +
+    'Silakan sambungkan API dari backend teman Anda.'
   showToast(message, 'error')
 }
 
@@ -315,12 +322,14 @@ function openAddModal() {
   form.value = {
     name: '',
     email: '',
+    password: '',
     no_hp: '',
     role: 'karyawan',
     home_location_id: '',
     division_id: '',
     shift_id: '',
   }
+  showPassword.value = false
   showModal.value = true
   fetchLocations()
 }
@@ -330,7 +339,7 @@ function closeModal(force = false) {
   showModal.value = false
 }
 
-async function submitEmployeeForm() {
+async function submitNewEmployee() {
   const name = String(form.value.name || '').trim()
   const email = String(form.value.email || '').trim()
   const no_hp = String(form.value.no_hp || '').trim()
@@ -343,12 +352,14 @@ async function submitEmployeeForm() {
     showToast('Nama minimal 2 karakter dan hanya boleh berisi huruf.', 'error')
     return
   }
+
   if (!email || !emailRegex.test(email) || email.length > 254) {
-    showToast('Format email tidak valid.', 'error')
+    showToast('Format email tidak valid (contoh: user@domain.com).', 'error')
     return
   }
+
   if (no_hp && !phoneRegex.test(no_hp)) {
-    showToast('Nomor HP tidak valid.', 'error')
+    showToast('Nomor HP tidak valid. Gunakan format Indonesia (contoh: 08123456789).', 'error')
     return
   }
 
@@ -603,9 +614,70 @@ onBeforeUnmount(() => {
                 ></BaseButton>
               </td>
             </tr>
-          </tbody>
-        </table>
-      </div>
+          </template>
+        </tbody>
+      </table>
+
+      <!-- TABEL DAFTAR KARYAWAN -->
+      <table v-else>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nama Karyawan</th>
+            <th>Email</th>
+            <th>Nomor HP</th>
+            <th>Divisi</th>
+            <th>Jam Kerja / Shift</th>
+            <th>Status</th>
+            <th class="action-column">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="currentEmployees.length === 0">
+            <td colspan="8" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
+          </tr>
+          <tr v-for="emp in currentEmployees" :key="emp.id">
+            <td class="emp-id-cell">{{ emp.id }}</td>
+            <td>
+              <!-- Tanpa Kotak Avatar -->
+              <strong>{{ emp.name }}</strong>
+            </td>
+            <td>{{ emp.email }}</td>
+            <td>{{ emp.no_hp || '-' }}</td>
+            <td>{{ emp.division }}</td>
+            <td>{{ emp.shift }}</td>
+            <td>
+              <span class="status-badge" :class="emp.statusClass">{{ emp.statusLabel }}</span>
+            </td>
+            <td class="action-cell">
+              <button type="button" class="detail-link-btn" @click="goToEmployeeDetail(emp)">
+                Lihat
+              </button>
+              <button
+                v-if="!emp.isActive"
+                type="button"
+                class="resend-link-btn"
+                :disabled="resendingInvitationId === emp.id"
+                @click="resendInvitation(emp)"
+                :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
+              >
+                <Icon
+                  :icon="resendingInvitationId === emp.id ? 'line-md:loading-twotone-loop' : 'material-symbols:mail-outline-rounded'"
+                  width="16"
+                  height="16"
+                />
+                {{
+                  resendingInvitationId === emp.id
+                    ? 'Mengirim...'
+                    : emp.statusClass === 'expired'
+                      ? 'Minta Aktivasi Ulang'
+                      : 'Kirim Ulang Link'
+                }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <!-- Table Footer -->
       <div class="table-footer">
@@ -616,9 +688,11 @@ onBeforeUnmount(() => {
               class="pager-btn"
               :disabled="currentPage === 1 || loading"
               @click="prevPage"
+              title="Halaman Sebelumnya"
             >
               <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
             </button>
+
             <div class="page-input-wrapper">
               <span>Halaman</span>
               <input
@@ -632,11 +706,13 @@ onBeforeUnmount(() => {
               />
               <span>dari {{ lastPage }}</span>
             </div>
+
             <button
               type="button"
               class="pager-btn"
               :disabled="currentPage === lastPage || loading"
               @click="nextPage"
+              title="Halaman Berikutnya"
             >
               <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
             </button>
@@ -748,7 +824,7 @@ onBeforeUnmount(() => {
               :disabled="saving"
             >
               {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
-            </BaseButton>
+            </button>
           </div>
         </div>
       </div>
@@ -770,14 +846,6 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
-
-/* Pembungkus agar tabel bisa di-scroll tanpa memotong kotak panel utamanya */
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 .panel {
   background: var(--card);
   border: 1px solid var(--line);
@@ -786,7 +854,7 @@ onBeforeUnmount(() => {
 .table-panel {
   position: relative;
   padding: 0;
-  /* overflow: visible dihapus agar tidak bentrok dengan table-responsive */
+  overflow: visible;
 }
 .table-panel::after {
   content: '';
@@ -839,7 +907,27 @@ onBeforeUnmount(() => {
   font-size: 18px;
   font-weight: 700;
 }
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.breadcrumb-root {
+  cursor: pointer;
+  color: var(--blue-900);
+  font-weight: 700;
+}
+.breadcrumb-current {
+  color: var(--blue-900);
+  font-weight: 700;
+}
+.breadcrumb-separator {
+  color: var(--ink-soft);
+}
 
+/* Tombol Back Persis DetailAbsenView */
 .back-btn {
   background: #ffffff;
   border: 1px solid #e4e7ec;
@@ -853,6 +941,7 @@ onBeforeUnmount(() => {
   color: #2c3345;
   transition: background 0.2s;
 }
+
 .back-btn:hover {
   background: #f4f5f8;
 }
@@ -909,7 +998,6 @@ onBeforeUnmount(() => {
 /* Styling Tabel */
 table {
   width: 100%;
-  min-width: 900px; /* Mencegah tabel tertekan dan menjamin scrollbar muncul ketika layar kecil */
   border-collapse: collapse;
 }
 thead tr {
@@ -923,7 +1011,6 @@ thead th {
   text-align: left;
   padding: 14px 24px;
   text-transform: uppercase;
-  white-space: nowrap;
 }
 tbody td {
   padding: 16px 24px;
@@ -956,17 +1043,11 @@ tbody tr:last-child td {
 }
 
 .action-column {
-  width: 200px;
+  width: 170px;
   text-align: center;
 }
 .action-cell {
   text-align: center;
-}
-.employee-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
 .status-badge {
@@ -1130,7 +1211,6 @@ label.required::after {
   justify-content: center;
   z-index: 1000;
   padding: 24px;
-  backdrop-filter: blur(2px);
 }
 .modal {
   width: 100%;
@@ -1223,6 +1303,58 @@ label.required::after {
   font-weight: 600;
   cursor: pointer;
 }
+.btn-save {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #2C3964;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.input-eye-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-eye-wrap input {
+  width: 100%;
+  padding-right: 42px;
+}
+.eye-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--ink-soft);
+}
+
+.toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.2);
+}
+.toast.success { background: #1f9d67; }
+.toast.error { background: #d92d20; }
 
 @media (max-width: 700px) {
   .filter-bar {
