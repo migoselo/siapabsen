@@ -24,11 +24,12 @@ class CheckinLocationPage extends StatefulWidget {
 }
 
 class _CheckinLocationPageState extends State<CheckinLocationPage>
-  with WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final MapController _mapController = MapController();
   bool _isSatelliteView = false;
   bool _locationPermissionPermanentlyDenied = false;
   bool _locationServiceDisabled = false;
+  bool _openingCamera = false;
 
   @override
   void initState() {
@@ -113,7 +114,7 @@ class _CheckinLocationPageState extends State<CheckinLocationPage>
           final permissionPermanentlyDenied =
               _locationPermissionPermanentlyDenied ||
               (state.errorMessage?.contains('ditolak permanen') ?? false);
-            final locationServiceDisabled =
+          final locationServiceDisabled =
               _locationServiceDisabled ||
               (state.errorMessage?.contains('GPS tidak aktif') ?? false);
 
@@ -313,37 +314,54 @@ class _CheckinLocationPageState extends State<CheckinLocationPage>
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () async {
-                    final attendanceRepository = AttendanceRepository();
-                    final hasRegisteredFace = await attendanceRepository
-                        .checkFaceRegistrationStatus();
-                    if (!context.mounted) return;
+                  onPressed: _openingCamera
+                      ? null
+                      : () async {
+                          setState(() => _openingCamera = true);
+                          try {
+                            final attendanceRepository = AttendanceRepository();
+                            final hasRegisteredFace = await attendanceRepository
+                                .checkFaceRegistrationStatus();
+                            if (!context.mounted) return;
 
-                    if (!hasRegisteredFace) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const FaceRegistrationIntroPage(),
+                            if (!hasRegisteredFace) {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const FaceRegistrationIntroPage(),
+                                ),
+                              );
+                              return;
+                            }
+
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CheckinCameraPage(),
+                              ),
+                            );
+                          } finally {
+                            if (mounted) setState(() => _openingCamera = false);
+                          }
+                        },
+                  child: _openingCamera
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Lanjut",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      );
-                      return;
-                    }
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const CheckinCameraPage(),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    "Lanjut",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 32),
               ],
@@ -404,31 +422,28 @@ class _LocationRetryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOutsideRadius =
-        state.selectedLocation != null &&
-        !state.selectedLocation!.withinRadius;
+        state.selectedLocation != null && !state.selectedLocation!.withinRadius;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25.0),
       child: Column(
         children: [
           const SizedBox(height: 40),
-          if (isOutsideRadius)
-            ...[
-              _buildLocationUnavailableIcon(),
-              const SizedBox(height: 24),
-              const Text(
-                'Anda berada di luar radius absen',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+          if (isOutsideRadius) ...[
+            _buildLocationUnavailableIcon(),
+            const SizedBox(height: 24),
+            const Text(
+              'Anda berada di luar radius absen',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(height: 20),
-              _buildOutsideRadiusCard(state.selectedLocation!),
-            ]
-          else ...[
+            ),
+            const SizedBox(height: 20),
+            _buildOutsideRadiusCard(state.selectedLocation!),
+          ] else ...[
             Container(
               width: 96,
               height: 96,
@@ -477,15 +492,15 @@ class _LocationRetryView extends StatelessWidget {
                   elevation: 0,
                 ),
                 onPressed: locationServiceDisabled
-                  ? onOpenLocationSettings
-                  : permissionPermanentlyDenied
-                  ? onOpenSettings
-                  : onRetry,
+                    ? onOpenLocationSettings
+                    : permissionPermanentlyDenied
+                    ? onOpenSettings
+                    : onRetry,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                        locationServiceDisabled
+                      locationServiceDisabled
                           ? 'Aktifkan lokasi'
                           : permissionPermanentlyDenied
                           ? 'Buka Pengaturan'
@@ -519,11 +534,7 @@ class _LocationRetryView extends StatelessWidget {
         shape: BoxShape.circle,
         color: Color(0xFFFEF2F2),
       ),
-      child: const Icon(
-        Icons.location_off,
-        color: Color(0xFFDC2626),
-        size: 42,
-      ),
+      child: const Icon(Icons.location_off, color: Color(0xFFDC2626), size: 42),
     );
   }
 }

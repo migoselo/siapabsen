@@ -22,7 +22,7 @@ class CheckoutLocationPage extends StatefulWidget {
 }
 
 class _CheckoutLocationPageState extends State<CheckoutLocationPage>
-  with WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   bool _isLoading = true;
   String? _errorMessage;
   double? _latitude;
@@ -33,6 +33,7 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage>
   bool _isSatelliteView = false;
   bool _locationPermissionPermanentlyDenied = false;
   bool _locationServiceDisabled = false;
+  bool _openingCamera = false;
 
   @override
   void initState() {
@@ -203,8 +204,8 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage>
         _locationPermissionPermanentlyDenied ||
         (_errorMessage?.contains('ditolak permanen') ?? false);
     final locationServiceDisabled =
-      _locationServiceDisabled ||
-      (_errorMessage?.contains('GPS tidak aktif') ?? false);
+        _locationServiceDisabled ||
+        (_errorMessage?.contains('GPS tidak aktif') ?? false);
 
     if (permissionPermanentlyDenied) {
       return LocationPermissionRetryView(
@@ -353,40 +354,57 @@ class _CheckoutLocationPageState extends State<CheckoutLocationPage>
               ),
               elevation: 0,
             ),
-            onPressed: () async {
-              final attendanceRepository = AttendanceRepository();
-              final hasRegisteredFace = await attendanceRepository
-                  .checkFaceRegistrationStatus();
+            onPressed: _openingCamera
+                ? null
+                : () async {
+                    setState(() => _openingCamera = true);
+                    try {
+                      final attendanceRepository = AttendanceRepository();
+                      final hasRegisteredFace = await attendanceRepository
+                          .checkFaceRegistrationStatus();
 
-              if (!hasRegisteredFace && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
+                      if (!hasRegisteredFace && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Anda belum mendaftar wajah. Silakan daftar wajah di profil terlebih dahulu.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (mounted) {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CheckoutCameraPage(
+                              attendanceId: widget.attendanceId,
+                            ),
+                          ),
+                        );
+                      }
+                    } finally {
+                      if (mounted) setState(() => _openingCamera = false);
+                    }
+                  },
+            child: _openingCamera
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text(
+                    "Lanjut",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-                return;
-              }
-
-              if (mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        CheckoutCameraPage(attendanceId: widget.attendanceId),
-                  ),
-                );
-              }
-            },
-            child: const Text(
-              "Lanjut",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
           const SizedBox(height: 32),
         ],
@@ -422,23 +440,21 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          if (location != null && !location!.withinRadius)
-            ...[
-              _LocationUnavailableIcon(),
-              const SizedBox(height: 24),
-              const Text(
-                'Anda berada di luar radius absen',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+          if (location != null && !location!.withinRadius) ...[
+            _LocationUnavailableIcon(),
+            const SizedBox(height: 24),
+            const Text(
+              'Anda berada di luar radius absen',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(height: 20),
-              LocationCard(location: location!),
-            ]
-          else ...[
+            ),
+            const SizedBox(height: 20),
+            LocationCard(location: location!),
+          ] else ...[
             Container(
               width: 96,
               height: 96,
@@ -477,15 +493,15 @@ class _ErrorView extends StatelessWidget {
                   elevation: 0,
                 ),
                 onPressed: locationServiceDisabled
-                  ? onOpenLocationSettings
-                  : permissionPermanentlyDenied
-                  ? onOpenSettings
-                  : onRetry,
+                    ? onOpenLocationSettings
+                    : permissionPermanentlyDenied
+                    ? onOpenSettings
+                    : onRetry,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                        locationServiceDisabled
+                      locationServiceDisabled
                           ? 'Aktifkan lokasi'
                           : permissionPermanentlyDenied
                           ? 'Buka Pengaturan'

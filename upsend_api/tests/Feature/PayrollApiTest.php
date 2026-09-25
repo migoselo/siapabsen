@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Payroll;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -126,5 +127,30 @@ class PayrollApiTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('data.0.check_in_time', null);
         $response->assertJsonPath('data.0.status', 'alpha');
+    }
+
+    public function test_history_does_not_create_alpha_before_user_registration(): void
+    {
+        $user = User::create([
+            'name' => 'Karyawan Baru Terdaftar',
+            'email' => 'pegawai-terdaftar@example.com',
+            'no_hp' => '081234567895',
+            'password' => bcrypt('password123'),
+            'role' => 'karyawan',
+            'is_active' => true,
+            'tenant_id' => 1,
+            'employee_id' => 'EMP-1-20260101-1005',
+            'created_at' => Carbon::parse('2026-09-15 10:00:00'),
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->getJson(
+            '/api/attendances/my-history?start_date=2026-09-01&end_date=2026-09-30'
+        );
+
+        $response->assertOk();
+        $dates = collect($response->json('data'))->pluck('date')->all();
+
+        $this->assertNotContains('2026-09-14', $dates);
+        $this->assertContains('2026-09-15', $dates);
     }
 }

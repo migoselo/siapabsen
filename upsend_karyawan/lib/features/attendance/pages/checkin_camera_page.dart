@@ -48,6 +48,10 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _ensureCameraInitializedIfNeeded(context.read<AttendanceBloc>().state);
+    });
   }
 
   @override
@@ -352,6 +356,7 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
             previous.attendanceResult != current.attendanceResult ||
             previous.status != current.status,
         listener: (context, state) {
+          _ensureCameraInitializedIfNeeded(state);
           if (state.status == AttendanceStatus.success &&
               state.attendanceResult != null &&
               state.currentStep >= 3) {
@@ -368,7 +373,6 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
                 onOpenSettings: _openCameraSettings,
               );
             }
-            _ensureCameraInitializedIfNeeded(state);
 
             // Preview SELALU tampilkan kamera live (tidak ada lagi tahap
             // preview hasil foto), kecuali saat permission/loading awal.
@@ -380,8 +384,9 @@ class _CheckinCameraPageState extends State<CheckinCameraPage>
                 placeholder = const Center(
                   child: Text('Izin kamera diperlukan'),
                 );
-              } else if (state.selectedLocation == null &&
-                  state.latitude == null) {
+              } else if (state.selectedLocation == null ||
+                  state.latitude == null ||
+                  state.longitude == null) {
                 placeholder = const Center(child: Text('Menunggu lokasi...'));
               } else {
                 placeholder = const Center(child: CircularProgressIndicator());
