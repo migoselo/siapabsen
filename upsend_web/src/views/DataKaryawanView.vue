@@ -12,7 +12,7 @@ import { useConfirm } from '../composables/UseConfirm'
 import BaseActionBtn from '../components/BaseActionBtn.vue'
 
 const router = useRouter()
-const confirmDialog = useConfirm() 
+const confirmDialog = useConfirm()
 
 const employees = ref([])
 const loading = ref(false)
@@ -185,15 +185,13 @@ const companyTree = computed(() => {
 
     const path = splitHierarchyLabel(companyName)
     const exactKey = path.join(' / ')
-    const target =
-      nodes.get(exactKey) ||
-      nodes.get(path[path.length - 1]) ||
-      addNode(path)
+    const target = nodes.get(exactKey) || nodes.get(path[path.length - 1]) || addNode(path)
 
     if (target) {
       const activationStatus = getActivationStatus(emp)
       target.employees.push({
         id: emp.id,
+        employee_id: emp.employee_id || '-',
         name: employeeName,
         email: emp.email || '-',
         no_hp: emp.no_hp || '-',
@@ -204,7 +202,7 @@ const companyTree = computed(() => {
         isActive: Boolean(emp.is_active),
         statusLabel: activationStatus.label,
         statusClass: activationStatus.className,
-        raw: emp
+        raw: emp,
       })
       target.count = target.employees.length
     }
@@ -361,7 +359,9 @@ async function submitEmployeeForm() {
       email,
       no_hp: no_hp || null,
       role: form.value.role,
-      ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
+      ...(form.value.home_location_id
+        ? { home_location_id: Number(form.value.home_location_id) }
+        : {}),
       ...(form.value.division_id ? { division_id: Number(form.value.division_id) } : {}),
       ...(form.value.shift_id ? { shift_id: Number(form.value.shift_id) } : {}),
     }
@@ -394,7 +394,7 @@ async function deleteEmployee(emp) {
     message: `Apakah Anda yakin ingin menghapus data karyawan "${emp.name}"? Tindakan ini tidak dapat dibatalkan.`,
     type: 'danger',
     confirmText: 'Hapus',
-    cancelText: 'Batal'
+    cancelText: 'Batal',
   })
 
   // Jika user klik "Batal" atau area luar modal, hentikan proses
@@ -454,7 +454,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="karyawan">
     <BaseToast :show="toast.show" :type="toast.type" :message="toast.message" />
-    
+
     <!-- Memastikan komponen Dialog ikut di-render ke DOM -->
     <GlobalConfirm />
 
@@ -462,7 +462,13 @@ onBeforeUnmount(() => {
       <!-- Filter Bar & Navigation -->
       <div class="filter-bar">
         <div class="breadcrumb-wrap">
-          <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
+          <button
+            v-if="selectedCompany || selectedBranch"
+            type="button"
+            class="back-btn"
+            @click="selectedBranch ? goBackToCompany() : goBackToCompanies()"
+            title="Kembali"
+          >
             <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
           </button>
           <div v-if="!selectedCompany" class="table-heading">
@@ -493,7 +499,12 @@ onBeforeUnmount(() => {
       <!-- Pembungkus tabel untuk mengaktifkan scroll horizontal -->
       <div class="table-responsive">
         <!-- TABEL DAFTAR PERUSAHAAN / CABANG -->
-        <table v-if="!selectedCompany || (selectedCompany && !selectedBranch && currentCompanyChildren.length)">
+        <table
+          v-if="
+            !selectedCompany ||
+            (selectedCompany && !selectedBranch && currentCompanyChildren.length)
+          "
+        >
           <thead>
             <tr>
               <th>Nama Perusahaan</th>
@@ -506,14 +517,23 @@ onBeforeUnmount(() => {
             <tr v-if="loading && employees.length === 0">
               <td colspan="4" class="empty-cell">Memuat data...</td>
             </tr>
-            <tr v-else-if="(!selectedCompany && companyTree.length === 0) || (selectedCompany && currentCompanyChildren.length === 0)">
+            <tr
+              v-else-if="
+                (!selectedCompany && companyTree.length === 0) ||
+                (selectedCompany && currentCompanyChildren.length === 0)
+              "
+            >
               <td colspan="4" class="empty-cell">Data tidak ditemukan.</td>
             </tr>
             <template v-if="!selectedCompany">
               <tr v-for="node in companyTree" :key="node.id">
-                <td><strong>{{ node.name }}</strong></td>
+                <td>
+                  <strong>{{ node.name }}</strong>
+                </td>
                 <td>{{ node.address || '-' }}</td>
-                <td><span class="count-badge">{{ node.count || 0 }} Orang</span></td>
+                <td>
+                  <span class="count-badge">{{ node.count || 0 }} Orang</span>
+                </td>
                 <td class="action-cell">
                   <button type="button" class="detail-link-btn" @click="goToCompany(node)">
                     Lihat Karyawan
@@ -521,11 +541,17 @@ onBeforeUnmount(() => {
                 </td>
               </tr>
             </template>
-            <template v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length">
+            <template
+              v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length"
+            >
               <tr v-for="node in currentCompanyChildren" :key="node.id">
-                <td><strong>{{ node.name }}</strong></td>
+                <td>
+                  <strong>{{ node.name }}</strong>
+                </td>
                 <td>{{ node.address || '-' }}</td>
-                <td><span class="count-badge">{{ node.count || 0 }} Orang</span></td>
+                <td>
+                  <span class="count-badge">{{ node.count || 0 }} Orang</span>
+                </td>
                 <td class="action-cell">
                   <button type="button" class="detail-link-btn" @click="goToBranch(node)">
                     Lihat Karyawan
@@ -554,15 +580,27 @@ onBeforeUnmount(() => {
               <td colspan="7" class="empty-cell">Belum ada karyawan di lokasi ini.</td>
             </tr>
             <tr v-for="emp in currentEmployees" :key="emp.id">
-              <td class="emp-id-cell">{{ emp.id }}</td>
-              <td><strong>{{ emp.name }}</strong></td>
+              <td class="emp-id-cell">{{ emp.employee_id }}</td>
+              <td>
+                <strong>{{ emp.name }}</strong>
+              </td>
               <td>{{ emp.email }}</td>
               <td>{{ emp.no_hp || '-' }}</td>
               <td>{{ emp.division }}</td>
               <td>{{ emp.shift }}</td>
               <td class="action-cell employee-actions">
-                <BaseButton variant="ghost" icon="material-symbols:visibility-outline" @click="goToEmployeeDetail(emp)" title="Lihat Detail"></BaseButton>
-                <BaseButton variant="danger" icon="material-symbols:delete-outline" @click="deleteEmployee(emp)" title="Hapus Karyawan"></BaseButton>
+                <BaseButton
+                  variant="ghost"
+                  icon="material-symbols:visibility-outline"
+                  @click="goToEmployeeDetail(emp)"
+                  title="Lihat Detail"
+                ></BaseButton>
+                <BaseButton
+                  variant="danger"
+                  icon="material-symbols:delete-outline"
+                  @click="deleteEmployee(emp)"
+                  title="Hapus Karyawan"
+                ></BaseButton>
               </td>
             </tr>
           </tbody>
@@ -664,7 +702,9 @@ onBeforeUnmount(() => {
                 <label class="required">Lokasi Cabang</label>
                 <select v-model="form.home_location_id">
                   <option value="" disabled>Pilih lokasi</option>
-                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
+                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">
+                    {{ loc.name }}
+                  </option>
                 </select>
               </div>
             </div>
@@ -683,11 +723,14 @@ onBeforeUnmount(() => {
                 <select v-model="form.shift_id">
                   <option value="">Gunakan jam lokasi</option>
                   <option
-                    v-for="shift in shifts.filter((item) => !form.division_id || item.division_id === Number(form.division_id))"
+                    v-for="shift in shifts.filter(
+                      (item) => !form.division_id || item.division_id === Number(form.division_id),
+                    )"
                     :key="shift.id"
                     :value="shift.id"
                   >
-                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} - {{ shift.work_end_time.slice(0, 5) }})
+                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} -
+                    {{ shift.work_end_time.slice(0, 5) }})
                   </option>
                 </select>
               </div>
@@ -695,8 +738,15 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="modal-footer">
-            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
-            <BaseButton variant="primary" icon="material-symbols:save-outline" @click="submitEmployeeForm" :disabled="saving">
+            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">
+              Batal
+            </button>
+            <BaseButton
+              variant="primary"
+              icon="material-symbols:save-outline"
+              @click="submitEmployeeForm"
+              :disabled="saving"
+            >
               {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
             </BaseButton>
           </div>
@@ -1175,8 +1225,15 @@ label.required::after {
 }
 
 @media (max-width: 700px) {
-  .filter-bar { padding: 14px; }
-  .search { width: 100%; margin-left: 0; }
-  table { min-width: 700px; }
+  .filter-bar {
+    padding: 14px;
+  }
+  .search {
+    width: 100%;
+    margin-left: 0;
+  }
+  table {
+    min-width: 700px;
+  }
 }
 </style>
