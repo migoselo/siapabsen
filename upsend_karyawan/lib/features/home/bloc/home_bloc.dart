@@ -83,7 +83,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
     } catch (e) {
       emit(
-        state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()),
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: mapErrorToMessage(e),
+        ),
       );
     }
   }
