@@ -455,23 +455,28 @@ class _SlipGajiPageState extends State<SlipGajiPage> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        height: 44,
                         child: ElevatedButton(
                           onPressed: payroll == null ? null : _downloadSlip,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            minimumSize: const Size.fromHeight(44),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'Unduh Slip Gaji',
-                            style: TextStyle(
-                              fontFamily: kFontFamily,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: kNavy,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Unduh Slip Gaji',
+                              style: TextStyle(
+                                fontFamily: kFontFamily,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: kNavy,
+                              ),
                             ),
                           ),
                         ),
