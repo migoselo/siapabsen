@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../attendance/models/attendance_model.dart';
 import '../repository/home_repository.dart';
+import '../../../core/utils/error_mapper.dart';
 import 'home_event.dart';
 import 'home_state.dart';
 
@@ -38,7 +39,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
     } catch (e) {
       emit(
-        state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()),
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: mapErrorToMessage(e),
+        ),
       );
     }
   }
@@ -79,7 +83,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       );
     } catch (e) {
       emit(
-        state.copyWith(status: HomeStatus.failure, errorMessage: e.toString()),
+        state.copyWith(
+          status: HomeStatus.failure,
+          errorMessage: mapErrorToMessage(e),
+        ),
       );
     }
   }

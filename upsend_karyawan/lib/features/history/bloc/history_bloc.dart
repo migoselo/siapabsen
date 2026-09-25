@@ -44,9 +44,9 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
         return 'Server sedang mengalami kendala. Silakan coba lagi.';
       }
 
-      return 'Riwayat tidak dapat dimuat. Silakan coba lagi.';
+      return 'Gagal memuat riwayat absen.';
     }
 
-    return 'Riwayat tidak dapat dimuat. Silakan coba lagi.';
+    return 'Gagal memuat riwayat absen.';
   }
 }

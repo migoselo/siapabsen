@@ -297,47 +297,7 @@ class _RiwayatPageState extends State<RiwayatPage> {
         builder: (context, state) {
           // pakai cache selama loading, biar nggak "kedip" balik ke kosong/spinner
           final effectiveRecords = _lastRecords;
-
-          if (state.status == HistoryStatus.failure) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.cloud_off_outlined,
-                      size: 48,
-                      color: Color(0xFF9A9A9A),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      state.errorMessage ?? 'Riwayat tidak dapat dimuat.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        color: Color(0xFF4B4B4B),
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _fetchForPeriode,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2F3B69),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('Coba lagi'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+          final isFailure = state.status == HistoryStatus.failure;
 
           final filteredRecords =
               _selectedKategori == null || _selectedKategori == 'semua'
@@ -358,8 +318,6 @@ class _RiwayatPageState extends State<RiwayatPage> {
               children: [
                 Row(
                   children: [
-                    // Panah navigasi cuma tampil kalau tidak sedang custom range —
-                    // karena "geser mundur/maju" tidak make sense untuk rentang bebas.
                     if (_customRange == null)
                       IconButton(
                         constraints: const BoxConstraints.tightFor(
@@ -470,7 +428,55 @@ class _RiwayatPageState extends State<RiwayatPage> {
                 ),
                 const SizedBox(height: 20),
 
-                if (filteredRecords.isEmpty)
+                if (isFailure)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            state.errorMessage ??
+                                'Gagal memuat riwayat presensi.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontFamily: 'PlusJakartaSans',
+                              color: Color(0xFF4B4B4B),
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: _fetchForPeriode,
+                            icon: const Icon(
+                              Icons.refresh,
+                              size: 18,
+                              color: Color(0xFF2F3B69),
+                            ),
+                            label: const Text(
+                              'Coba lagi',
+                              style: TextStyle(
+                                fontFamily: 'PlusJakartaSans',
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2F3B69),
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF2F3B69)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (filteredRecords.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Text(

@@ -15,6 +15,7 @@ import '../../attendance/pages/checkout_location_page.dart';
 import '../../history/pages/riwayat_page.dart';
 import '../../formulir/presentation/pages/riwayat_cuti_screen.dart';
 import '../../profile/pages/profile_page.dart';
+import '../../../core/widgets/custom_snackbar.dart';
 
 const Color kDanger = Color(0xFFE11D48);
 const Color kBackground = Color(0xFFFFFFFF);
@@ -84,9 +85,6 @@ class _HomePageState extends State<HomePage> {
         onTap: _handleNavTap,
       ),
       body: IndexedStack(
-        // _activeNavIndex TIDAK PERNAH bernilai 2 (Presensi ditangani
-        // secara terpisah via push di atas), jadi child index 2 di bawah
-        // ini gak pernah benar-benar ditampilkan -- aman diisi placeholder.
         index: _activeNavIndex,
         children: [
           SafeArea(
@@ -95,9 +93,7 @@ class _HomePageState extends State<HomePage> {
                 _syncLocationMonitor(state);
                 if (state.status == HomeStatus.failure &&
                     state.errorMessage != null) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+                  AppSnackbar.error(context, state.errorMessage!);
                 }
               },
               builder: (context, state) {
