@@ -7,9 +7,12 @@ defineProps({
   showView: { type: Boolean, default: false },
   showApprove: { type: Boolean, default: false },
   showReject: { type: Boolean, default: false },
+  // Tambahan prop untuk toggle status
+  showToggleStatus: { type: Boolean, default: false },
+  isActive: { type: Boolean, default: true }
 })
 
-defineEmits(['edit', 'delete', 'view', 'approve', 'reject'])
+defineEmits(['edit', 'delete', 'view', 'approve', 'reject', 'toggleStatus'])
 </script>
 
 <template>
@@ -26,6 +29,18 @@ defineEmits(['edit', 'delete', 'view', 'approve', 'reject'])
     <button v-if="showEdit" class="icon-btn icon-btn-edit" title="Edit" @click="$emit('edit')">
       <Icon icon="material-symbols:edit-outline" width="16" />
     </button>
+    
+    <!-- Tambahan tombol Aktif / Nonaktif -->
+    <button 
+      v-if="showToggleStatus" 
+      class="icon-btn" 
+      :class="isActive ? 'icon-btn-warning' : 'icon-btn-success'" 
+      :title="isActive ? 'Nonaktifkan' : 'Aktifkan'" 
+      @click="$emit('toggleStatus')"
+    >
+      <Icon :icon="isActive ? 'material-symbols:pause-circle-outline' : 'material-symbols:play-circle-outline'" width="19" />
+    </button>
+
     <button v-if="showDelete" class="icon-btn icon-btn-danger" title="Hapus" @click="$emit('delete')">
       <Icon icon="material-symbols:delete-outline" width="16" />
     </button>
@@ -53,4 +68,8 @@ defineEmits(['edit', 'delete', 'view', 'approve', 'reject'])
 .icon-btn-danger:hover { background: #fdeeee; color: #c53030; }
 .icon-btn-approve { background: #38a169; color: #fff; }
 .icon-btn-reject { background: #fdeeee; color: #e53e3e; }
+
+/* Tambahan Hover Warna untuk Toggle Status */
+.icon-btn-warning:hover { background: #fff3cd; color: #856404; }
+.icon-btn-success:hover { background: #d4edda; color: #155724; }
 </style>

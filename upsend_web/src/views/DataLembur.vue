@@ -1,10 +1,6 @@
 <script setup>
-/**
- * DataLembur.vue
- * Halaman "Data Lembur" — daftar & approval pengajuan lembur karyawan.
- * Diperbarui dengan Hierarchy Drill-Down dan Base Components.
- */
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 import DetailLembur from './DetailLembur.vue'
@@ -16,6 +12,9 @@ import BaseSearch from '../components/BaseSearch.vue'
 import BaseButton from '../components/BaseButton.vue'
 import BaseTable from '../components/BaseTable.vue'
 import TableActions from '../components/TableActions.vue'
+
+const route = useRoute()
+const router = useRouter()
 
 /* ------------------------------------------------------------------ */
 /* Konfigurasi Tabel (BaseTable)                                       */
@@ -113,15 +112,12 @@ function departmentName(id) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Data API, Drill-Down & Fetching                                     */
+/* Data API & Fetching                                                 */
 /* ------------------------------------------------------------------ */
 const apiLoading = ref(false)
 const apiError = ref('')
 const requests = reactive([])
 const officeLocations = ref([])
-
-const selectedCompany = ref(null)
-const selectedBranch = ref(null)
 
 function mkReq(name, position, departmentId, locationName, date, startTime, endTime, durationHours, reason, status, requestId) {
   return reactive({
@@ -166,7 +162,7 @@ function normalizeOvertimeApiRequest(payload) {
   const position = payload.requester?.position || payload.employee?.position || payload.user?.role || '-'
   const departmentId = payload.requester?.departmentId || payload.employee?.departmentId || payload.departmentId || payload.department_id || 'd1'
   const locationName = payload.requester?.locationName || payload.employee?.home_location?.name || payload.user?.home_location?.name || 'Tanpa Perusahaan'
-  
+
   const startTime = payload.startTime || payload.start_time || '18:00'
   const endTime = payload.endTime || payload.end_time || '21:00'
   const date = payload.startDate || payload.start_date || payload.createdAt || payload.created_at || new Date().toISOString().slice(0, 10)
@@ -202,12 +198,12 @@ async function fetchOvertimeRequests() {
     apiLoading.value = true
     apiError.value = ''
     let rows = []
-    
+
     const firstPage = await api.get('/admin/leave-requests', { params: { page: 1, per_page: 50 } })
     const payload = firstPage?.data || {}
     rows = [...extractRowsFromPayload(payload)]
     const lastPage = Number(payload?.last_page || 1)
-    
+
     if (lastPage > 1) {
       for (let page = 2; page <= lastPage; page++) {
         const { data } = await api.get('/admin/leave-requests', { params: { page, per_page: 50 } })
@@ -226,22 +222,8 @@ async function fetchOvertimeRequests() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Logika Hierarchy Drill-Down (Tree Perusahaan)                       */
+/* Tree Perusahaan                                                     */
 /* ------------------------------------------------------------------ */
-function resetDrillDown() {
-  selectedCompany.value = null
-  selectedBranch.value = null
-}
-
-function goToCompany(node) {
-  selectedCompany.value = node
-  selectedBranch.value = null
-}
-
-function goToBranch(node) {
-  selectedBranch.value = node
-}
-
 function splitHierarchyLabel(label) {
   const value = String(label || '').trim()
   if (!value) return []
@@ -271,7 +253,7 @@ const companyTree = computed(() => {
     return parent
   }
 
-  (officeLocations.value || []).forEach((loc) => {
+  ;(officeLocations.value || []).forEach((loc) => {
     if (!loc?.name) return
     addNode(splitHierarchyLabel(loc.name), loc.address || '-')
   })
@@ -296,6 +278,66 @@ const companyTree = computed(() => {
   roots.forEach(assignCounts)
   return roots
 })
+
+/* ------------------------------------------------------------------ */
+/* Hierarchy Drill-Down — state disimpan di URL (?office=<node.id>)    */
+/* Setiap klik "Lihat Lembur" = router.push, jadi tombol back browser  */
+/* kembali ke daftar kantor, bukan ke halaman sebelumnya (dashboard).  */
+/* ------------------------------------------------------------------ */
+function findNodeById(nodes, id) {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    const found = findNodeById(node.children || [], id)
+    if (found) return found
+  }
+  return null
+}
+
+const officeId = computed(() => String(route.query.office || '').trim())
+
+// Node induk (perusahaan root) dari ?office=
+const selectedCompany = computed(() => {
+  if (!officeId.value) return null
+  const rootId = officeId.value.split(' / ')[0]
+  return findNodeById(companyTree.value, rootId)
+})
+
+// Node cabang, hanya ada jika ?office= berisi path bertingkat
+const selectedBranch = computed(() => {
+  if (!officeId.value || !officeId.value.includes(' / ')) return null
+  return findNodeById(companyTree.value, officeId.value)
+})
+
+function openOffice(node) {
+  router.push({ query: { ...route.query, office: node.id } })
+}
+
+function goToCompany(node) {
+  openOffice(node)
+}
+
+function goToBranch(node) {
+  openOffice(node)
+}
+
+// Tombol panah kembali di halaman: naik satu level
+function goBack() {
+  const previous = String(window.history.state?.back || '')
+  // Kalau entri sebelumnya masih di halaman lembur ini, pakai history biasa
+  if (previous.startsWith(route.path)) {
+    router.back()
+    return
+  }
+
+  // Kalau halaman dibuka langsung lewat URL, naik level manual
+  const query = { ...route.query }
+  if (selectedBranch.value && selectedCompany.value) {
+    query.office = selectedCompany.value.id
+  } else {
+    delete query.office
+  }
+  router.replace({ query })
+}
 
 const currentCompanyChildren = computed(() => {
   if (!selectedCompany.value) return companyTree.value
@@ -362,13 +404,24 @@ const filteredRequests = computed(() => {
   })
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRequests.value.length / perPage.value)))
+// Daftar perusahaan/cabang yang tampil di halaman awal
+const companyList = computed(() => (!selectedCompany.value ? companyTree.value : currentCompanyChildren.value))
+
+// Total data yang dipaginasi: pengajuan lembur atau daftar kantor
+const totalItems = computed(() => (isShowingRequests.value ? filteredRequests.value.length : companyList.value.length))
+const totalItemsLabel = computed(() => (isShowingRequests.value ? 'permintaan' : 'kantor'))
+
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / perPage.value)))
 const paginatedRequests = computed(() => {
   const start = (currentPage.value - 1) * perPage.value
   return filteredRequests.value.slice(start, start + perPage.value)
 })
+const paginatedCompanies = computed(() => {
+  const start = (currentPage.value - 1) * perPage.value
+  return companyList.value.slice(start, start + perPage.value)
+})
 
-watch([activeTab, departmentFilter, searchQuery, selectedCompany, selectedBranch], () => {
+watch([activeTab, departmentFilter, searchQuery, officeId], () => {
   currentPage.value = 1
   pageInput.value = 1
 })
@@ -503,28 +556,28 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
       <!-- Dashboard Statistik hanya dirender jika lokasi/perusahaan telah dipilih -->
       <div v-if="isShowingRequests" class="stats-grid">
-        <BaseSummaryCard 
+        <BaseSummaryCard
           tag="BULAN INI" title="Total Jam Lembur" :value="totalOvertimeHours"
           subtitle="Akumulasi seluruh departemen" icon="material-symbols:schedule-outline" theme="amber"
         />
-        <BaseSummaryCard 
+        <BaseSummaryCard
           v-if="topOvertimeEmployee"
           tag="TOP" title="Karyawan Lembur Tertinggi" :value="topOvertimeEmployee.name"
           :subtitle="`${topOvertimeEmployee.department} • ${topOvertimeEmployee.totalHours} Jam`"
           icon="material-symbols:person-outline" theme="green"
         />
-        <BaseSummaryCard 
+        <BaseSummaryCard
           tag="RATA-RATA" title="Durasi / Hari" value="2.4 Jam"
           subtitle="Efisiensi waktu kerja ekstra" icon="material-symbols:timer-outline" theme="red"
         />
       </div>
 
       <div class="card">
-        
+
         <!-- Header Drill Down Navigasi -->
         <div class="filter-header">
           <div class="breadcrumb-wrap">
-            <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? resetDrillDown() : resetDrillDown()" title="Kembali">
+            <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="goBack" title="Kembali">
               <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
             </button>
             <div v-if="!selectedCompany" class="table-heading">
@@ -532,7 +585,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               <p>Pilih kantor terlebih dahulu untuk mengelola data lembur.</p>
             </div>
             <div v-else class="selected-office-heading">
-              <span>Kantor terpilih</span>
               <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
             </div>
           </div>
@@ -551,7 +603,16 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
               </span>
             </button>
           </div>
-          
+        </div>
+
+        <div v-if="isShowingRequests" class="filters-row">
+          <div class="filters">
+            <BaseSelect v-model="departmentFilter" :options="departmentOptions" placeholder="Semua Departemen" />
+            <BaseButton variant="ghost" icon="material-symbols:tune" @click="showManageModal = true">
+              Kelola Departemen
+            </BaseButton>
+          </div>
+
           <div class="toolbar-actions">
             <BaseSearch v-model="searchQuery" placeholder="Cari nama karyawan..." width="240px" />
             <div class="export-menu">
@@ -566,20 +627,11 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
           </div>
         </div>
 
-        <div v-if="isShowingRequests" class="filters-row">
-          <div class="filters">
-            <BaseSelect v-model="departmentFilter" :options="departmentOptions" placeholder="Semua Departemen" />
-            <BaseButton variant="ghost" icon="material-symbols:tune" @click="showManageModal = true">
-              Kelola Departemen
-            </BaseButton>
-          </div>
-        </div>
-
         <!-- Tabel Perusahaan/Cabang -->
-        <BaseTable 
+        <BaseTable
           v-if="!isShowingRequests"
           :columns="companyColumns"
-          :data="!selectedCompany ? companyTree : currentCompanyChildren"
+          :data="paginatedCompanies"
           has-actions
           empty-text="Kantor atau lokasi tidak ditemukan."
         >
@@ -593,7 +645,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
         </BaseTable>
 
         <!-- Tabel Pengajuan Lembur -->
-        <BaseTable 
+        <BaseTable
           v-else
           :columns="requestColumns"
           :data="paginatedRequests"
@@ -620,7 +672,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             <p class="reason-text" :title="item.reason">{{ item.reason }}</p>
           </template>
           <template #actions="{ item }">
-            <TableActions 
+            <TableActions
               v-if="item.status === 'pending'"
               show-approve show-reject show-view
               @approve="approveRequest(item.id)"
@@ -636,8 +688,8 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
           </template>
         </BaseTable>
 
-        <!-- Pagination (Hanya untuk daftar lembur) -->
-        <div v-if="isShowingRequests" class="table-footer">
+        <!-- Pagination (daftar kantor & daftar lembur) -->
+        <div class="table-footer">
           <div class="table-footer-content">
             <div class="pager">
               <button class="pager-btn" :disabled="currentPage === 1" @click="currentPage--"><Icon icon="material-symbols:chevron-left-rounded" width="18" /></button>
@@ -655,7 +707,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
                 <option :value="50">50 baris</option>
               </select>
             </div>
-            <span class="total-records-info">{{ filteredRequests.length }} permintaan</span>
+            <span class="total-records-info">{{ totalItems }} {{ totalItemsLabel }}</span>
           </div>
         </div>
 
@@ -727,13 +779,13 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .tab-count { font-size: 12px; font-weight: 700; background: #f1f2f5; color: var(--ink-soft); border-radius: 999px; padding: 1px 8px; }
 .tab-count-active { background: var(--accent); color: #fff; }
 
-.toolbar-actions { display: flex; align-items: center; justify-content: space-between; width: 100%; padding-bottom: 16px;}
+.toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-left: auto; }
 .export-menu { position: relative; }
 .dropdown { position: absolute; right: 0; top: calc(100% + 8px); background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(20, 25, 45, 0.12); min-width: 170px; overflow: hidden; z-index: 20; }
 .dropdown button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 10px 14px; font-size: 14px; color: var(--ink-dark); cursor: pointer; }
 .dropdown button:hover { background: #f4f5f8; }
 
-.filters-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 0 24px 16px; }
+.filters-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 24px 16px; }
 .filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* Custom Cell Styles */
@@ -747,20 +799,89 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .duration-sub { margin: 2px 0 0; font-size: 12px; color: var(--ink-soft); }
 .reason-text { margin: 0; color: var(--ink-soft); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.status-action { display: flex; align-items: center; gap: 12px; justify-content: flex-end;}
+.status-action { display: flex; align-items: center; gap: 12px; justify-content: center; }
 .detail-link-btn { display: inline-flex; align-items: center; color: #2f3b69; font-weight: 700; background: none; border: none; cursor: pointer; font-size: 14px; }
 .detail-link-btn:hover { text-decoration: underline; }
 
-.table-footer { display: flex; justify-content: flex-end; align-items: center; padding: 16px 24px; font-size: 13px; color: var(--ink-soft); }
+/* Kolom "Aksi" rata tengah (header + isi kolom).
+   !important dipakai supaya menang dari CSS bawaan BaseTable. */
+.card :deep(table thead th:last-child),
+.card :deep(table tbody td:last-child) { text-align: center !important; justify-content: center !important; }
+.card :deep(table thead th:last-child > *),
+.card :deep(table tbody td:last-child > *) { justify-content: center !important; margin-left: auto !important; margin-right: auto !important; }
+.detail-link-btn { white-space: nowrap; }
+
+/* Teks keterangan data kosong ("Tidak ada permintaan lembur...") berwarna abu-abu */
+.card :deep(table tbody td[colspan]),
+.card :deep([class*="empty"]),
+.card :deep([class*="empty"] *) { color: #9a9a9a !important; }
+
+/* Footer pagination — disamakan dengan halaman Lokasi Kerja */
+.table-footer {
+  --blue-900: #2f3b69;
+  --ink: #1c1c19;
+  --ink-soft: #667085;
+  --line: #d9dde5;
+  --bg: #f7f8fa;
+  --card: #ffffff;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 20px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 0 0 11px 11px;
+}
 .table-footer-content { display: flex; align-items: center; gap: 16px; }
 .pager { display: flex; align-items: center; gap: 6px; }
-.pager-btn { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--line); background: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink-soft); }
-.pager-btn:hover:not(:disabled) { background: #fafbfc; border-color: var(--accent); color: var(--accent); }
+.pager-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--ink-soft);
+}
+.pager-btn:hover:not(:disabled) { background: #fff; border-color: var(--blue-900); color: var(--blue-900); }
 .pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .page-input-wrapper { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-soft); font-size: 13px; }
-.page-input { width: 44px; height: 32px; text-align: center; border: 1px solid var(--line); border-radius: 6px; font-weight: 700; font-size: 13px; outline: none; }
-.page-input:focus { border-color: var(--accent); }
-.per-page-select select { height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; }
+.page-input {
+  width: 44px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.page-input:focus { border-color: var(--blue-900); box-shadow: 0 0 0 2px rgba(47, 59, 105, 0.12); }
+.per-page-select select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+.per-page-select select:focus { border-color: var(--blue-900); }
+.total-records-info { font-size: 13px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(20, 25, 45, 0.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
 .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 520px; }
@@ -775,7 +896,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 .manage-add-row .manage-input { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 
 @media (max-width: 640px) {
-  .toolbar-actions { flex-direction: column; align-items: stretch; }
+  .toolbar-actions { width: 100%; margin-left: 0; flex-direction: column; align-items: stretch; }
   .export-menu { text-align: right; }
 }
 </style>
