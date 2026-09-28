@@ -1,9 +1,18 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
+
+// Import Base Components
 import BaseButton from '../components/BaseButton.vue'
 import BaseToast from '../components/BaseToast.vue'
+import BaseTable from '../components/BaseTable.vue'
+import BaseSearch from '../components/BaseSearch.vue'
+import TableActions from '../components/TableActions.vue'
+import BaseSelect from '../components/BaseSelect.vue'
+
+const router = useRouter()
 
 const companies = ref([])
 const loading = ref(false)
@@ -17,6 +26,20 @@ const branchLocations = ref([])
 const loadingBranches = ref(false)
 const searchQuery = ref('')
 const toast = ref({ show: false, type: 'success', message: '' })
+
+// Konfigurasi Kolom untuk BaseTable
+const tableColumns = [
+  { key: 'company', label: 'Perusahaan' },
+  { key: 'status', label: 'Status' },
+  { key: 'branches', label: 'Cabang / Lokasi' },
+  { key: 'employees', label: 'Karyawan' }
+]
+
+// Opsi untuk BaseSelect Status
+const statusOptions = [
+  { label: 'Aktif', value: 'active' },
+  { label: 'Nonaktif', value: 'inactive' }
+]
 
 const form = ref({
   name: '',
@@ -59,6 +82,13 @@ async function fetchCompanies() {
     showToast(error.response?.data?.message || 'Data perusahaan gagal dimuat.', 'error')
   } finally {
     loading.value = false
+  }
+}
+
+// Fungsi Navigasi ke Detail Perusahaan
+function goToDetail(company) {
+  if (company && company.id) {
+    router.push(`/dashboard/perusahaan/${company.id}`)
   }
 }
 
@@ -217,145 +247,175 @@ onMounted(fetchCompanies)
     </section>
 
     <section class="table-panel">
+      <!-- Penggunaan BaseSearch -->
       <div class="toolbar">
-        <div class="search-box">
-          <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-          <input v-model="searchQuery" type="search" placeholder="Cari perusahaan..." />
-        </div>
         <span class="total-label">{{ filteredCompanies.length }} perusahaan</span>
+        <BaseSearch v-model="searchQuery" placeholder="Cari perusahaan..." width="100%" class="custom-search" />
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Perusahaan</th>
-              <th>Status</th>
-              <th>Cabang / Lokasi</th>
-              <th>Karyawan</th>
-              <th class="action-column">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="5" class="empty-cell">Memuat data perusahaan...</td>
-            </tr>
-            <tr v-else-if="filteredCompanies.length === 0">
-              <td colspan="5" class="empty-cell">Belum ada perusahaan.</td>
-            </tr>
-            <tr v-for="company in filteredCompanies" :key="company.id">
-              <td>
-                <strong>{{ company.name }}</strong>
-                <small>{{ company.slug }}</small>
-              </td>
-              <td>
-                <span class="status" :class="company.status">
-                  {{ company.status === 'active' ? 'Aktif' : 'Nonaktif' }}
-                </span>
-              </td>
-              <td>
-                <button class="count-link" @click="openBranchList(company)">
-                  {{ company.locations_count ?? 0 }} cabang
-                </button>
-              </td>
-              <td>{{ company.users_count ?? 0 }}</td>
-              <td class="actions">
-                <button class="branch-action" title="Tambah cabang" @click="openBranchModal(company)">
-                  <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" />
-                  Cabang
-                </button>
-                <button class="icon-action" title="Edit perusahaan" @click="openEditModal(company)">
-                  <Icon icon="material-symbols:edit-outline-rounded" width="18" />
-                </button>
-                <button
-                  class="icon-action"
-                  :title="company.status === 'active' ? 'Nonaktifkan perusahaan' : 'Aktifkan perusahaan'"
-                  @click="toggleStatus(company)"
-                >
-                  <Icon
-                    :icon="company.status === 'active' ? 'material-symbols:pause-circle-outline' : 'material-symbols:play-circle-outline'"
-                    width="19"
-                  />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- Penggunaan BaseTable dengan Slots -->
+      <BaseTable 
+        :columns="tableColumns" 
+        :data="filteredCompanies" 
+        emptyText="Belum ada perusahaan."
+        hasActions
+      >
+        <template #cell-company="{ item }">
+          <div class="company-name-cell">
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.slug }}</small>
+          </div>
+        </template>
+
+        <template #cell-status="{ item }">
+          <span class="status" :class="item.status">
+            {{ item.status === 'active' ? 'Aktif' : 'Nonaktif' }}
+          </span>
+        </template>
+
+        <template #cell-branches="{ item }">
+          <button class="count-link" @click="openBranchList(item)">
+            {{ item.locations_count ?? 0 }} cabang
+          </button>
+        </template>
+
+        <template #cell-employees="{ item }">
+          {{ item.users_count ?? 0 }}
+        </template>
+
+        <!-- Penggunaan TableActions -->
+        <template #actions="{ item }">
+          <div class="custom-actions-wrapper">
+            <button class="branch-action" title="Tambah cabang" @click="openBranchModal(item)">
+              <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" />
+              Cabang
+            </button>
+            
+            <TableActions
+              showView
+              showEdit
+              showToggleStatus
+              :isActive="item.status === 'active'"
+              @view="goToDetail(item)"
+              @edit="openEditModal(item)"
+              @toggleStatus="toggleStatus(item)"
+            />
+          </div>
+        </template>
+      </BaseTable>
     </section>
 
+    <!-- MODAL TAMBAH / EDIT PERUSAHAAN -->
     <Teleport to="body">
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <form class="modal" @submit.prevent="submitForm">
           <div class="modal-head">
-            <div>
-              <span class="eyebrow">{{ editingId ? 'EDIT DATA' : 'DATA BARU' }}</span>
+            <div class="modal-title">
+              <Icon 
+                :icon="editingId ? 'material-symbols:edit-document-outline' : 'material-symbols:domain-add-rounded'" 
+                width="22" 
+                height="22" 
+              />
               <h3>{{ editingId ? 'Edit Perusahaan' : 'Tambah Perusahaan' }}</h3>
             </div>
-            <button type="button" class="close-btn" @click="closeModal" aria-label="Tutup">
-              <Icon icon="material-symbols:close-rounded" width="22" />
-            </button>
           </div>
           <div class="modal-body">
-            <label>Nama perusahaan<input v-model="form.name" required maxlength="255" placeholder="Contoh: PT Maju Bersama" /></label>
-            <label>Slug<input v-model="form.slug" maxlength="255" placeholder="pt-maju-bersama" /></label>
+            <div class="field">
+              <label>Nama Perusahaan</label>
+              <input v-model="form.name" required maxlength="255" placeholder="Contoh: PT Maju Bersama" />
+            </div>
+            
+            <div class="field">
+              <label>Slug (Opsional)</label>
+              <input v-model="form.slug" maxlength="255" placeholder="Contoh: pt-maju-bersama" />
+            </div>
+
             <div class="field-row">
-              <label>Status<select v-model="form.status"><option value="active">Aktif</option><option value="inactive">Nonaktif</option></select></label>
-              <label>Potongan alpha / hari<input v-model.number="form.alpha_deduction_per_day" type="number" min="0" step="0.01" /></label>
+              <div class="field">
+                <label>Status</label>
+                <!-- Penggunaan BaseSelect untuk Status -->
+                <div class="input-wrapper">
+                  <BaseSelect 
+                    v-model="form.status" 
+                    :options="statusOptions" 
+                    placeholder="Pilih Status" 
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label>Potongan Alpha / Hari</label>
+                <input v-model.number="form.alpha_deduction_per_day" type="number" min="0" step="0.01" placeholder="Contoh: 50000" />
+              </div>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="cancel-btn" :disabled="saving" @click="closeModal">Batal</button>
-            <BaseButton type="submit" variant="primary" :disabled="saving">
+            <button type="button" class="btn-cancel" :disabled="saving" @click="closeModal">Batal</button>
+            <button type="submit" class="btn-save" :disabled="saving">
+              <Icon icon="material-symbols:save-outline" width="18" height="18" />
               {{ saving ? 'Menyimpan...' : 'Simpan Perusahaan' }}
-            </BaseButton>
+            </button>
           </div>
         </form>
       </div>
     </Teleport>
 
+    <!-- MODAL TAMBAH CABANG -->
     <Teleport to="body">
       <div v-if="showBranchModal" class="modal-overlay" @click.self="closeBranchModal">
         <form class="modal" @submit.prevent="submitBranch">
           <div class="modal-head">
-            <div>
-              <span class="eyebrow">{{ branchCompany?.name }}</span>
-              <h3>Tambah Cabang</h3>
+            <div class="modal-title">
+              <Icon icon="material-symbols:add-location-alt-outline" width="22" height="22" />
+              <h3>Tambah Cabang: {{ branchCompany?.name }}</h3>
             </div>
-            <button type="button" class="close-btn" @click="closeBranchModal" aria-label="Tutup">
-              <Icon icon="material-symbols:close-rounded" width="22" />
-            </button>
           </div>
           <div class="modal-body">
-            <label>Nama cabang<input v-model="branchForm.name" required maxlength="255" placeholder="Contoh: Cabang Bandung" /></label>
-            <label>Alamat<input v-model="branchForm.address" maxlength="1000" placeholder="Alamat cabang" /></label>
-            <div class="field-row">
-              <label>Latitude<input v-model="branchForm.latitude" required type="number" step="0.000001" min="-90" max="90" placeholder="-6.2088" /></label>
-              <label>Longitude<input v-model="branchForm.longitude" required type="number" step="0.000001" min="-180" max="180" placeholder="106.8456" /></label>
+            <div class="field">
+              <label>Nama Cabang</label>
+              <input v-model="branchForm.name" required maxlength="255" placeholder="Contoh: Cabang Bandung" />
             </div>
-            <label>Radius absensi (meter)<input v-model.number="branchForm.radius_meter" required type="number" min="1" /></label>
+            
+            <div class="field">
+              <label>Alamat Lengkap</label>
+              <input v-model="branchForm.address" maxlength="1000" placeholder="Contoh: Jl. Raya Kopo No. 12" />
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label>Latitude</label>
+                <input v-model="branchForm.latitude" required type="number" step="0.000001" min="-90" max="90" placeholder="-6.2088" />
+              </div>
+              <div class="field">
+                <label>Longitude</label>
+                <input v-model="branchForm.longitude" required type="number" step="0.000001" min="-180" max="180" placeholder="106.8456" />
+              </div>
+            </div>
+            
+            <div class="field">
+              <label>Radius Absensi (Meter)</label>
+              <input v-model.number="branchForm.radius_meter" required type="number" min="1" placeholder="25" />
+            </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="cancel-btn" :disabled="saving" @click="closeBranchModal">Batal</button>
-            <BaseButton type="submit" variant="primary" :disabled="saving">
+            <button type="button" class="btn-cancel" :disabled="saving" @click="closeBranchModal">Batal</button>
+            <button type="submit" class="btn-save" :disabled="saving">
+              <Icon icon="material-symbols:save-outline" width="18" height="18" />
               {{ saving ? 'Menyimpan...' : 'Simpan Cabang' }}
-            </BaseButton>
+            </button>
           </div>
         </form>
       </div>
     </Teleport>
 
+    <!-- MODAL DAFTAR CABANG -->
     <Teleport to="body">
       <div v-if="showBranchListModal" class="modal-overlay" @click.self="showBranchListModal = false">
         <section class="modal branch-list-modal">
           <div class="modal-head">
-            <div>
-              <span class="eyebrow">{{ branchCompany?.name }}</span>
-              <h3>Daftar Cabang</h3>
+            <div class="modal-title">
+              <Icon icon="material-symbols:format-list-bulleted-rounded" width="22" height="22" />
+              <h3>Daftar Cabang: {{ branchCompany?.name }}</h3>
             </div>
-            <button type="button" class="close-btn" @click="showBranchListModal = false" aria-label="Tutup">
-              <Icon icon="material-symbols:close-rounded" width="22" />
-            </button>
           </div>
           <div class="branch-list-body">
             <div v-if="loadingBranches" class="empty-cell">Memuat daftar cabang...</div>
@@ -372,10 +432,11 @@ onMounted(fetchCompanies)
             </article>
           </div>
           <div class="modal-footer">
-            <button type="button" class="cancel-btn" @click="showBranchListModal = false">Tutup</button>
-            <BaseButton variant="primary" icon="material-symbols:add-location-alt-outline-rounded" @click="showBranchListModal = false; openBranchModal(branchCompany)">
+            <button type="button" class="btn-cancel" @click="showBranchListModal = false">Tutup</button>
+            <button type="button" class="btn-save" @click="showBranchListModal = false; openBranchModal(branchCompany)">
+              <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" height="18" />
               Tambah Cabang
-            </BaseButton>
+            </button>
           </div>
         </section>
       </div>
@@ -384,30 +445,194 @@ onMounted(fetchCompanies)
 </template>
 
 <style scoped>
-.companies-page { --ink: #1c1c19; --muted: #667085; --line: #d9dde5; --navy: #2f3b69; font-family: 'Plus Jakarta Sans', sans-serif; }
+.companies-page { 
+  --ink: #1c1c19; 
+  --ink-soft: #667085; 
+  --line: #d9dde5; 
+  --navy: #2f3b69; 
+  --blue-900: #2f3b69;
+  --bg: #f7f8fa;
+  font-family: 'Plus Jakarta Sans', sans-serif; 
+}
+.companies-page * {
+  box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
 .page-intro { display: flex; justify-content: space-between; gap: 24px; align-items: flex-end; margin-bottom: 24px; }
 .eyebrow { color: #7b8499; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
-h2 { color: var(--ink); font-size: 28px; margin: 6px 0; } p { color: var(--muted); margin: 0; }
+h2 { color: var(--ink); font-size: 28px; margin: 6px 0; } p { color: var(--ink-soft); margin: 0; }
 .table-panel { background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+
+/* Toolbar BaseSearch */
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
-.search-box { display: flex; align-items: center; gap: 8px; width: min(360px, 100%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); }
-.search-box input { width: 100%; border: 0; outline: 0; font: inherit; }
-.total-label, small { color: var(--muted); font-size: 12px; } small { display: block; margin-top: 4px; }
-.table-wrap { overflow-x: auto; } table { width: 100%; min-width: 680px; border-collapse: collapse; } th, td { text-align: left; padding: 16px 20px; border-bottom: 1px solid #edf0f4; } th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; } td { color: var(--ink); font-size: 14px; }
-.status { display: inline-flex; padding: 5px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; } .status.active { background: #e6f7ef; color: #177a5b; } .status.inactive { background: #f1f2f4; color: #667085; }
-.actions { display: flex; gap: 6px; } .icon-action, .close-btn { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 7px; border-radius: 7px; } .icon-action:hover, .close-btn:hover { background: #f1f3f7; color: var(--navy); }
+.custom-search { max-width: 360px; margin-left: auto; }
+.total-label, small { color: var(--ink-soft); font-size: 12px; } 
+.company-name-cell small { display: block; margin-top: 4px; }
+
+/* Badge Status */
+.status { display: inline-flex; padding: 5px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; } 
+.status.active { background: #e6f7ef; color: #177a5b; } 
+.status.inactive { background: #f1f2f4; color: #667085; }
+
+/* Wrapper Aksi agar sejajar dengan TableActions */
+.custom-actions-wrapper { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+
 .branch-action { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #d7ddea; border-radius: 7px; background: #f7f8fc; color: var(--navy); cursor: pointer; padding: 7px 9px; font: inherit; font-size: 12px; font-weight: 700; }
 .branch-action:hover { background: #edf0f8; }
 .count-link { border: 0; background: transparent; color: var(--navy); cursor: pointer; font: inherit; font-weight: 700; padding: 0; }
 .count-link:hover { text-decoration: underline; }
+
 .branch-list-modal { max-width: 680px; }
 .branch-list-body { display: grid; gap: 10px; max-height: 55vh; overflow-y: auto; padding: 20px 24px; }
 .branch-card { display: flex; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid #e2e6ed; border-radius: 10px; }
 .branch-card strong { color: var(--ink); }
 .branch-card p { margin: 5px 0 0; font-size: 12px; }
-.branch-meta { display: grid; gap: 4px; color: var(--muted); font-size: 11px; text-align: right; white-space: nowrap; }
-.empty-cell { text-align: center; color: var(--muted); padding: 48px 20px; }
-.modal-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .42); }
-.modal { width: min(560px, 100%); background: #fff; border-radius: 16px; box-shadow: 0 24px 70px rgba(15, 23, 42, .2); } .modal-head, .modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; } .modal-head { border-bottom: 1px solid var(--line); } h3 { margin: 5px 0 0; font-size: 20px; } .modal-body { display: grid; gap: 16px; padding: 24px; } label { display: grid; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 700; } input, select { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font: inherit; font-weight: 400; outline: 0; } input:focus, select:focus { border-color: var(--navy); } .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .modal-footer { justify-content: flex-end; border-top: 1px solid var(--line); } .cancel-btn { border: 0; background: transparent; color: var(--muted); padding: 10px 14px; cursor: pointer; }
-@media (max-width: 640px) { .page-intro { align-items: stretch; flex-direction: column; } .field-row { grid-template-columns: 1fr; } .toolbar { align-items: stretch; flex-direction: column; } }
+.branch-meta { display: grid; gap: 4px; color: var(--ink-soft); font-size: 11px; text-align: right; white-space: nowrap; }
+.empty-cell { text-align: center; color: var(--ink-soft); padding: 48px 20px; }
+
+/* ================= MODAL ================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 32, 55, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.modal {
+  width: 100%;
+  max-width: 620px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  clip-path: inset(0 round 20px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
+}
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.modal-title .iconify {
+  color: var(--blue-900);
+}
+.modal-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--blue-900);
+}
+
+.modal-body {
+  padding: 18px 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.field label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.field input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+}
+.field input:focus, .field :deep(.custom-select):focus-within {
+  border-color: var(--blue-900);
+}
+
+.field-row {
+  display: flex;
+  gap: 16px;
+}
+.input-wrapper :deep(.custom-select) {
+  height: 44px; /* Sesuaikan dengan tinggi input agar sejajar */
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 0 0 20px 20px;
+}
+.btn-cancel {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-cancel:hover {
+  background: #eef0f7;
+}
+.btn-save {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: none;
+  background: #2c3964;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-save:hover {
+  background: #273258;
+}
+.btn-save:disabled,
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) { 
+  .page-intro { align-items: stretch; flex-direction: column; } 
+  .field-row { grid-template-columns: 1fr; flex-direction: column; } 
+  .toolbar { align-items: stretch; flex-direction: column; } 
+  .custom-search { max-width: 100%; } 
+  .modal-overlay { align-items: flex-start; padding: 12px; }
+}
 </style>
