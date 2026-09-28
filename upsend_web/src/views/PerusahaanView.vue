@@ -1,15 +1,18 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
 // Import Base Components
 import BaseButton from '../components/BaseButton.vue'
-import BaseActionBtn from '../components/BaseActionBtn.vue'
-import BaseSearch from '../components/BaseSearch.vue'
-import BaseTable from '../components/BaseTable.vue'
 import BaseToast from '../components/BaseToast.vue'
+import BaseTable from '../components/BaseTable.vue'
+import BaseSearch from '../components/BaseSearch.vue'
+import TableActions from '../components/TableActions.vue'
 import BaseSelect from '../components/BaseSelect.vue'
+
+const router = useRouter()
 
 const companies = ref([])
 const loading = ref(false)
@@ -21,12 +24,16 @@ const editingId = ref(null)
 const branchCompany = ref(null)
 const branchLocations = ref([])
 const loadingBranches = ref(false)
-const employeeCompany = ref(null)
-const employeeList = ref([])
-const loadingEmployees = ref(false)
-const showEmployeeListModal = ref(false)
 const searchQuery = ref('')
 const toast = ref({ show: false, type: 'success', message: '' })
+
+// Konfigurasi Kolom untuk BaseTable
+const tableColumns = [
+  { key: 'company', label: 'Perusahaan' },
+  { key: 'status', label: 'Status' },
+  { key: 'branches', label: 'Cabang / Lokasi' },
+  { key: 'employees', label: 'Karyawan' }
+]
 
 // Opsi untuk BaseSelect Status
 const statusOptions = [
@@ -59,13 +66,6 @@ const filteredCompanies = computed(() => {
   )
 })
 
-const companyColumns = [
-  { key: 'company', label: 'Perusahaan' },
-  { key: 'status', label: 'Status' },
-  { key: 'locations', label: 'Cabang / Lokasi' },
-  { key: 'employees', label: 'Karyawan' },
-]
-
 function showToast(message, type = 'success') {
   toast.value = { show: true, type, message }
   window.setTimeout(() => {
@@ -82,6 +82,13 @@ async function fetchCompanies() {
     showToast(error.response?.data?.message || 'Data perusahaan gagal dimuat.', 'error')
   } finally {
     loading.value = false
+  }
+}
+
+// Fungsi Navigasi ke Detail Perusahaan
+function goToDetail(company) {
+  if (company && company.id) {
+    router.push(`/dashboard/perusahaan/${company.id}`)
   }
 }
 
@@ -267,56 +274,57 @@ onMounted(fetchCompanies)
     <section class="table-panel">
       <!-- Penggunaan BaseSearch -->
       <div class="toolbar">
-        <BaseSearch v-model="searchQuery" placeholder="Cari perusahaan..." width="min(360px, 100%)" />
         <span class="total-label">{{ filteredCompanies.length }} perusahaan</span>
+        <BaseSearch v-model="searchQuery" placeholder="Cari perusahaan..." width="100%" class="custom-search" />
       </div>
 
-      <BaseTable
-        :columns="companyColumns"
-        :data="filteredCompanies"
-        :loading="loading"
-        has-actions
-        empty-text="Belum ada perusahaan."
-        loading-text="Memuat data perusahaan..."
+      <!-- Penggunaan BaseTable dengan Slots -->
+      <BaseTable 
+        :columns="tableColumns" 
+        :data="filteredCompanies" 
+        emptyText="Belum ada perusahaan."
+        hasActions
       >
         <template #cell-company="{ item }">
-          <strong>{{ item.name }}</strong>
-          <small>{{ item.slug }}</small>
+          <div class="company-name-cell">
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.slug }}</small>
+          </div>
         </template>
+
         <template #cell-status="{ item }">
           <span class="status" :class="item.status">
             {{ item.status === 'active' ? 'Aktif' : 'Nonaktif' }}
           </span>
         </template>
-        <template #cell-locations="{ item }">
+
+        <template #cell-branches="{ item }">
           <button class="count-link" @click="openBranchList(item)">
             {{ item.locations_count ?? 0 }} cabang
           </button>
         </template>
+
         <template #cell-employees="{ item }">
-          <button class="count-link" @click="openEmployeeList(item)">
-            {{ item.users_count ?? 0 }} karyawan
-          </button>
+          {{ item.users_count ?? 0 }}
         </template>
+
+        <!-- Penggunaan TableActions -->
         <template #actions="{ item }">
-          <div class="actions">
-            <BaseButton
-              variant="ghost"
-              icon="material-symbols:add-location-alt-outline-rounded"
-              title="Tambah cabang"
-              @click="openBranchModal(item)"
-            >Cabang</BaseButton>
-            <BaseActionBtn variant="edit" tooltip="Edit perusahaan" @click="openEditModal(item)" />
-            <button
-              class="toggle-action"
-              :title="item.status === 'active' ? 'Nonaktifkan perusahaan' : 'Aktifkan perusahaan'"
-              @click="toggleStatus(item)"
-            >
-              <Icon
-                :icon="item.status === 'active' ? 'material-symbols:pause-circle-outline' : 'material-symbols:play-circle-outline'"
-                width="19"
-              />
+          <div class="custom-actions-wrapper">
+            <button class="branch-action" title="Tambah cabang" @click="openBranchModal(item)">
+              <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" />
+              Cabang
             </button>
+            
+            <TableActions
+              showView
+              showEdit
+              showToggleStatus
+              :isActive="item.status === 'active'"
+              @view="goToDetail(item)"
+              @edit="openEditModal(item)"
+              @toggleStatus="toggleStatus(item)"
+            />
           </div>
         </template>
       </BaseTable>
@@ -458,39 +466,6 @@ onMounted(fetchCompanies)
         </section>
       </div>
     </Teleport>
-
-    <Teleport to="body">
-      <div v-if="showEmployeeListModal" class="modal-overlay" @click.self="showEmployeeListModal = false">
-        <section class="modal branch-list-modal">
-          <div class="modal-head">
-            <div>
-              <span class="eyebrow">{{ employeeCompany?.name }}</span>
-              <h3>Daftar Karyawan</h3>
-            </div>
-            <button type="button" class="close-btn" @click="showEmployeeListModal = false" aria-label="Tutup">
-              <Icon icon="material-symbols:close-rounded" width="22" />
-            </button>
-          </div>
-          <div class="branch-list-body">
-            <div v-if="loadingEmployees" class="empty-cell">Memuat daftar karyawan...</div>
-            <div v-else-if="employeeList.length === 0" class="empty-cell">Belum ada karyawan di perusahaan ini.</div>
-            <article v-for="employee in employeeList" v-else :key="employee.id" class="branch-card">
-              <div>
-                <strong>{{ employee.name }}</strong>
-                <p>{{ employee.email || '-' }}</p>
-              </div>
-              <div class="branch-meta">
-                <span>{{ employee.role || 'Karyawan' }}</span>
-                <span>{{ employee.home_location?.name || employee.home_location_name || 'Belum ada lokasi' }}</span>
-              </div>
-            </article>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="cancel-btn" @click="showEmployeeListModal = false">Tutup</button>
-          </div>
-        </section>
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -516,19 +491,20 @@ h2 { color: var(--ink); font-size: 28px; margin: 6px 0; } p { color: var(--ink-s
 
 /* Toolbar BaseSearch */
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.custom-search { max-width: 360px; margin-left: auto; }
 .total-label, small { color: var(--ink-soft); font-size: 12px; } 
-small { display: block; margin-top: 4px; }
+.company-name-cell small { display: block; margin-top: 4px; }
 
 /* Badge Status */
 .status { display: inline-flex; padding: 5px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; } 
 .status.active { background: #e6f7ef; color: #177a5b; } 
 .status.inactive { background: #f1f2f4; color: #667085; }
 
-.actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
-.close-btn { border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; padding: 7px; border-radius: 7px; }
-.close-btn:hover { background: #f1f3f7; color: var(--navy); }
-.toggle-action { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--ink-soft); cursor: pointer; }
-.toggle-action:hover { background: #f1f3f7; color: var(--navy); }
+/* Wrapper Aksi agar sejajar dengan TableActions */
+.custom-actions-wrapper { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+
+.branch-action { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #d7ddea; border-radius: 7px; background: #f7f8fc; color: var(--navy); cursor: pointer; padding: 7px 9px; font: inherit; font-size: 12px; font-weight: 700; }
+.branch-action:hover { background: #edf0f8; }
 .count-link { border: 0; background: transparent; color: var(--navy); cursor: pointer; font: inherit; font-weight: 700; padding: 0; }
 .count-link:hover { text-decoration: underline; }
 
@@ -681,6 +657,7 @@ small { display: block; margin-top: 4px; }
   .page-intro { align-items: stretch; flex-direction: column; } 
   .field-row { grid-template-columns: 1fr; flex-direction: column; } 
   .toolbar { align-items: stretch; flex-direction: column; } 
+  .custom-search { max-width: 100%; } 
   .modal-overlay { align-items: flex-start; padding: 12px; }
 }
-</style> .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .modal-footer { justify-content: flex-end; border-top: 1px solid var(--line); } .cancel-btn { border: 0; background: transparent; color: var(--muted); padding: 10px 14px; cursor: pointer; }
+</style>
