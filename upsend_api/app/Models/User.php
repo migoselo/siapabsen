@@ -53,6 +53,7 @@ class User extends Authenticatable
         'children_count',
         // tenant_id ditambahkan supaya bisa di-set oleh migration/bootHasTenant
         'tenant_id',
+        'permissions',
         'invitation_token',
         'invitation_expires_at',
         'invited_at',
@@ -70,6 +71,7 @@ class User extends Authenticatable
     protected $casts = [
         'is_active' => 'boolean',
         'tenant_id' => 'integer',
+        'permissions' => 'array',
         'joined_at' => 'date:Y-m-d',
         'birth_date' => 'date:Y-m-d',
         'children_count' => 'integer',

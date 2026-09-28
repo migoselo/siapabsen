@@ -3,75 +3,74 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\RolePermission;
 use App\Models\User;
+use App\Support\AdminPermissionCatalog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class RolePermissionController extends Controller
 {
-    private const CATALOG = [
-        ['id' => 'ess_profile_view', 'label' => 'Lihat Profil Mandiri', 'group' => 'Profil & Kepegawaian', 'area' => 'ess'],
-        ['id' => 'ess_profile_edit', 'label' => 'Ajukan Perubahan Data Pribadi', 'group' => 'Profil & Kepegawaian', 'area' => 'ess'],
-        ['id' => 'ess_payslip_download', 'label' => 'Unduh Slip Gaji Digital', 'group' => 'Profil & Kepegawaian', 'area' => 'ess'],
-        ['id' => 'ess_clock_in_out', 'label' => 'Clock-in / Clock-out', 'group' => 'Presensi, Cuti & Lembur', 'area' => 'ess'],
-        ['id' => 'ess_leave_request', 'label' => 'Pengajuan Cuti dan Izin', 'group' => 'Presensi, Cuti & Lembur', 'area' => 'ess'],
-        ['id' => 'ess_overtime_history', 'label' => 'Lihat Riwayat Lembur', 'group' => 'Presensi, Cuti & Lembur', 'area' => 'ess'],
-        ['id' => 'adm_emp_view', 'label' => 'Lihat Data Karyawan', 'group' => 'Manajemen Karyawan', 'area' => 'admin'],
-        ['id' => 'adm_emp_add', 'label' => 'Tambah Karyawan', 'group' => 'Manajemen Karyawan', 'area' => 'admin'],
-        ['id' => 'adm_emp_edit', 'label' => 'Edit Data Karyawan', 'group' => 'Manajemen Karyawan', 'area' => 'admin'],
-        ['id' => 'adm_payroll_view', 'label' => 'Lihat Payroll', 'group' => 'Payroll', 'area' => 'admin'],
-        ['id' => 'adm_payroll_approve', 'label' => 'Finalisasi Payroll', 'group' => 'Payroll', 'area' => 'admin'],
-        ['id' => 'adm_kpi_evaluate', 'label' => 'Evaluasi Kinerja', 'group' => 'KPI & Performance', 'area' => 'admin'],
-    ];
-
-    public function index()
+    public function catalog(Request $request)
     {
-        $roles = User::query()
-            ->select('role')
-            ->selectRaw('COUNT(*) as user_count')
-            ->whereNotNull('role')
-            ->groupBy('role')
-            ->orderBy('role')
-            ->get();
+        $this->ensureSuperAdmin($request);
 
-        $permissions = RolePermission::all()->keyBy(fn ($item) => $item->role . ':' . $item->permission);
-
-        return response()->json($roles->map(function ($role) use ($permissions) {
-            $items = collect(self::CATALOG)->map(function ($item) use ($role, $permissions) {
-                $saved = $permissions->get($role->role . ':' . $item['id']);
-                return [...$item, 'checked' => $saved?->enabled ?? false];
-            });
-
-            return [
-                'id' => $role->role,
-                'name' => ucwords(str_replace('_', ' ', $role->role)),
-                'user_count' => (int) $role->user_count,
-                'permissions' => $items->values(),
-            ];
-        }));
+        return response()->json(collect(AdminPermissionCatalog::all())
+            ->map(fn ($permission) => [
+                'id' => $permission['id'],
+                'label' => $permission['label'],
+                'description' => $permission['description'],
+                'checked' => $permission['id'] === 'dashboard.view',
+            ])
+            ->values());
     }
 
-    public function update(Request $request, string $role)
+    public function index(Request $request, User $user)
     {
-        abort_unless(User::where('role', $role)->exists(), 404);
+        $this->ensureSuperAdmin($request);
+        $this->ensureAdminTarget($user);
+
+        $enabled = $user->permissions ?? AdminPermissionCatalog::ids();
+        $permissions = collect(AdminPermissionCatalog::all())
+            ->map(fn ($item) => [
+                'id' => $item['id'],
+                'label' => $item['label'],
+                'description' => $item['description'],
+                'checked' => in_array($item['id'], $enabled, true)
+                    || collect($item['grants'])->every(fn ($grant) => in_array($grant, $enabled, true)),
+            ])
+            ->values();
+
+        return response()->json([
+            'user' => ['id' => $user->id, 'name' => $user->name, 'role' => $user->role],
+            'permissions' => $permissions,
+        ]);
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $this->ensureSuperAdmin($request);
+        $this->ensureAdminTarget($user);
 
         $data = $request->validate([
             'permissions' => ['required', 'array'],
-            'permissions.*.id' => ['required', 'string'],
-            'permissions.*.checked' => ['required', 'boolean'],
+            'permissions.*' => ['required', 'string', Rule::in(AdminPermissionCatalog::ids())],
         ]);
 
-        DB::transaction(function () use ($role, $data) {
-            foreach ($data['permissions'] as $permission) {
-                if (! collect(self::CATALOG)->contains('id', $permission['id'])) continue;
-                RolePermission::updateOrCreate(
-                    ['role' => $role, 'permission' => $permission['id']],
-                    ['enabled' => $permission['checked']],
-                );
-            }
-        });
+        $permissions = array_values(array_unique($data['permissions']));
+        if (! in_array('dashboard.view', $permissions, true)) $permissions[] = 'dashboard.view';
+        $user->permissions = $permissions;
+        $user->save();
 
-        return response()->json(['message' => 'Hak akses berhasil diperbarui.']);
+        return response()->json(['message' => 'Hak akses admin berhasil diperbarui.', 'permissions' => $user->permissions]);
+    }
+
+    private function ensureSuperAdmin(Request $request): void
+    {
+        abort_unless(in_array($request->user()?->role, ['super_admin', 'superadmin'], true), 403);
+    }
+
+    private function ensureAdminTarget(User $user): void
+    {
+        abort_unless($user->role === 'admin', 404, 'Hak akses hanya dapat diatur untuk akun admin perusahaan.');
     }
 }

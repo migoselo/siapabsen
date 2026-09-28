@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AdminPermissionCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -35,9 +36,9 @@ class UserController extends Controller
         return Auth::user()?->tenant_id ?? 1;
     }
 
-    protected function ensureSameTenant(User $user)
+    protected function ensureSameTenant(User $user, ?Request $request = null)
     {
-        $tenantId = $this->currentTenantId();
+        $tenantId = $this->currentTenantId($request);
         if ($tenantId && ($user->tenant_id !== (int)$tenantId)) {
             abort(404); // hide existence if not in same tenant
         }
@@ -200,9 +201,9 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
-        $this->ensureSameTenant($user);
+        $this->ensureSameTenant($user, $request);
 
-        $tenantId = $this->currentTenantId();
+        $tenantId = $this->currentTenantId($request);
 
         $emailRule = $tenantId
             ? Rule::unique('users')->where(function ($q) use ($tenantId) {
@@ -216,10 +217,40 @@ class UserController extends Controller
             'no_hp' => 'nullable|string|max:255',
             'role' => 'sometimes|required|in:admin,karyawan',
             'is_active' => 'sometimes|boolean',
-            'division_id' => 'nullable|exists:divisions,id',
-            'shift_id' => 'nullable|exists:shifts,id',
+            'home_location_id' => [
+                'sometimes',
+                'nullable',
+                Rule::exists('locations', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
+            ],
+            'permissions' => ['sometimes', 'required_if:role,admin', 'array'],
+            'permissions.*' => ['required', 'string', Rule::in(AdminPermissionCatalog::ids())],
+            'division_id' => [
+                'nullable',
+                Rule::exists('divisions', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
+            ],
+            'shift_id' => [
+                'nullable',
+                Rule::exists('shifts', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
+            ],
             ...$this->biodataRules(),
         ]);
+
+        if (array_key_exists('role', $data) && $data['role'] !== $user->role) {
+            abort_unless(in_array(Auth::user()?->role, ['super_admin', 'superadmin'], true), 403);
+            if ($data['role'] === 'admin') {
+                $permissions = array_values(array_unique($data['permissions'] ?? []));
+                if (! in_array('dashboard.view', $permissions, true)) $permissions[] = 'dashboard.view';
+                $data['permissions'] = $permissions;
+            } else {
+                $data['permissions'] = null;
+            }
+        } elseif (isset($data['permissions'])) {
+            abort_unless(in_array(Auth::user()?->role, ['super_admin', 'superadmin'], true), 403);
+            abort_unless($user->role === 'admin', 422, 'Hak akses hanya dapat diberikan kepada admin perusahaan.');
+            $permissions = array_values(array_unique($data['permissions']));
+            if (! in_array('dashboard.view', $permissions, true)) $permissions[] = 'dashboard.view';
+            $data['permissions'] = $permissions;
+        }
 
         $user->update($data);
 
@@ -260,10 +291,14 @@ class UserController extends Controller
 
     public function transfer(Request $request, User $user)
     {
-        $this->ensureSameTenant($user);
+        $this->ensureSameTenant($user, $request);
+        $tenantId = $this->currentTenantId($request);
 
         $data = $request->validate([
-            'home_location_id' => 'required|exists:locations,id',
+            'home_location_id' => [
+                'required',
+                Rule::exists('locations', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
+            ],
         ]);
 
         $user->update(['home_location_id' => $data['home_location_id']]);
@@ -271,9 +306,9 @@ class UserController extends Controller
         return response()->json($user->load('homeLocation'));
     }
 
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
-        $this->ensureSameTenant($user);
+        $this->ensureSameTenant($user, $request);
 
         // Soft-nonaktifkan, bukan hard delete, biar histori attendance tetap utuh
         $user->update(['is_active' => false]);
