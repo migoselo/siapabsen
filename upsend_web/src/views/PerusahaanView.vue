@@ -149,6 +149,31 @@ async function openBranchList(company) {
   }
 }
 
+async function openEmployeeList(company) {
+  employeeCompany.value = company
+  employeeList.value = []
+  showEmployeeListModal.value = true
+  loadingEmployees.value = true
+
+  try {
+    const response = await api.get('/users', {
+      params: { tenant_id: company.id, per_page: 1000 },
+    })
+
+    const list = Array.isArray(response.data?.data) ? response.data.data : Array.isArray(response.data) ? response.data : []
+
+    employeeList.value = list.filter((user) => {
+      const tenantId = user.tenant_id ?? user.tenantId ?? user.home_location?.tenant_id ?? user.home_location?.tenantId
+      return Number(tenantId) === Number(company.id)
+    })
+  } catch (error) {
+    showEmployeeListModal.value = false
+    showToast(error.response?.data?.message || 'Daftar karyawan gagal dimuat.', 'error')
+  } finally {
+    loadingEmployees.value = false
+  }
+}
+
 function closeBranchModal() {
   if (!saving.value) showBranchModal.value = false
 }
