@@ -25,6 +25,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:dashboard-outline',
     activeIcon: 'material-symbols:dashboard',
     path: '/dashboard',
+    permission: 'dashboard.view',
   },
   ...(authStore.user?.role === 'super_admin' || authStore.user?.role === 'superadmin'
     ? [
@@ -43,6 +44,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:location-on-outline',
     activeIcon: 'material-symbols:location-on',
     path: '/dashboard/lokasi-kerja',
+    permission: 'locations.view',
   },
   {
     id: 'karyawan',
@@ -50,6 +52,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:group-outline',
     activeIcon: 'material-symbols:group',
     path: '/dashboard/karyawan',
+    permission: 'employees.view',
   },
   {
     id: 'role',
@@ -57,6 +60,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:admin-panel-settings-outline',
     activeIcon: 'material-symbols:admin-panel-settings',
     path: '/dashboard/role-akses',
+    permission: 'employees.view',
   },
   {
     id: 'absensi',
@@ -64,6 +68,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:history-outline',
     activeIcon: 'material-symbols:history',
     path: '/dashboard/absensi',
+    permission: 'attendance.view',
   },
   {
     id: 'izin-cuti',
@@ -71,6 +76,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:calendar-month-outline',
     activeIcon: 'material-symbols:calendar-month',
     path: '/dashboard/izin-cuti',
+    permission: 'requests.view',
   },
   {
     id: 'lembur',
@@ -78,6 +84,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:more-time-outline',
     activeIcon: 'material-symbols:more-time',
     path: '/dashboard/lembur',
+    permission: 'requests.view',
   },
   {
     id: 'gaji',
@@ -85,6 +92,7 @@ const navigation = computed(() => [
     icon: 'material-symbols:payments-outline',
     activeIcon: 'material-symbols:payments',
     path: '/dashboard/gaji',
+    permission: 'payroll.view',
   },
   {
     id: 'divisi-shift',
@@ -92,8 +100,9 @@ const navigation = computed(() => [
     icon: 'material-symbols:domain-rounded',
     activeIcon: 'material-symbols:domain-rounded',
     path: '/dashboard/divisi-shift',
+    permission: 'structure.view',
   },
-])
+].filter((item) => !item.permission || authStore.hasPermission(item.permission)))
 
 function isActive(item) {
   if (item.id === 'dashboard') return route.path === item.path

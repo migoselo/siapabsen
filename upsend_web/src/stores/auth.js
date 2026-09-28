@@ -1,6 +1,22 @@
 import { defineStore } from 'pinia'
 import api from '../api'
 
+const modulePermissions = {
+  'locations.access': ['locations.view', 'locations.manage'],
+  'employees.access': [
+    'employees.view',
+    'employees.create',
+    'employees.update',
+    'employees.deactivate',
+    'employees.invite',
+    'employees.transfer',
+  ],
+  'attendance.access': ['attendance.view', 'attendance.review'],
+  'requests.access': ['requests.view', 'requests.review'],
+  'payroll.access': ['payroll.view', 'payroll.manage'],
+  'structure.access': ['structure.view', 'structure.manage'],
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: JSON.parse(localStorage.getItem('auth_user') || 'null'),
@@ -10,8 +26,13 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => !!state.token,
     userRole: (state) => state.user?.roles?.[0]?.slug || 'guest',
     hasPermission: (state) => (permission) => {
-      if (!state.user || !state.user.permissions) return false
-      return state.user.permissions.includes(permission)
+      if (!state.user) return false
+      if (['super_admin', 'superadmin'].includes(state.user.role)) return true
+      if (state.user.role === 'admin' && state.user.permissions == null) return true
+      if (!Array.isArray(state.user.permissions)) return false
+      return state.user.permissions.some(
+        (granted) => granted === permission || modulePermissions[granted]?.includes(permission),
+      )
     },
   },
   actions: {

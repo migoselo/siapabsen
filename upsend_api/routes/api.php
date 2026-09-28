@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\PayrollController;
+use App\Http\Controllers\Api\RolePermissionController;
 use App\Http\Controllers\Api\ShiftDivisionController;
 use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\Admin\AttendanceAdminController;
@@ -46,52 +47,66 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-history', [AttendanceController::class, 'myHistory']);
     });
 
-    Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
+    Route::get('/leave-requests', [LeaveRequestController::class, 'index'])->middleware('permission:requests.view');
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
     Route::delete('/leave-requests/{id}', [LeaveRequestController::class, 'destroy']);
     Route::get('/leave-balances', [LeaveRequestController::class, 'balances']);
     Route::get('/payrolls/{year}/{month}', [PayrollController::class, 'show'])
+        ->middleware('permission:payroll.view')
         ->whereNumber(['year', 'month']);
 
     // ==== Khusus admin ====
     Route::middleware('role:admin,super_admin')->group(function () {
-        Route::get('/payrolls', [PayrollController::class, 'index']);
-        Route::post('/payrolls', [PayrollController::class, 'store']);
-        Route::put('/payrolls/{payroll}', [PayrollController::class, 'update']);
+        Route::get('/payrolls', [PayrollController::class, 'index'])->middleware('permission:payroll.view');
+        Route::post('/payrolls', [PayrollController::class, 'store'])->middleware('permission:payroll.manage');
+        Route::put('/payrolls/{payroll}', [PayrollController::class, 'update'])->middleware('permission:payroll.manage');
 
-        Route::get('/admin/leave-requests', [LeaveRequestController::class, 'adminIndex']);
-        Route::patch('/admin/leave-requests/{leaveRequest}/status', [LeaveRequestController::class, 'updateStatus']);
+        Route::get('/admin/leave-requests', [LeaveRequestController::class, 'adminIndex'])->middleware('permission:requests.view');
+        Route::match(['put', 'patch'], '/admin/leave-requests/{leaveRequest}/status', [LeaveRequestController::class, 'updateStatus'])->middleware('permission:requests.review');
 
-        Route::apiResource('locations', LocationController::class);
+        Route::get('/locations', [LocationController::class, 'index'])->middleware('permission:locations.view|employees.view|dashboard.view|attendance.view|requests.view|payroll.view|structure.view');
+        Route::post('/locations', [LocationController::class, 'store'])->middleware('permission:locations.manage');
+        Route::get('/locations/{location}', [LocationController::class, 'show'])->middleware('permission:locations.view');
+        Route::put('/locations/{location}', [LocationController::class, 'update'])->middleware('permission:locations.manage');
+        Route::patch('/locations/{location}', [LocationController::class, 'update'])->middleware('permission:locations.manage');
+        Route::delete('/locations/{location}', [LocationController::class, 'destroy'])->middleware('permission:locations.manage');
 
         Route::apiResource('tenants', TenantController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
-        Route::get('/divisions', [ShiftDivisionController::class, 'indexDivisions']);
-        Route::post('/divisions', [ShiftDivisionController::class, 'storeDivision']);
-        Route::put('/divisions/{division}', [ShiftDivisionController::class, 'updateDivision']);
-        Route::delete('/divisions/{division}', [ShiftDivisionController::class, 'destroyDivision']);
-        Route::get('/shifts', [ShiftDivisionController::class, 'indexShifts']);
-        Route::post('/shifts', [ShiftDivisionController::class, 'storeShift']);
-        Route::put('/shifts/{shift}', [ShiftDivisionController::class, 'updateShift']);
-        Route::delete('/shifts/{shift}', [ShiftDivisionController::class, 'destroyShift']);
+        Route::get('/divisions', [ShiftDivisionController::class, 'indexDivisions'])->middleware('permission:structure.view');
+        Route::post('/divisions', [ShiftDivisionController::class, 'storeDivision'])->middleware('permission:structure.manage');
+        Route::put('/divisions/{division}', [ShiftDivisionController::class, 'updateDivision'])->middleware('permission:structure.manage');
+        Route::delete('/divisions/{division}', [ShiftDivisionController::class, 'destroyDivision'])->middleware('permission:structure.manage');
+        Route::get('/shifts', [ShiftDivisionController::class, 'indexShifts'])->middleware('permission:structure.view');
+        Route::post('/shifts', [ShiftDivisionController::class, 'storeShift'])->middleware('permission:structure.manage');
+        Route::put('/shifts/{shift}', [ShiftDivisionController::class, 'updateShift'])->middleware('permission:structure.manage');
+        Route::delete('/shifts/{shift}', [ShiftDivisionController::class, 'destroyShift'])->middleware('permission:structure.manage');
 
-        Route::apiResource('users', UserController::class);
-        Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation']);
-        Route::patch('/users/{user}/transfer', [UserController::class, 'transfer']);
+        Route::get('/users', [UserController::class, 'index'])->middleware('permission:employees.view');
+        Route::post('/users', [UserController::class, 'store'])->middleware('permission:employees.create');
+        Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:employees.view');
+        Route::put('/users/{user}', [UserController::class, 'update'])->middleware('permission:employees.update');
+        Route::patch('/users/{user}', [UserController::class, 'update'])->middleware('permission:employees.update');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('permission:employees.deactivate');
+        Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->middleware('permission:employees.invite');
+        Route::patch('/users/{user}/transfer', [UserController::class, 'transfer'])->middleware('permission:employees.transfer');
+        Route::get('/admin-permissions', [RolePermissionController::class, 'catalog'])->middleware('role:super_admin,superadmin');
+        Route::get('/users/{user}/permissions', [RolePermissionController::class, 'index'])->middleware('role:super_admin,superadmin');
+        Route::put('/users/{user}/permissions', [RolePermissionController::class, 'update'])->middleware('role:super_admin,superadmin');
 
-        Route::get('/attendances', [AttendanceAdminController::class, 'index']);
-        Route::get('/attendances/{attendance}/photo', [AttendanceAdminController::class, 'photo']);
-        Route::get('/attendances/{attendance}/checkout-photo', [AttendanceAdminController::class, 'checkoutPhoto']);
-        Route::get('/attendances/{attendance}', [AttendanceAdminController::class, 'show']);
-        Route::patch('/attendances/{attendance}/approve', [AttendanceAdminController::class, 'approve']);
-        Route::patch('/attendances/{attendance}/reject', [AttendanceAdminController::class, 'reject']);
+        Route::get('/attendances', [AttendanceAdminController::class, 'index'])->middleware('permission:attendance.view');
+        Route::get('/attendances/{attendance}/photo', [AttendanceAdminController::class, 'photo'])->middleware('permission:attendance.view');
+        Route::get('/attendances/{attendance}/checkout-photo', [AttendanceAdminController::class, 'checkoutPhoto'])->middleware('permission:attendance.view');
+        Route::get('/attendances/{attendance}', [AttendanceAdminController::class, 'show'])->middleware('permission:attendance.view');
+        Route::patch('/attendances/{attendance}/approve', [AttendanceAdminController::class, 'approve'])->middleware('permission:attendance.review');
+        Route::patch('/attendances/{attendance}/reject', [AttendanceAdminController::class, 'reject'])->middleware('permission:attendance.review');
 
         Route::prefix('dashboard')->group(function () {
-            Route::get('/summary', [DashboardController::class, 'summary']);
-            Route::get('/trend', [DashboardController::class, 'trend']);
-            Route::get('/today-attendance', [DashboardController::class, 'todayAttendance']); // baru
-            Route::get('/by-location', [DashboardController::class, 'byLocation']);
-            Route::get('/anomalies', [DashboardController::class, 'anomalies']);
-            Route::get('/export', [DashboardController::class, 'export']);
+            Route::get('/summary', [DashboardController::class, 'summary'])->middleware('permission:dashboard.view');
+            Route::get('/trend', [DashboardController::class, 'trend'])->middleware('permission:dashboard.view');
+            Route::get('/today-attendance', [DashboardController::class, 'todayAttendance'])->middleware('permission:dashboard.view');
+            Route::get('/by-location', [DashboardController::class, 'byLocation'])->middleware('permission:dashboard.view');
+            Route::get('/anomalies', [DashboardController::class, 'anomalies'])->middleware('permission:dashboard.view');
+            Route::get('/export', [DashboardController::class, 'export'])->middleware('permission:dashboard.view');
         });
     });
 });
