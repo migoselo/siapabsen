@@ -150,7 +150,7 @@ async function openEmployeeList(company) {
 
   try {
     const response = await api.get('/users', {
-      params: { per_page: 1000 },
+      params: { tenant_id: company.id, per_page: 1000 },
     })
 
     const list = Array.isArray(response.data?.data) ? response.data.data : Array.isArray(response.data) ? response.data : []
