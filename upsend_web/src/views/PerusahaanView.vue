@@ -3,6 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 import BaseButton from '../components/BaseButton.vue'
+import BaseActionBtn from '../components/BaseActionBtn.vue'
+import BaseSearch from '../components/BaseSearch.vue'
+import BaseTable from '../components/BaseTable.vue'
 import BaseToast from '../components/BaseToast.vue'
 
 const companies = ref([])
@@ -46,6 +49,13 @@ const filteredCompanies = computed(() => {
     ),
   )
 })
+
+const companyColumns = [
+  { key: 'company', label: 'Perusahaan' },
+  { key: 'status', label: 'Status' },
+  { key: 'locations', label: 'Cabang / Lokasi' },
+  { key: 'employees', label: 'Karyawan' },
+]
 
 function showToast(message, type = 'success') {
   toast.value = { show: true, type, message }
@@ -247,74 +257,59 @@ onMounted(fetchCompanies)
 
     <section class="table-panel">
       <div class="toolbar">
-        <div class="search-box">
-          <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-          <input v-model="searchQuery" type="search" placeholder="Cari perusahaan..." />
-        </div>
+        <BaseSearch v-model="searchQuery" placeholder="Cari perusahaan..." width="min(360px, 100%)" />
         <span class="total-label">{{ filteredCompanies.length }} perusahaan</span>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Perusahaan</th>
-              <th>Status</th>
-              <th>Cabang / Lokasi</th>
-              <th>Karyawan</th>
-              <th class="action-column">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="5" class="empty-cell">Memuat data perusahaan...</td>
-            </tr>
-            <tr v-else-if="filteredCompanies.length === 0">
-              <td colspan="5" class="empty-cell">Belum ada perusahaan.</td>
-            </tr>
-            <tr v-for="company in filteredCompanies" :key="company.id">
-              <td>
-                <strong>{{ company.name }}</strong>
-                <small>{{ company.slug }}</small>
-              </td>
-              <td>
-                <span class="status" :class="company.status">
-                  {{ company.status === 'active' ? 'Aktif' : 'Nonaktif' }}
-                </span>
-              </td>
-              <td>
-                <button class="count-link" @click="openBranchList(company)">
-                  {{ company.locations_count ?? 0 }} cabang
-                </button>
-              </td>
-              <td>
-                <button class="count-link" @click="openEmployeeList(company)">
-                  {{ company.users_count ?? 0 }} karyawan
-                </button>
-              </td>
-              <td class="actions">
-                <button class="branch-action" title="Tambah cabang" @click="openBranchModal(company)">
-                  <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" />
-                  Cabang
-                </button>
-                <button class="icon-action" title="Edit perusahaan" @click="openEditModal(company)">
-                  <Icon icon="material-symbols:edit-outline-rounded" width="18" />
-                </button>
-                <button
-                  class="icon-action"
-                  :title="company.status === 'active' ? 'Nonaktifkan perusahaan' : 'Aktifkan perusahaan'"
-                  @click="toggleStatus(company)"
-                >
-                  <Icon
-                    :icon="company.status === 'active' ? 'material-symbols:pause-circle-outline' : 'material-symbols:play-circle-outline'"
-                    width="19"
-                  />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <BaseTable
+        :columns="companyColumns"
+        :data="filteredCompanies"
+        :loading="loading"
+        has-actions
+        empty-text="Belum ada perusahaan."
+        loading-text="Memuat data perusahaan..."
+      >
+        <template #cell-company="{ item }">
+          <strong>{{ item.name }}</strong>
+          <small>{{ item.slug }}</small>
+        </template>
+        <template #cell-status="{ item }">
+          <span class="status" :class="item.status">
+            {{ item.status === 'active' ? 'Aktif' : 'Nonaktif' }}
+          </span>
+        </template>
+        <template #cell-locations="{ item }">
+          <button class="count-link" @click="openBranchList(item)">
+            {{ item.locations_count ?? 0 }} cabang
+          </button>
+        </template>
+        <template #cell-employees="{ item }">
+          <button class="count-link" @click="openEmployeeList(item)">
+            {{ item.users_count ?? 0 }} karyawan
+          </button>
+        </template>
+        <template #actions="{ item }">
+          <div class="actions">
+            <BaseButton
+              variant="ghost"
+              icon="material-symbols:add-location-alt-outline-rounded"
+              title="Tambah cabang"
+              @click="openBranchModal(item)"
+            >Cabang</BaseButton>
+            <BaseActionBtn variant="edit" tooltip="Edit perusahaan" @click="openEditModal(item)" />
+            <button
+              class="toggle-action"
+              :title="item.status === 'active' ? 'Nonaktifkan perusahaan' : 'Aktifkan perusahaan'"
+              @click="toggleStatus(item)"
+            >
+              <Icon
+                :icon="item.status === 'active' ? 'material-symbols:pause-circle-outline' : 'material-symbols:play-circle-outline'"
+                width="19"
+              />
+            </button>
+          </div>
+        </template>
+      </BaseTable>
     </section>
 
     <Teleport to="body">
@@ -456,14 +451,11 @@ onMounted(fetchCompanies)
 h2 { color: var(--ink); font-size: 28px; margin: 6px 0; } p { color: var(--muted); margin: 0; }
 .table-panel { background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
-.search-box { display: flex; align-items: center; gap: 8px; width: min(360px, 100%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); }
-.search-box input { width: 100%; border: 0; outline: 0; font: inherit; }
 .total-label, small { color: var(--muted); font-size: 12px; } small { display: block; margin-top: 4px; }
-.table-wrap { overflow-x: auto; } table { width: 100%; min-width: 680px; border-collapse: collapse; } th, td { text-align: left; padding: 16px 20px; border-bottom: 1px solid #edf0f4; } th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; } td { color: var(--ink); font-size: 14px; }
 .status { display: inline-flex; padding: 5px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; } .status.active { background: #e6f7ef; color: #177a5b; } .status.inactive { background: #f1f2f4; color: #667085; }
-.actions { display: flex; gap: 6px; } .icon-action, .close-btn { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 7px; border-radius: 7px; } .icon-action:hover, .close-btn:hover { background: #f1f3f7; color: var(--navy); }
-.branch-action { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #d7ddea; border-radius: 7px; background: #f7f8fc; color: var(--navy); cursor: pointer; padding: 7px 9px; font: inherit; font-size: 12px; font-weight: 700; }
-.branch-action:hover { background: #edf0f8; }
+.actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; } .close-btn { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 7px; border-radius: 7px; } .close-btn:hover { background: #f1f3f7; color: var(--navy); }
+.toggle-action { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.toggle-action:hover { background: #f1f3f7; color: var(--navy); }
 .count-link { border: 0; background: transparent; color: var(--navy); cursor: pointer; font: inherit; font-weight: 700; padding: 0; }
 .count-link:hover { text-decoration: underline; }
 .branch-list-modal { max-width: 680px; }
