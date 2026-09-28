@@ -12,8 +12,17 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    protected function currentTenantId()
+    protected function currentTenantId(?Request $request = null)
     {
+        $user = Auth::user();
+        if (! in_array($user?->role, ['super_admin', 'superadmin'], true)) {
+            return $user?->tenant_id ?? 1;
+        }
+
+        if ($request?->filled('tenant_id')) {
+            return (int) $request->input('tenant_id');
+        }
+
         // app('currentTenant') bisa berupa model Tenant atau raw id (sesuai SetTenant middleware)
         $tenant = app()->bound('currentTenant') ? app('currentTenant') : null;
         if (is_object($tenant) && isset($tenant->id)) {
@@ -36,8 +45,8 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        // Batasi hasil ke tenant saat ini (jika ada)
-        $query = User::with(['homeLocation', 'division', 'shift'])->forTenant();
+        $tenantId = $this->currentTenantId($request);
+        $query = User::with(['homeLocation', 'division', 'shift'])->where('tenant_id', $tenantId);
 
         if ($request->filled('location_id')) {
             $query->where('home_location_id', $request->location_id);
@@ -53,7 +62,7 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-        $tenantId = $this->currentTenantId();
+        $tenantId = $this->currentTenantId($request);
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
@@ -61,9 +70,31 @@ class UserController extends Controller
             'password' => 'nullable|string|min:6',
             'no_hp' => 'nullable|string|max:255',
             'role' => 'required|in:admin,karyawan',
-            'home_location_id' => 'nullable|exists:locations,id',
-            'division_id' => 'nullable|exists:divisions,id',
-            'shift_id' => 'nullable|exists:shifts,id',
+            'tenant_id' => [
+                'sometimes',
+                'required',
+                'integer',
+                Rule::exists('tenants', 'id')->where(fn ($query) => $query->where('id', $tenantId)),
+            ],
+            'home_location_id' => [
+                'nullable',
+                Rule::exists('locations', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
+            ],
+            'division_id' => [
+                'nullable',
+                Rule::exists('divisions', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
+            ],
+            'shift_id' => [
+                'nullable',
+                Rule::exists('shifts', 'id')->where(function ($query) use ($tenantId, $request) {
+                    $query->where('tenant_id', $tenantId);
+                    if ($request->filled('division_id')) {
+                        $query->where('division_id', $request->input('division_id'));
+                    } else {
+                        $query->whereNull('division_id');
+                    }
+                }),
+            ],
             ...$this->biodataRules(),
         ]);
 
@@ -88,6 +119,8 @@ class UserController extends Controller
                 'name' => $data['name'],
                 'no_hp' => $data['no_hp'] ?? null,
                 'home_location_id' => $data['home_location_id'] ?? null,
+                'division_id' => $data['division_id'] ?? null,
+                'shift_id' => $data['shift_id'] ?? null,
                 'role' => $data['role'],
                 'invitation_token' => hash('sha256', $invitationToken),
                 'invitation_expires_at' => now()->addHours(48),

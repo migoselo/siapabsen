@@ -15,6 +15,10 @@ const editingId = ref(null)
 const branchCompany = ref(null)
 const branchLocations = ref([])
 const loadingBranches = ref(false)
+const employeeCompany = ref(null)
+const employeeList = ref([])
+const loadingEmployees = ref(false)
+const showEmployeeListModal = ref(false)
 const searchQuery = ref('')
 const toast = ref({ show: false, type: 'success', message: '' })
 
@@ -116,6 +120,31 @@ async function openBranchList(company) {
     showToast(error.response?.data?.message || 'Daftar cabang gagal dimuat.', 'error')
   } finally {
     loadingBranches.value = false
+  }
+}
+
+async function openEmployeeList(company) {
+  employeeCompany.value = company
+  employeeList.value = []
+  showEmployeeListModal.value = true
+  loadingEmployees.value = true
+
+  try {
+    const response = await api.get('/users', {
+      params: { per_page: 1000 },
+    })
+
+    const list = Array.isArray(response.data?.data) ? response.data.data : Array.isArray(response.data) ? response.data : []
+
+    employeeList.value = list.filter((user) => {
+      const tenantId = user.tenant_id ?? user.tenantId ?? user.home_location?.tenant_id ?? user.home_location?.tenantId
+      return Number(tenantId) === Number(company.id)
+    })
+  } catch (error) {
+    showEmployeeListModal.value = false
+    showToast(error.response?.data?.message || 'Daftar karyawan gagal dimuat.', 'error')
+  } finally {
+    loadingEmployees.value = false
   }
 }
 
@@ -258,7 +287,11 @@ onMounted(fetchCompanies)
                   {{ company.locations_count ?? 0 }} cabang
                 </button>
               </td>
-              <td>{{ company.users_count ?? 0 }}</td>
+              <td>
+                <button class="count-link" @click="openEmployeeList(company)">
+                  {{ company.users_count ?? 0 }} karyawan
+                </button>
+              </td>
               <td class="actions">
                 <button class="branch-action" title="Tambah cabang" @click="openBranchModal(company)">
                   <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" />
@@ -376,6 +409,39 @@ onMounted(fetchCompanies)
             <BaseButton variant="primary" icon="material-symbols:add-location-alt-outline-rounded" @click="showBranchListModal = false; openBranchModal(branchCompany)">
               Tambah Cabang
             </BaseButton>
+          </div>
+        </section>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="showEmployeeListModal" class="modal-overlay" @click.self="showEmployeeListModal = false">
+        <section class="modal branch-list-modal">
+          <div class="modal-head">
+            <div>
+              <span class="eyebrow">{{ employeeCompany?.name }}</span>
+              <h3>Daftar Karyawan</h3>
+            </div>
+            <button type="button" class="close-btn" @click="showEmployeeListModal = false" aria-label="Tutup">
+              <Icon icon="material-symbols:close-rounded" width="22" />
+            </button>
+          </div>
+          <div class="branch-list-body">
+            <div v-if="loadingEmployees" class="empty-cell">Memuat daftar karyawan...</div>
+            <div v-else-if="employeeList.length === 0" class="empty-cell">Belum ada karyawan di perusahaan ini.</div>
+            <article v-for="employee in employeeList" v-else :key="employee.id" class="branch-card">
+              <div>
+                <strong>{{ employee.name }}</strong>
+                <p>{{ employee.email || '-' }}</p>
+              </div>
+              <div class="branch-meta">
+                <span>{{ employee.role || 'Karyawan' }}</span>
+                <span>{{ employee.home_location?.name || employee.home_location_name || 'Belum ada lokasi' }}</span>
+              </div>
+            </article>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="cancel-btn" @click="showEmployeeListModal = false">Tutup</button>
           </div>
         </section>
       </div>

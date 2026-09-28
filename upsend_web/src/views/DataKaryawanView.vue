@@ -33,13 +33,15 @@ watch(currentPage, (newPage) => {
 
 const showModal = ref(false)
 const saving = ref(false)
-const locations = ref([])
-const divisions = ref([])
-const shifts = ref([])
-const companies = ref([])
+const tenants = ref([])
+const formLocations = ref([])
+const formDivisions = ref([])
+const formShifts = ref([])
 const selectedCompany = ref(null)
 const selectedBranch = ref(null)
 const showPassword = ref(false)
+const loadingFormOptions = ref(false)
+let formOptionsRequest = 0
 
 const form = ref({
   name: '',
@@ -47,10 +49,26 @@ const form = ref({
   password: '',
   no_hp: '',
   role: 'karyawan',
+  tenant_id: '',
   home_location_id: '',
   division_id: '',
   shift_id: '',
 })
+
+const availableFormShifts = computed(() =>
+  formShifts.value.filter((shift) =>
+    form.value.division_id
+      ? Number(shift.division_id) === Number(form.value.division_id)
+      : !shift.division_id,
+  ),
+)
+
+watch(
+  () => form.value.division_id,
+  () => {
+    form.value.shift_id = ''
+  },
+)
 
 const filteredEmployees = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -60,28 +78,50 @@ const filteredEmployees = computed(() => {
   )
 })
 
+const visibleCompanies = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return tenants.value
+  return tenants.value.filter((tenant) => String(tenant.name || '').toLowerCase().includes(query))
+})
+
+const visibleBranches = computed(() => {
+  const branches = selectedCompany.value?.locations || []
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return branches
+  return branches.filter((branch) =>
+    `${branch.name || ''} ${branch.address || ''}`.toLowerCase().includes(query),
+  )
+})
+
+const hasMultipleBranches = computed(() => (selectedCompany.value?.locations?.length || 0) > 1)
+const showBranchList = computed(() => hasMultipleBranches.value && !selectedBranch.value)
+
 // === PERBAIKAN: Update URL agar status terpilih tersimpan di riwayat browser ===
 function resetDrillDown() {
   selectedCompany.value = null
   selectedBranch.value = null
   const query = { ...route.query }
   delete query.location_id
+  delete query.tenant_id
   router.replace({ query })
 }
 
-function goToCompany(node) {
-  selectedCompany.value = node
-  selectedBranch.value = null
-  if (node.companyId) {
-    router.replace({ query: { ...route.query, location_id: node.companyId } })
-  }
+function goToCompany(company) {
+  selectedCompany.value = company
+  selectedBranch.value = company.locations?.length === 1 ? company.locations[0] : null
+  searchQuery.value = ''
+  const query = { ...route.query, tenant_id: String(company.id) }
+  if (selectedBranch.value) query.location_id = String(selectedBranch.value.id)
+  else delete query.location_id
+  router.replace({ query })
+  fetchEmployees(1, company.id, selectedBranch.value?.id)
 }
 
-function goToBranch(node) {
-  selectedBranch.value = node
-  if (node.companyId) {
-    router.replace({ query: { ...route.query, location_id: node.companyId } })
-  }
+function goToBranch(branch) {
+  selectedBranch.value = branch
+  searchQuery.value = ''
+  router.replace({ query: { ...route.query, tenant_id: String(selectedCompany.value.id), location_id: String(branch.id) } })
+  fetchEmployees(1, selectedCompany.value.id, branch.id)
 }
 
 function goBackToCompanies() {
@@ -90,50 +130,32 @@ function goBackToCompanies() {
 
 function goBackToCompany() {
   selectedBranch.value = null
-  if (selectedCompany.value?.companyId) {
-    router.replace({ query: { ...route.query, location_id: selectedCompany.value.companyId } })
-  } else {
-    const query = { ...route.query }
-    delete query.location_id
-    router.replace({ query })
-  }
+  const query = { ...route.query, tenant_id: String(selectedCompany.value.id) }
+  delete query.location_id
+  router.replace({ query })
 }
 // ==============================================================================
 
 const currentCompanyChildren = computed(() => {
-  if (!selectedCompany.value) return companyTree.value
-  return selectedCompany.value.children || []
+  return selectedCompany.value?.locations || []
 })
 
 const currentEmployees = computed(() => {
-  if (selectedBranch.value) return selectedBranch.value.employees || []
-
-  if (selectedCompany.value) {
-    if ((selectedCompany.value.children || []).length) {
-      return []
+  return filteredEmployees.value.map((emp) => {
+    const activationStatus = getActivationStatus(emp)
+    return {
+      ...emp,
+      no_hp: emp.no_hp || '-',
+      division: emp.division?.name || emp.division_name || '-',
+      shift: emp.shift
+        ? `${emp.shift.name} (${String(emp.shift.work_start_time).slice(0, 5)}-${String(emp.shift.work_end_time).slice(0, 5)})`
+        : 'Gunakan jam lokasi',
+      isActive: Boolean(emp.is_active),
+      statusLabel: activationStatus.label,
+      statusClass: activationStatus.className,
     }
-    return selectedCompany.value.employees || []
-  }
-
-  return []
+  })
 })
-
-function splitHierarchyLabel(label) {
-  const value = String(label || '').trim()
-  if (!value) return []
-
-  const separators = [' / ', ' > ', ' - ', ' | ']
-  for (const separator of separators) {
-    if (value.includes(separator)) {
-      return value
-        .split(separator)
-        .map((part) => part.trim())
-        .filter(Boolean)
-    }
-  }
-
-  return [value]
-}
 
 function getActivationStatus(user) {
   if (user?.is_active) {
@@ -148,130 +170,31 @@ function getActivationStatus(user) {
   return { label: 'Menunggu Aktivasi', className: 'pending' }
 }
 
-const companyTree = computed(() => {
-  const roots = []
-  const nodes = new Map()
-
-  const addNode = (path, address = '-') => {
-    let parent = null
-
-    path.forEach((segment, index) => {
-      const key = path.slice(0, index + 1).join(' / ')
-      if (!nodes.has(key)) {
-        const node = {
-          id: key,
-          name: segment,
-          address: address,
-          children: [],
-          employees: [],
-          count: 0,
-        }
-
-        if (parent) {
-          parent.children.push(node)
-        } else {
-          roots.push(node)
-        }
-
-        nodes.set(key, node)
-      }
-
-      parent = nodes.get(key)
-    })
-
-    return parent
-  }
-
-  ;(companies.value || []).forEach((company) => {
-    const name = String(company?.name || '').trim()
-    const address = String(company?.address || company?.alamat || '-').trim()
-    if (!name) return
-    const path = splitHierarchyLabel(name)
-    const node = addNode(path, address)
-    if (node && company?.id) {
-      node.companyId = company.id
-    }
-  })
-
-  filteredEmployees.value.forEach((emp) => {
-    const employeeName = String(emp?.name || '').trim()
-    const companyName =
-      emp.homeLocation?.name ||
-      emp.home_location?.name ||
-      emp.location?.name ||
-      emp.home_location ||
-      'Tanpa Perusahaan'
-
-    if (!employeeName) return
-
-    const path = splitHierarchyLabel(companyName)
-    const exactKey = path.join(' / ')
-    const target = nodes.get(exactKey) || nodes.get(path[path.length - 1]) || addNode(path)
-
-    if (target) {
-      const activationStatus = getActivationStatus(emp)
-      target.employees.push({
-        id: emp.id,
-        employee_id: emp.employee_id || '-',
-        name: employeeName,
-        email: emp.email || '-',
-        no_hp: emp.no_hp || '-',
-        division: emp.division?.name || emp.division_name || '-',
-        shift: emp.shift
-          ? `${emp.shift.name} (${String(emp.shift.work_start_time).slice(0, 5)}-${String(emp.shift.work_end_time).slice(0, 5)})`
-          : 'Gunakan jam lokasi',
-        isActive: Boolean(emp.is_active),
-        statusLabel: activationStatus.label,
-        statusClass: activationStatus.className,
-        raw: emp,
-      })
-      target.count = target.employees.length
-    }
-  })
-
-  const assignCounts = (node) => {
-    if (node.employees.length) {
-      node.count = node.employees.length
-    }
-
-    node.children.forEach((child) => {
-      assignCounts(child)
-      node.count = (node.count || 0) + (child.count || 0)
-    })
-  }
-
-  roots.forEach(assignCounts)
-
-  return roots
-})
-
 function restoreSelectedOffice() {
   const locationId = route.query.location_id
-  if (!locationId) return
+  const company = tenants.value.find((tenant) =>
+    locationId
+      ? tenant.locations?.some((location) => String(location.id) === String(locationId))
+      : String(tenant.id) === String(route.query.tenant_id),
+  )
+  if (!company) return
 
-  const findNodePath = (nodes, targetId, parents = []) => {
-    for (const node of nodes) {
-      const nodePath = [...parents, node]
-      if (String(node.companyId) === String(targetId)) return nodePath
-
-      const childPath = findNodePath(node.children || [], targetId, nodePath)
-      if (childPath) return childPath
-    }
-
-    return null
-  }
-
-  const nodePath = findNodePath(companyTree.value, locationId)
-  if (!nodePath) return
-
-  selectedCompany.value = nodePath[0]
-  selectedBranch.value = nodePath.length > 1 ? nodePath[nodePath.length - 1] : null
+  selectedCompany.value = company
+  selectedBranch.value = locationId
+    ? company.locations.find((location) => String(location.id) === String(locationId))
+    : company.locations.length === 1
+      ? company.locations[0]
+      : null
+  fetchEmployees(1, company.id, selectedBranch.value?.id)
 }
 
-async function fetchEmployees(page = 1) {
+async function fetchEmployees(page = 1, tenantId = selectedCompany.value?.id, locationId = selectedBranch.value?.id) {
   loading.value = true
   try {
-    const res = await api.get('/users', { params: { page, per_page: perPage.value } })
+    const params = { page, per_page: perPage.value }
+    if (tenantId) params.tenant_id = tenantId
+    if (locationId) params.location_id = locationId
+    const res = await api.get('/users', { params })
     const employeeList = Array.isArray(res.data?.data) ? res.data.data : []
     employees.value = employeeList
     totalEmployees.value = res.data?.total ?? employeeList.length
@@ -383,20 +306,91 @@ async function deleteEmployee(emp) {
   }
 }
 
-function openAddModal() {
+async function openAddModal() {
   form.value = {
     name: '',
     email: '',
     password: '',
     no_hp: '',
     role: 'karyawan',
+    tenant_id: '',
     home_location_id: '',
     division_id: '',
     shift_id: '',
   }
   showPassword.value = false
+  await fetchTenants()
+  const contextTenantId = selectedCompany.value?.id
+  const hasContextTenant = tenants.value.some(
+    (tenant) => Number(tenant.id) === Number(contextTenantId),
+  )
+  form.value.tenant_id = hasContextTenant
+    ? contextTenantId
+    : tenants.value.length === 1
+      ? tenants.value[0].id
+      : ''
   showModal.value = true
-  fetchLocations()
+  if (form.value.tenant_id) {
+    await fetchFormOptions(form.value.tenant_id)
+    const preferredLocationId = selectedBranch.value?.id
+    const preferredLocationExists = formLocations.value.some(
+      (location) => Number(location.id) === Number(preferredLocationId),
+    )
+    if (preferredLocationExists) form.value.home_location_id = preferredLocationId
+    else if (formLocations.value.length === 1) form.value.home_location_id = formLocations.value[0].id
+  }
+}
+
+async function fetchTenants() {
+  try {
+    const response = await api.get('/tenants')
+    const existingLocations = new Map(tenants.value.map((tenant) => [String(tenant.id), tenant.locations]))
+    tenants.value = (Array.isArray(response.data) ? response.data : []).map((tenant) => ({
+      ...tenant,
+      locations: existingLocations.get(String(tenant.id)) || [],
+    }))
+  } catch (err) {
+    console.error('Gagal mengambil data perusahaan:', err)
+    tenants.value = []
+    showToast(err.response?.data?.message || 'Daftar perusahaan gagal dimuat.', 'error')
+  }
+}
+
+async function fetchFormOptions(tenantId) {
+  const requestId = ++formOptionsRequest
+  formLocations.value = []
+  formDivisions.value = []
+  formShifts.value = []
+  loadingFormOptions.value = Boolean(tenantId)
+  if (!tenantId) return
+
+  const config = { params: { tenant_id: Number(tenantId) } }
+  try {
+    const [locationResponse, divisionResponse, shiftResponse] = await Promise.all([
+      api.get('/locations', config),
+      api.get('/divisions', config),
+      api.get('/shifts', config),
+    ])
+    if (requestId !== formOptionsRequest || Number(form.value.tenant_id) !== Number(tenantId)) {
+      return
+    }
+    formLocations.value = Array.isArray(locationResponse.data) ? locationResponse.data : []
+    formDivisions.value = Array.isArray(divisionResponse.data) ? divisionResponse.data : []
+    formShifts.value = Array.isArray(shiftResponse.data) ? shiftResponse.data : []
+  } catch (err) {
+    if (requestId === formOptionsRequest) {
+      showToast(err.response?.data?.message || 'Data cabang dan divisi gagal dimuat.', 'error')
+    }
+  } finally {
+    if (requestId === formOptionsRequest) loadingFormOptions.value = false
+  }
+}
+
+async function onFormTenantChange() {
+  form.value.home_location_id = ''
+  form.value.division_id = ''
+  form.value.shift_id = ''
+  await fetchFormOptions(form.value.tenant_id)
 }
 
 function closeModal(force = false) {
@@ -425,6 +419,10 @@ async function submitEmployeeForm() {
     showToast('Nomor HP tidak valid.', 'error')
     return
   }
+  if (!form.value.tenant_id || !form.value.home_location_id) {
+    showToast('Pilih perusahaan dan cabang sebelum menyimpan karyawan.', 'error')
+    return
+  }
 
   saving.value = true
   try {
@@ -433,7 +431,8 @@ async function submitEmployeeForm() {
       email,
       no_hp: no_hp || null,
       role: form.value.role,
-      ...(form.value.home_location_id ? { home_location_id: Number(form.value.home_location_id) } : {}),
+      tenant_id: Number(form.value.tenant_id),
+      home_location_id: Number(form.value.home_location_id),
       ...(form.value.division_id ? { division_id: Number(form.value.division_id) } : {}),
       ...(form.value.shift_id ? { shift_id: Number(form.value.shift_id) } : {}),
     }
@@ -457,59 +456,33 @@ async function submitEmployeeForm() {
   }
 }
 
-async function deleteEmployee(emp) {
-  const isConfirmed = await confirmDialog.showConfirm({
-    title: 'Hapus Data Karyawan',
-    message: `Apakah Anda yakin ingin menghapus data karyawan "${emp.name}"? Tindakan ini tidak dapat dibatalkan.`,
-    type: 'danger',
-    confirmText: 'Hapus',
-    cancelText: 'Batal',
-  })
-
-  if (!isConfirmed) return
-
+async function fetchCompanies() {
+  loading.value = true
   try {
-    const response = await api.delete(`/users/${emp.id}`)
-    await fetchEmployees(currentPage.value)
-    showToast(response.data?.message || 'Karyawan berhasil dihapus.')
+    const response = await api.get('/tenants')
+    const tenantList = Array.isArray(response.data) ? response.data : []
+    tenants.value = await Promise.all(
+      tenantList.map(async (tenant) => {
+        const locationResponse = await api.get('/locations', {
+          params: { tenant_id: tenant.id },
+        })
+        return {
+          ...tenant,
+          locations: Array.isArray(locationResponse.data) ? locationResponse.data : [],
+        }
+      }),
+    )
   } catch (err) {
-    console.error('Gagal menghapus karyawan:', err)
-    const status = err.response?.status
-    if (status === 404 || status === 405 || String(err.message).includes('Network Error')) {
-      handleMissingBackendFeature('menghapus')
-    } else {
-      showToast(err.response?.data?.message || 'Gagal menghapus data karyawan.', 'error')
-    }
-  }
-}
-
-async function fetchLocations() {
-  try {
-    const res = await api.get('/locations')
-    const list = res.data || []
-    locations.value = list
-    companies.value = list
-  } catch (err) {
-    console.error('Gagal mengambil lokasi:', err)
-  }
-}
-
-async function fetchShiftSettings() {
-  try {
-    const [divisionResponse, shiftResponse] = await Promise.all([
-      api.get('/divisions'),
-      api.get('/shifts'),
-    ])
-    divisions.value = divisionResponse.data || []
-    shifts.value = shiftResponse.data || []
-  } catch (err) {
-    console.error('Gagal mengambil pengaturan shift:', err)
+    console.error('Gagal mengambil data perusahaan dan cabang:', err)
+    tenants.value = []
+    showToast(err.response?.data?.message || 'Daftar perusahaan gagal dimuat.', 'error')
+  } finally {
+    loading.value = false
   }
 }
 
 onMounted(async () => {
-  await Promise.all([fetchEmployees(), fetchLocations(), fetchShiftSettings()])
-  // Pastikan URL param dimuat
+  await fetchCompanies()
   restoreSelectedOffice()
 })
 
@@ -529,22 +502,22 @@ onBeforeUnmount(() => {
     <section class="panel table-panel">
       <div class="filter-bar">
         <div class="breadcrumb-wrap">
-          <button v-if="selectedCompany || selectedBranch" type="button" class="back-btn" @click="selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
+          <button v-if="selectedCompany" type="button" class="back-btn" @click="hasMultipleBranches && selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
             <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
           </button>
           <div v-if="!selectedCompany" class="table-heading">
-            <h2>Pilih Kantor</h2>
-            <p>Pilih kantor terlebih dahulu untuk melihat data karyawan.</p>
+            <h2>Daftar Perusahaan</h2>
+            <p>Pilih perusahaan untuk melihat cabang atau karyawannya.</p>
           </div>
           <div v-else class="selected-office-heading">
-            <span>Kantor terpilih</span>
+            <span>{{ selectedBranch ? `Cabang · ${selectedCompany.name}` : 'Perusahaan terpilih' }}</span>
             <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
           </div>
         </div>
 
         <div class="search">
           <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-          <input type="text" v-model="searchQuery" @input="onSearchInput" placeholder="Cari kantor..." />
+          <input type="text" v-model="searchQuery" :placeholder="showBranchList ? 'Cari cabang...' : 'Cari perusahaan...'" />
         </div>
 
         <button class="icon-btn-solid" @click="openAddModal" title="Tambah Karyawan">
@@ -553,60 +526,50 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- TABEL DAFTAR PERUSAHAAN / CABANG -->
-      <table v-if="!selectedCompany || (selectedCompany && !selectedBranch && currentCompanyChildren.length)">
+      <table v-if="!selectedCompany || showBranchList">
         <thead>
           <tr>
-            <th>Nama Perusahaan</th>
-            <th>Alamat</th>
-            <th>Jumlah Karyawan</th>
+            <th>{{ selectedCompany ? 'Nama Cabang' : 'Nama Perusahaan' }}</th>
+            <th>{{ selectedCompany ? 'Alamat Cabang' : 'Jumlah Cabang' }}</th>
+            <th>{{ selectedCompany ? 'Lokasi' : 'Jumlah Karyawan' }}</th>
             <th class="action-column">Aksi</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading && employees.length === 0">
+          <tr v-if="loading">
             <td colspan="4" class="empty-cell">Memuat data...</td>
           </tr>
-          <tr v-else-if="(!selectedCompany && companyTree.length === 0) || (selectedCompany && currentCompanyChildren.length === 0)">
-            <td colspan="4" class="empty-cell">Data tidak ditemukan.</td>
+          <tr v-else-if="!selectedCompany && visibleCompanies.length === 0">
+            <td colspan="4" class="empty-cell">Belum ada perusahaan.</td>
           </tr>
-          <!-- Mode Level 1: Daftar Perusahaan Root -->
+          <tr v-else-if="showBranchList && visibleBranches.length === 0">
+            <td colspan="4" class="empty-cell">Cabang tidak ditemukan.</td>
+          </tr>
           <template v-if="!selectedCompany">
-            <tr v-for="node in companyTree" :key="node.id">
+            <tr v-for="company in visibleCompanies" :key="company.id">
               <td>
-                <strong>{{ node.name }}</strong>
+                <strong>{{ company.name }}</strong>
               </td>
-              <td>{{ node.address || '-' }}</td>
-              <td>
-                <span class="count-badge">{{ node.count || 0 }} Orang</span>
-              </td>
+              <td>{{ company.locations?.length || 0 }} cabang</td>
+              <td><span class="count-badge">{{ company.users_count || 0 }} Orang</span></td>
               <td class="action-cell">
-                <button type="button" class="detail-link-btn" @click="goToCompany(node)">
-                  Lihat Karyawan
+                <button type="button" class="detail-link-btn" @click="goToCompany(company)">
+                  {{ company.locations?.length > 1 ? 'Lihat Cabang' : 'Lihat Karyawan' }}
                 </button>
               </td>
             </tr>
           </template>
-          <!-- Mode Level 2: Daftar Cabang / Anak Perusahaan -->
-          <template v-else-if="selectedCompany && !selectedBranch && currentCompanyChildren.length">
-            <tr v-for="node in currentCompanyChildren" :key="node.id">
+          <template v-else>
+            <tr v-for="branch in visibleBranches" :key="branch.id">
               <td>
-                <strong>{{ node.name }}</strong>
+                <strong>{{ branch.name }}</strong>
               </td>
-              <td>{{ node.address || '-' }}</td>
-              <td>
-                <span class="status-badge" :class="emp.statusClass">{{ emp.statusLabel }}</span>
-              </td>
-              <td class="action-cell employee-actions">
-                <BaseButton variant="ghost" icon="material-symbols:visibility-outline" @click="goToEmployeeDetail(emp)" title="Lihat Detail"></BaseButton>
-                <BaseButton
-                  v-if="!emp.isActive"
-                  variant="ghost"
-                  :icon="resendingInvitationId === emp.id ? 'line-md:loading-twotone-loop' : 'material-symbols:mail-outline-rounded'"
-                  :disabled="resendingInvitationId === emp.id"
-                  @click="resendInvitation(emp)"
-                  :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
-                ></BaseButton>
-                <BaseButton variant="danger" icon="material-symbols:delete-outline" @click="deleteEmployee(emp)" title="Hapus Karyawan"></BaseButton>
+              <td>{{ branch.address || '-' }}</td>
+              <td>{{ branch.latitude && branch.longitude ? `${branch.latitude}, ${branch.longitude}` : '-' }}</td>
+              <td class="action-cell">
+                <button type="button" class="detail-link-btn" @click="goToBranch(branch)">
+                  Lihat Karyawan
+                </button>
               </td>
             </tr>
           </template>
@@ -674,7 +637,7 @@ onBeforeUnmount(() => {
       </table>
 
       <!-- Table Footer -->
-      <div class="table-footer">
+      <div v-if="selectedCompany && !showBranchList" class="table-footer">
         <div class="table-footer-content">
           <div class="pager">
             <button type="button" class="pager-btn" :disabled="currentPage === 1 || loading" @click="prevPage">
@@ -730,37 +693,44 @@ onBeforeUnmount(() => {
             </div>
             <div class="field-row">
               <div class="field">
-                <label class="required">Peran</label>
-                <select v-model="form.role">
-                  <option value="karyawan">Karyawan</option>
-                  <option value="admin">Admin</option>
+                <label class="required">Perusahaan</label>
+                <select v-model="form.tenant_id" @change="onFormTenantChange" required>
+                  <option value="" disabled>Pilih perusahaan</option>
+                  <option v-for="tenant in tenants" :key="tenant.id" :value="tenant.id">{{ tenant.name }}</option>
                 </select>
               </div>
               <div class="field">
-                <label class="required">Lokasi Cabang</label>
-                <select v-model="form.home_location_id">
-                  <option value="" disabled>Pilih lokasi</option>
-                  <option v-for="loc in locations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
+                <label class="required">Cabang</label>
+                <select v-model="form.home_location_id" :disabled="loadingFormOptions || !formLocations.length" required>
+                  <option value="" disabled>{{ !form.tenant_id ? 'Pilih perusahaan dahulu' : loadingFormOptions ? 'Memuat cabang...' : formLocations.length ? 'Pilih cabang' : 'Tidak ada cabang tersedia' }}</option>
+                  <option v-for="location in formLocations" :key="location.id" :value="location.id">{{ location.name }}</option>
                 </select>
               </div>
             </div>
             <div class="field-row">
               <div class="field">
                 <label>Divisi</label>
-                <select v-model="form.division_id">
+                <select v-model="form.division_id" :disabled="loadingFormOptions || !form.tenant_id">
                   <option value="">Tanpa divisi</option>
-                  <option v-for="division in divisions" :key="division.id" :value="division.id">{{ division.name }}</option>
+                  <option v-for="division in formDivisions" :key="division.id" :value="division.id">{{ division.name }}</option>
                 </select>
               </div>
               <div class="field">
                 <label>Jam Kerja / Shift</label>
-                <select v-model="form.shift_id">
-                  <option value="">Gunakan jam lokasi</option>
-                  <option v-for="shift in shifts.filter((item) => !form.division_id || item.division_id === Number(form.division_id))" :key="shift.id" :value="shift.id">
+                <select v-model="form.shift_id" :disabled="loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length">
+                  <option value="">{{ form.division_id ? 'Pilih shift' : 'Pilih divisi dahulu' }}</option>
+                  <option v-for="shift in availableFormShifts" :key="shift.id" :value="shift.id">
                     {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} - {{ shift.work_end_time.slice(0, 5) }})
                   </option>
                 </select>
               </div>
+            </div>
+            <div class="field">
+              <label class="required">Peran</label>
+              <select v-model="form.role">
+                <option value="karyawan">Karyawan</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
           </div>
 
