@@ -31,8 +31,8 @@ const navigation = computed(() => [
         {
           id: 'perusahaan',
           text: 'Perusahaan',
-          icon: 'material-symbols:business-outline',
-          activeIcon: 'material-symbols:business',
+          icon: 'material-symbols:apartment-outline',
+          activeIcon: 'material-symbols:apartment',
           path: '/dashboard/perusahaan',
         },
       ]
