@@ -97,6 +97,11 @@ const routes = [
         name: 'DivisiShift',
         component: () => import('@/views/KelolaDivisiShift.vue'),
       },
+      {
+        path: '/dashboard/perusahaan/:id',
+        name: 'DetailPerusahaan',
+        component: () => import('../views/DetailPerusahaan.vue'),
+      },
     ],
   },
 ]
