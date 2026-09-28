@@ -24,6 +24,10 @@ const editingId = ref(null)
 const branchCompany = ref(null)
 const branchLocations = ref([])
 const loadingBranches = ref(false)
+const employeeCompany = ref(null)
+const employeeList = ref([])
+const loadingEmployees = ref(false)
+const showEmployeeListModal = ref(false)
 const searchQuery = ref('')
 const toast = ref({ show: false, type: 'success', message: '' })
 
@@ -149,6 +153,31 @@ async function openBranchList(company) {
   }
 }
 
+async function openEmployeeList(company) {
+  employeeCompany.value = company
+  employeeList.value = []
+  showEmployeeListModal.value = true
+  loadingEmployees.value = true
+
+  try {
+    const response = await api.get('/users', {
+      params: { per_page: 1000 },
+    })
+
+    const list = Array.isArray(response.data?.data) ? response.data.data : Array.isArray(response.data) ? response.data : []
+
+    employeeList.value = list.filter((user) => {
+      const tenantId = user.tenant_id ?? user.tenantId ?? user.home_location?.tenant_id ?? user.home_location?.tenantId
+      return Number(tenantId) === Number(company.id)
+    })
+  } catch (error) {
+    showEmployeeListModal.value = false
+    showToast(error.response?.data?.message || 'Daftar karyawan gagal dimuat.', 'error')
+  } finally {
+    loadingEmployees.value = false
+  }
+}
+
 function closeBranchModal() {
   if (!saving.value) showBranchModal.value = false
 }
@@ -253,56 +282,67 @@ onMounted(fetchCompanies)
         <BaseSearch v-model="searchQuery" placeholder="Cari perusahaan..." width="100%" class="custom-search" />
       </div>
 
-      <!-- Penggunaan BaseTable dengan Slots -->
-      <BaseTable 
-        :columns="tableColumns" 
-        :data="filteredCompanies" 
-        emptyText="Belum ada perusahaan."
-        hasActions
-      >
-        <template #cell-company="{ item }">
-          <div class="company-name-cell">
-            <strong>{{ item.name }}</strong>
-            <small>{{ item.slug }}</small>
-          </div>
-        </template>
-
-        <template #cell-status="{ item }">
-          <span class="status" :class="item.status">
-            {{ item.status === 'active' ? 'Aktif' : 'Nonaktif' }}
-          </span>
-        </template>
-
-        <template #cell-branches="{ item }">
-          <button class="count-link" @click="openBranchList(item)">
-            {{ item.locations_count ?? 0 }} cabang
-          </button>
-        </template>
-
-        <template #cell-employees="{ item }">
-          {{ item.users_count ?? 0 }}
-        </template>
-
-        <!-- Penggunaan TableActions -->
-        <template #actions="{ item }">
-          <div class="custom-actions-wrapper">
-            <button class="branch-action" title="Tambah cabang" @click="openBranchModal(item)">
-              <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" />
-              Cabang
-            </button>
-            
-            <TableActions
-              showView
-              showEdit
-              showToggleStatus
-              :isActive="item.status === 'active'"
-              @view="goToDetail(item)"
-              @edit="openEditModal(item)"
-              @toggleStatus="toggleStatus(item)"
-            />
-          </div>
-        </template>
-      </BaseTable>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Perusahaan</th>
+              <th>Status</th>
+              <th>Cabang / Lokasi</th>
+              <th>Karyawan</th>
+              <th class="action-column">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td colspan="5" class="empty-cell">Memuat data perusahaan...</td>
+            </tr>
+            <tr v-else-if="filteredCompanies.length === 0">
+              <td colspan="5" class="empty-cell">Belum ada perusahaan.</td>
+            </tr>
+            <tr v-for="company in filteredCompanies" :key="company.id">
+              <td>
+                <strong>{{ company.name }}</strong>
+                <small>{{ company.slug }}</small>
+              </td>
+              <td>
+                <span class="status" :class="company.status">
+                  {{ company.status === 'active' ? 'Aktif' : 'Nonaktif' }}
+                </span>
+              </td>
+              <td>
+                <button class="count-link" @click="openBranchList(company)">
+                  {{ company.locations_count ?? 0 }} cabang
+                </button>
+              </td>
+              <td>
+                <button class="count-link" @click="openEmployeeList(company)">
+                  {{ company.users_count ?? 0 }} karyawan
+                </button>
+              </td>
+              <td class="actions">
+                <button class="branch-action" title="Tambah cabang" @click="openBranchModal(company)">
+                  <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" />
+                  Cabang
+                </button>
+                <button class="icon-action" title="Edit perusahaan" @click="openEditModal(company)">
+                  <Icon icon="material-symbols:edit-outline-rounded" width="18" />
+                </button>
+                <button
+                  class="icon-action"
+                  :title="company.status === 'active' ? 'Nonaktifkan perusahaan' : 'Aktifkan perusahaan'"
+                  @click="toggleStatus(company)"
+                >
+                  <Icon
+                    :icon="company.status === 'active' ? 'material-symbols:pause-circle-outline' : 'material-symbols:play-circle-outline'"
+                    width="19"
+                  />
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <!-- MODAL TAMBAH / EDIT PERUSAHAAN -->
@@ -437,6 +477,39 @@ onMounted(fetchCompanies)
               <Icon icon="material-symbols:add-location-alt-outline-rounded" width="18" height="18" />
               Tambah Cabang
             </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="showEmployeeListModal" class="modal-overlay" @click.self="showEmployeeListModal = false">
+        <section class="modal branch-list-modal">
+          <div class="modal-head">
+            <div>
+              <span class="eyebrow">{{ employeeCompany?.name }}</span>
+              <h3>Daftar Karyawan</h3>
+            </div>
+            <button type="button" class="close-btn" @click="showEmployeeListModal = false" aria-label="Tutup">
+              <Icon icon="material-symbols:close-rounded" width="22" />
+            </button>
+          </div>
+          <div class="branch-list-body">
+            <div v-if="loadingEmployees" class="empty-cell">Memuat daftar karyawan...</div>
+            <div v-else-if="employeeList.length === 0" class="empty-cell">Belum ada karyawan di perusahaan ini.</div>
+            <article v-for="employee in employeeList" v-else :key="employee.id" class="branch-card">
+              <div>
+                <strong>{{ employee.name }}</strong>
+                <p>{{ employee.email || '-' }}</p>
+              </div>
+              <div class="branch-meta">
+                <span>{{ employee.role || 'Karyawan' }}</span>
+                <span>{{ employee.home_location?.name || employee.home_location_name || 'Belum ada lokasi' }}</span>
+              </div>
+            </article>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="cancel-btn" @click="showEmployeeListModal = false">Tutup</button>
           </div>
         </section>
       </div>
