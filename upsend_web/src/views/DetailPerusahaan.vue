@@ -254,56 +254,62 @@ onBeforeUnmount(() => {
     <div v-if="loading" class="loading-state">Memuat data perusahaan...</div>
     
     <div v-else-if="company" class="content-container">
-      <!-- Info Card Perusahaan -->
-      <section class="company-card">
-        <div class="company-avatar">
-          <Icon icon="material-symbols:domain-rounded" width="40" height="40" color="#2f3b69" />
-        </div>
-        <div class="company-info">
-          <h3>{{ company.name }}</h3>
-          <p class="company-slug">@{{ company.slug || 'tanpa-slug' }}</p>
-          <div class="company-meta">
-            <span class="status-badge" :class="company.status">
-              {{ company.status === 'active' ? 'Aktif' : 'Nonaktif' }}
-            </span>
+      
+      <!-- GRID ATAS: Info Umum di Kiri & Profil Perusahaan di Kanan -->
+      <div class="top-row-grid">
+        
+        <!-- KIRI: Detail Informasi Perusahaan -->
+        <section class="detail-section">
+          <div class="section-header">
+            <h4>Informasi Umum</h4>
+            <button class="btn-sec-edit" @click="openEditCompany">
+              <Icon icon="material-symbols:edit-outline-rounded" width="16" height="16" />
+              Edit Info
+            </button>
           </div>
-        </div>
-      </section>
+          <div class="section-body details-grid">
+            <div class="detail-row">
+              <span class="label">Nama Perusahaan</span>
+              <span class="separator">:</span>
+              <span class="value">{{ company.name }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Slug / ID Unik</span>
+              <span class="separator">:</span>
+              <span class="value">{{ company.slug || '-' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Status</span>
+              <span class="separator">:</span>
+              <span class="value">{{ company.status === 'active' ? 'Aktif' : 'Nonaktif' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Potongan Alpha / Hari</span>
+              <span class="separator">:</span>
+              <span class="value bold-text">{{ formatCurrency(company.alpha_deduction_per_day) }}</span>
+            </div>
+          </div>
+        </section>
 
-      <!-- Detail Informasi Perusahaan -->
-      <section class="detail-section">
-        <div class="section-header">
-          <h4>Informasi Umum</h4>
-          <button class="btn-sec-edit" @click="openEditCompany">
-            <Icon icon="material-symbols:edit-outline-rounded" width="16" height="16" />
-            Edit Info
-          </button>
-        </div>
-        <div class="section-body details-grid">
-          <div class="detail-row">
-            <span class="label">Nama Perusahaan</span>
-            <span class="separator">:</span>
-            <span class="value">{{ company.name }}</span>
+        <!-- KANAN: Info Card Perusahaan -->
+        <section class="company-card">
+          <div class="company-avatar">
+            <Icon icon="material-symbols:domain-rounded" width="48" height="48" color="#2f3b69" />
           </div>
-          <div class="detail-row">
-            <span class="label">Slug / ID Unik</span>
-            <span class="separator">:</span>
-            <span class="value">{{ company.slug || '-' }}</span>
+          <div class="company-info">
+            <h3>{{ company.name }}</h3>
+            <p class="company-slug">@{{ company.slug || 'tanpa-slug' }}</p>
+            <div class="company-meta">
+              <span class="status-badge" :class="company.status">
+                {{ company.status === 'active' ? 'Aktif' : 'Nonaktif' }}
+              </span>
+            </div>
           </div>
-          <div class="detail-row">
-            <span class="label">Status</span>
-            <span class="separator">:</span>
-            <span class="value">{{ company.status === 'active' ? 'Aktif' : 'Nonaktif' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">Potongan Alpha / Hari</span>
-            <span class="separator">:</span>
-            <span class="value bold-text">{{ formatCurrency(company.alpha_deduction_per_day) }}</span>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Daftar Cabang / Lokasi Kerja -->
+      </div>
+
+      <!-- BAWAH: Daftar Cabang / Lokasi Kerja -->
       <section class="detail-section">
         <div class="section-header">
           <h4>Daftar Cabang ({{ branches.length }})</h4>
@@ -451,7 +457,9 @@ onBeforeUnmount(() => {
   --bg: #f7f8fa;
   --card: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  max-width: 900px;
+  width: 100%;
+  min-height: calc(100vh - 120px);
+  max-width: none;
 }
 .detail-perusahaan-view * {
   box-sizing: border-box;
@@ -461,37 +469,55 @@ onBeforeUnmount(() => {
 .content-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+  width: 100%;
+  min-height: 100%;
 }
 
-/* Card Profile Perusahaan */
+/* ================= GRID ATAS ================= */
+.top-row-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+
+/* Card Profile Perusahaan (Kanan) */
 .company-card {
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 24px;
+  padding: 32px 24px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 20px;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
 }
 .company-avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 16px;
+  width: 88px;
+  height: 88px;
+  border-radius: 20px;
   background: #f0f3fa;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid #d9dde5;
 }
+.company-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .company-info h3 {
-  margin: 0 0 4px 0;
+  margin: 0 0 6px 0;
   font-size: 22px;
   font-weight: 700;
   color: var(--ink);
 }
 .company-slug {
-  margin: 0 0 10px 0;
+  margin: 0 0 12px 0;
   font-size: 14px;
   color: var(--ink-soft);
   font-weight: 500;
@@ -506,12 +532,14 @@ onBeforeUnmount(() => {
 .status-badge.active { background: #e6f7ef; color: #177a5b; }
 .status-badge.inactive { background: #f1f2f4; color: #667085; }
 
-/* Section Data */
+/* Section Data (Kiri & Bawah) */
 .detail-section {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .section-header {
   padding: 18px 24px;
@@ -528,7 +556,8 @@ onBeforeUnmount(() => {
   color: var(--blue-900);
 }
 .section-body {
-  padding: 20px 24px;
+  padding: 24px;
+  flex: 1;
 }
 
 .btn-sec-edit {
@@ -554,7 +583,7 @@ onBeforeUnmount(() => {
 .details-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 .detail-row {
   display: flex;
@@ -562,7 +591,7 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 .label {
-  width: 200px;
+  width: 180px;
   color: var(--ink-soft);
   flex-shrink: 0;
 }
@@ -586,8 +615,8 @@ onBeforeUnmount(() => {
 .coords {
   font-family: monospace;
   background: #f1f3f7;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
   font-size: 13px;
 }
 
@@ -598,7 +627,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 
-/* ================= MODAL STYLES (Sama Dengan PerusahaanView) ================= */
+/* ================= MODAL STYLES ================= */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 1000;
   background: rgba(28, 32, 55, 0.55);
@@ -662,7 +691,28 @@ onBeforeUnmount(() => {
 .toast.success { background: #1f9d67; }
 .toast.error { background: #d92d20; }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
+  .detail-perusahaan-view {
+    min-height: calc(100vh - 90px);
+  }
+
+  .top-row-grid {
+    grid-template-columns: 1fr; /* Di layar kecil kembali menjadi 1 kolom atas-bawah */
+  }
+  .company-card {
+    order: -1; /* Pindah Profil ke paling atas pada versi HP */
+    flex-direction: row;
+    text-align: left;
+    justify-content: flex-start;
+    padding: 20px;
+  }
+  .company-avatar {
+    width: 64px;
+    height: 64px;
+  }
+  .company-info {
+    align-items: flex-start;
+  }
   .detail-row { flex-direction: column; align-items: flex-start; gap: 4px; }
   .label { width: 100%; }
   .separator { display: none; }
