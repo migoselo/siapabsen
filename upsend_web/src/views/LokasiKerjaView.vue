@@ -15,6 +15,8 @@ const confirmDialog = useConfirm()
 
 // Data & State Utama
 const locations = ref([])
+const tenants = ref([])
+const selectedTenantId = ref('')
 const loading = ref(false)
 const deletingId = ref(null)
 const searchQuery = ref('')
@@ -33,6 +35,10 @@ const pageInput = ref(1)
 const filteredLocations = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   let result = locations.value
+
+  if (selectedTenantId.value) {
+    result = result.filter((location) => String(location.tenant_id) === String(selectedTenantId.value))
+  }
 
   if (q) {
     result = result.filter((l) => {
@@ -59,7 +65,7 @@ watch(currentPage, (newPage) => {
   pageInput.value = newPage
 })
 
-watch([searchQuery], () => {
+watch([searchQuery, selectedTenantId], () => {
   currentPage.value = 1
   pageInput.value = 1
 })
@@ -95,11 +101,28 @@ function changePerPage() {
 async function fetchLocations() {
   loading.value = true
   try {
-    const res = await api.get('/locations')
-    locations.value = Array.isArray(res.data) ? res.data : []
+    const tenantResponse = await api.get('/tenants')
+    tenants.value = Array.isArray(tenantResponse.data) ? tenantResponse.data : []
+
+    const locationResponses = await Promise.all(
+      tenants.value.map((tenant) =>
+        api.get('/locations', { params: { tenant_id: tenant.id } }),
+      ),
+    )
+
+    locations.value = locationResponses.flatMap((response, index) => {
+      const tenant = tenants.value[index]
+      const tenantLocations = Array.isArray(response.data) ? response.data : []
+      return tenantLocations.map((location) => ({
+        ...location,
+        tenant_id: location.tenant_id ?? tenant.id,
+        tenant_name: tenant.name,
+      }))
+    })
     totalRecords.value = locations.value.length
   } catch (err) {
     console.error('Gagal mengambil data lokasi:', err)
+    showToast(err.response?.data?.message || 'Data lokasi gagal dimuat.', 'error')
   } finally {
     loading.value = false
   }
@@ -123,6 +146,7 @@ const form = ref({
   latitude: '',
   longitude: '',
   radius: 25,
+  tenant_id: '',
 })
 
 function createMarkerIcon() {
@@ -183,7 +207,14 @@ function destroyMap() {
 
 function openAddModal() {
   editingLocationId.value = null
-  form.value = { name: '', address: '', latitude: '', longitude: '', radius: 25 }
+  form.value = {
+    name: '',
+    address: '',
+    latitude: '',
+    longitude: '',
+    radius: 25,
+    tenant_id: selectedTenantId.value || (tenants.value.length === 1 ? tenants.value[0].id : ''),
+  }
   showModal.value = true
   nextTick(() => initMap())
 }
@@ -196,6 +227,7 @@ function openEditModal(location) {
     latitude: location?.latitude ?? '',
     longitude: location?.longitude ?? '',
     radius: Number(location?.radius_meter ?? location?.radius ?? 100),
+    tenant_id: location?.tenant_id ?? '',
   }
   showModal.value = true
   nextTick(() => {
@@ -301,6 +333,11 @@ async function submitLocation() {
     return
   }
 
+  if (!editingLocationId.value && !form.value.tenant_id) {
+    showToast('Pilih perusahaan untuk lokasi ini.', 'error')
+    return
+  }
+
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     showToast('Pilih titik lokasi di peta atau gunakan GPS terlebih dahulu.', 'error')
     return
@@ -339,7 +376,9 @@ async function submitLocation() {
         }
       }
     } else {
-      await api.post('/locations', payload)
+      await api.post('/locations', payload, {
+        params: { tenant_id: Number(form.value.tenant_id) },
+      })
     }
 
     saving.value = false
@@ -446,6 +485,7 @@ onBeforeUnmount(() => {
         <thead>
           <tr>
             <th>Nama Cabang</th>
+            <th>Alamat</th>
             <th>Latitude</th>
             <th>Longitude</th>
             <th>Radius (m)</th>
@@ -455,16 +495,17 @@ onBeforeUnmount(() => {
         </thead>
         <tbody>
           <tr v-if="loading && locations.length === 0">
-            <td colspan="6" class="empty-cell">Memuat data...</td>
+            <td colspan="7" class="empty-cell">Memuat data...</td>
           </tr>
           <tr v-else-if="filteredLocations.length === 0">
-            <td colspan="6" class="empty-cell">Tidak ada lokasi ditemukan.</td>
+            <td colspan="7" class="empty-cell">Tidak ada lokasi ditemukan.</td>
           </tr>
           <tr v-for="loc in filteredLocations" :key="loc.id">
             <td>
               <div class="loc-name">{{ loc.name }}</div>
               <div class="loc-id">ID: {{ loc.id }}</div>
             </td>
+            <td>{{ loc.address || '-' }}</td>
             <td>{{ loc.latitude }}</td>
             <td>{{ loc.longitude }}</td>
             <td>{{ loc.radius_meter ?? '-' }}</td>
