@@ -13,6 +13,14 @@ defineProps({
     type: String,
     default: 'Tidak ada data yang ditemukan.'
   },
+  loading: {
+    type: Boolean,
+    default: false
+  },
+  loadingText: {
+    type: String,
+    default: 'Memuat data...'
+  },
   hasActions: {
     type: Boolean,
     default: false
@@ -31,15 +39,21 @@ defineProps({
         </tr>
       </thead>
       <tbody>
+        <tr v-if="loading">
+          <td :colspan="columns.length + (hasActions ? 1 : 0)" class="empty-row">
+            {{ loadingText }}
+          </td>
+        </tr>
+
         <!-- State Kosong -->
-        <tr v-if="!data || data.length === 0">
+        <tr v-else-if="!data || data.length === 0">
           <td :colspan="columns.length + (hasActions ? 1 : 0)" class="empty-row">
             {{ emptyText }}
           </td>
         </tr>
         
         <!-- Render Baris Data -->
-        <tr v-for="(item, index) in data" :key="item.id || index">
+        <tr v-for="(item, index) in data" v-else :key="item.id || index">
           
           <td v-for="col in columns" :key="col.key">
             <!-- 
