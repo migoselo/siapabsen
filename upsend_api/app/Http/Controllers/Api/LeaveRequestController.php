@@ -92,7 +92,11 @@ class LeaveRequestController extends Controller
         ]);
 
         $baseQuery = LeaveRequest::query();
-        $query = (clone $baseQuery)->with(['user:id,name,role']);
+        $query = (clone $baseQuery)->with([
+            'user:id,name,role,home_location_id,division_id',
+            'user.homeLocation:id,name',
+            'user.division:id,name',
+        ]);
 
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -120,7 +124,9 @@ class LeaveRequestController extends Controller
                 'requester' => [
                     'name' => $leaveRequest->user?->name ?? 'Unknown',
                     'position' => $leaveRequest->user?->role ?? '-',
-                    'departmentId' => null,
+                    'departmentId' => $leaveRequest->user?->division_id,
+                    'departmentName' => $leaveRequest->user?->division?->name,
+                    'locationName' => $leaveRequest->user?->homeLocation?->name,
                     'avatarUrl' => '',
                 ],
                 'leaveTypeId' => $leaveRequest->leave_type_id,

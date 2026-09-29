@@ -32,59 +32,30 @@ const requestColumns = [
   { key: 'reason', label: 'Alasan' }
 ]
 
-/* ------------------------------------------------------------------ */
-/* Departemen — dikelola admin lewat modal                             */
-/* ------------------------------------------------------------------ */
-const defaultDepartments = [
-  { id: 'd1', name: 'Engineering' },
-  { id: 'd2', name: 'Marketing' },
-  { id: 'd3', name: 'Finance' },
-  { id: 'd4', name: 'Creative' },
-  { id: 'd5', name: 'HR' },
-  { id: 'd6', name: 'Operations' },
-]
-
-const storageAvailable = (() => {
-  try {
-    const testKey = '__siaphadir_test__'
-    window.localStorage.setItem(testKey, '1')
-    window.localStorage.removeItem(testKey)
-    return true
-  } catch {
-    return false
-  }
-})()
-
-function loadFromStorage(key, fallback) {
-  if (!storageAvailable) return JSON.parse(JSON.stringify(fallback))
-  try {
-    const raw = window.localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(fallback))
-  } catch {
-    return JSON.parse(JSON.stringify(fallback))
-  }
-}
-
-const departments = reactive(loadFromStorage('siaphadir_departments_lembur', defaultDepartments))
+const divisions = ref([])
 const departmentOptions = computed(() => {
   return [
-    { label: 'Semua Departemen', value: '' },
-    ...departments.map((d) => ({ label: d.name, value: d.id }))
+    { label: 'Semua Divisi', value: '' },
+    ...divisions.value.map((division) => ({ label: division.name, value: division.id }))
   ]
 })
 
-const storageWarning = ref(
-  !storageAvailable ? 'Penyimpanan lokal tidak tersedia. Perubahan hanya berlaku selama sesi ini.' : '',
-)
-
-function persistSettings() {
-  if (!storageAvailable) return
+async function fetchDivisions() {
   try {
-    window.localStorage.setItem('siaphadir_departments_lembur', JSON.stringify(departments))
-    storageWarning.value = ''
+    const { data } = await api.get('/tenants')
+    const tenants = Array.isArray(data) ? data : []
+    const responses = await Promise.all(
+      tenants.map((tenant) => api.get('/divisions', { params: { tenant_id: tenant.id } })),
+    )
+    const divisionsById = new Map(
+      responses.flatMap(({ data: rows }) =>
+        (Array.isArray(rows) ? rows : []).map((division) => [String(division.id), division]),
+      ),
+    )
+    divisions.value = [...divisionsById.values()].sort((a, b) => a.name.localeCompare(b.name, 'id'))
   } catch (error) {
-    console.error('Gagal menyimpan pengaturan ke localStorage:', error)
-    storageWarning.value = 'Gagal menyimpan perubahan ke penyimpanan lokal.'
+    console.error('Gagal memuat divisi dari API:', error)
+    divisions.value = []
   }
 }
 
@@ -94,21 +65,8 @@ function nextId(prefix) {
   return `${prefix}${Date.now()}${idCounter}`
 }
 
-const newDepartmentName = ref('')
-function addDepartment() {
-  const name = newDepartmentName.value.trim()
-  if (!name) return
-  departments.push({ id: nextId('d'), name })
-  newDepartmentName.value = ''
-  persistSettings()
-}
-function removeDepartment(id) {
-  const idx = departments.findIndex((d) => d.id === id)
-  if (idx > -1) departments.splice(idx, 1)
-  persistSettings()
-}
 function departmentName(id) {
-  return departments.find((d) => d.id === id)?.name || '-'
+  return divisions.value.find((division) => String(division.id) === String(id))?.name || '-'
 }
 
 /* ------------------------------------------------------------------ */
@@ -160,7 +118,7 @@ function isOvertimeRow(row = {}) {
 function normalizeOvertimeApiRequest(payload) {
   const name = payload.requester?.name || payload.employee?.name || payload.user?.name || 'Unknown'
   const position = payload.requester?.position || payload.employee?.position || payload.user?.role || '-'
-  const departmentId = payload.requester?.departmentId || payload.employee?.departmentId || payload.departmentId || payload.department_id || 'd1'
+  const departmentId = payload.requester?.departmentId ?? payload.requester?.divisionId ?? payload.employee?.division_id ?? payload.departmentId ?? payload.department_id ?? ''
   const locationName = payload.requester?.locationName || payload.employee?.home_location?.name || payload.user?.home_location?.name || 'Tanpa Perusahaan'
 
   const startTime = payload.startTime || payload.start_time || '18:00'
@@ -525,7 +483,6 @@ function downloadBlob(blob, filename) {
 }
 
 const showExportMenu = ref(false)
-const showManageModal = ref(false)
 
 function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
@@ -533,6 +490,7 @@ function handleOutsideClick(e) {
 
 onMounted(() => {
   fetchLocations()
+  fetchDivisions()
   fetchOvertimeRequests()
   document.addEventListener('click', handleOutsideClick)
 })
@@ -550,10 +508,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
     />
 
     <template v-else>
-      <div v-if="storageWarning" class="storage-warning">
-        <Icon icon="material-symbols:warning-outline" width="18" /> {{ storageWarning }}
-      </div>
-
       <!-- Dashboard Statistik hanya dirender jika lokasi/perusahaan telah dipilih -->
       <div v-if="isShowingRequests" class="stats-grid">
         <BaseSummaryCard
@@ -607,10 +561,7 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
         <div v-if="isShowingRequests" class="filters-row">
           <div class="filters">
-            <BaseSelect v-model="departmentFilter" :options="departmentOptions" placeholder="Semua Departemen" />
-            <BaseButton variant="ghost" icon="material-symbols:tune" @click="showManageModal = true">
-              Kelola Departemen
-            </BaseButton>
+            <BaseSelect v-model="departmentFilter" :options="departmentOptions" placeholder="Semua Divisi" />
           </div>
 
           <div class="toolbar-actions">
@@ -713,25 +664,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
       </div>
 
-      <!-- Modal Kelola Departemen -->
-      <div v-if="showManageModal" class="modal-overlay" @click.self="showManageModal = false">
-        <div class="modal">
-          <div class="modal-header">
-            <h2>Kelola Departemen Lembur</h2>
-            <button class="icon-btn-plain" @click="showManageModal = false"><Icon icon="material-symbols:close" width="18" /></button>
-          </div>
-          <div class="modal-body">
-            <div v-for="d in departments" :key="d.id" class="manage-row">
-              <input v-model="d.name" class="manage-input" @change="persistSettings" />
-              <button class="icon-btn-plain" @click="removeDepartment(d.id)"><Icon icon="material-symbols:delete-outline" width="18" /></button>
-            </div>
-            <div class="manage-add-row">
-              <input v-model="newDepartmentName" placeholder="Nama departemen baru" class="manage-input" @keydown.enter.prevent="addDepartment" />
-              <BaseButton variant="primary" @click="addDepartment">Tambah</BaseButton>
-            </div>
-          </div>
-        </div>
-      </div>
     </template>
   </div>
 </template>

@@ -34,7 +34,7 @@ const requestColumns = [
 ]
 
 /* ------------------------------------------------------------------ */
-/* Palet warna, Jenis Cuti, & Departemen (Dikelola admin via modal)    */
+/* Palet warna dan jenis cuti                                          */
 /* ------------------------------------------------------------------ */
 const colorPalette = [
   { key: 'blue', label: 'Biru', bg: '#EAF0FF', text: '#2A4365' },
@@ -53,15 +53,6 @@ const defaultLeaveTypes = [
   { id: 'lt4', name: 'Cuti Melahirkan', colorKey: 'orange' },
   { id: 'lt5', name: 'Tanpa Keterangan', colorKey: 'gray' },
 ]
-const defaultDepartments = [
-  { id: 'd1', name: 'Engineering' },
-  { id: 'd2', name: 'Marketing' },
-  { id: 'd3', name: 'Finance' },
-  { id: 'd4', name: 'Creative' },
-  { id: 'd5', name: 'HR' },
-  { id: 'd6', name: 'Operations' },
-]
-
 const storageAvailable = (() => {
   try {
     const testKey = '__siaphadir_test__'
@@ -89,7 +80,7 @@ const leaveTypes = reactive(
     ...colorByKey(lt.colorKey),
   })),
 )
-const departments = reactive(loadFromStorage('siaphadir_departments', defaultDepartments))
+const divisions = ref([])
 
 const leaveTypeOptions = computed(() => [
   { label: 'Semua Jenis Cuti', value: '' },
@@ -97,8 +88,8 @@ const leaveTypeOptions = computed(() => [
 ])
 
 const departmentOptions = computed(() => [
-  { label: 'Semua Departemen', value: '' },
-  ...departments.map((d) => ({ label: d.name, value: d.id }))
+  { label: 'Semua Divisi', value: '' },
+  ...divisions.value.map((division) => ({ label: division.name, value: division.id }))
 ])
 
 const storageWarning = ref(
@@ -113,10 +104,6 @@ function persistSettings() {
     window.localStorage.setItem(
       'siaphadir_leave_types',
       JSON.stringify(leaveTypes.map(({ id, name, colorKey }) => ({ id, name, colorKey }))),
-    )
-    window.localStorage.setItem(
-      'siaphadir_departments',
-      JSON.stringify(departments.map(({ id, name }) => ({ id, name }))),
     )
     storageWarning.value = ''
   } catch (error) {
@@ -149,22 +136,10 @@ function removeLeaveType(id) {
   persistSettings()
 }
 
-const newDepartmentName = ref('')
-function addDepartment() {
-  const name = newDepartmentName.value.trim()
-  if (!name) return
-  departments.push({ id: nextId('d'), name })
-  newDepartmentName.value = ''
-  persistSettings()
-}
-function removeDepartment(id) {
-  const idx = departments.findIndex((d) => d.id === id)
-  if (idx > -1) departments.splice(idx, 1)
-  persistSettings()
-}
-
 function leaveTypeById(id) { return leaveTypes.find((lt) => lt.id === id) }
-function departmentName(id) { return departments.find((d) => d.id === id)?.name || '-' }
+function departmentName(id) {
+  return divisions.value.find((division) => String(division.id) === String(id))?.name || '-'
+}
 
 /* ------------------------------------------------------------------ */
 /* Data API, Drill-Down & Fetching                                     */
@@ -234,7 +209,7 @@ function normalizeApiRequest(item) {
   
   const name = payload.requester?.name || payload.employee?.name || payload.user?.name || 'Unknown'
   const position = payload.requester?.position || payload.employee?.position || payload.user?.role || '-'
-  const departmentId = payload.requester?.departmentId || payload.employee?.departmentId || payload.departmentId || payload.department_id || ''
+  const departmentId = payload.requester?.departmentId ?? payload.requester?.divisionId ?? payload.employee?.division_id ?? payload.departmentId ?? payload.department_id ?? ''
   const locationName = payload.requester?.locationName || payload.employee?.home_location?.name || payload.user?.home_location?.name || 'Tanpa Perusahaan'
   
   const normalizedStatus = String(payload.status || 'pending').toLowerCase()
@@ -255,6 +230,25 @@ async function fetchLocations() {
     officeLocations.value = Array.isArray(res.data) ? res.data : []
   } catch (err) {
     console.error('Gagal mengambil data lokasi kerja:', err)
+  }
+}
+
+async function fetchDivisions() {
+  try {
+    const { data } = await api.get('/tenants')
+    const tenants = Array.isArray(data) ? data : []
+    const responses = await Promise.all(
+      tenants.map((tenant) => api.get('/divisions', { params: { tenant_id: tenant.id } })),
+    )
+    const divisionsById = new Map(
+      responses.flatMap(({ data: rows }) =>
+        (Array.isArray(rows) ? rows : []).map((division) => [String(division.id), division]),
+      ),
+    )
+    divisions.value = [...divisionsById.values()].sort((a, b) => a.name.localeCompare(b.name, 'id'))
+  } catch (error) {
+    console.error('Gagal memuat divisi dari API:', error)
+    divisions.value = []
   }
 }
 
@@ -561,7 +555,6 @@ function downloadBlob(blob, filename) {
 
 const showExportMenu = ref(false)
 const showManageModal = ref(false)
-const manageTab = ref('leaveTypes')
 
 function handleOutsideClick(e) {
   if (!e.target.closest?.('.export-menu')) showExportMenu.value = false
@@ -569,6 +562,7 @@ function handleOutsideClick(e) {
 
 onMounted(() => {
   fetchLocations()
+  fetchDivisions()
   fetchLeaveRequests()
   document.addEventListener('click', handleOutsideClick)
 })
@@ -653,9 +647,9 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
         <div v-if="isShowingRequests" class="filters-row">
           <div class="filters">
             <BaseSelect v-model="leaveTypeFilter" :options="leaveTypeOptions" placeholder="Semua Jenis Cuti" />
-            <BaseSelect v-model="departmentFilter" :options="departmentOptions" placeholder="Semua Departemen" />
+            <BaseSelect v-model="departmentFilter" :options="departmentOptions" placeholder="Semua Divisi" />
             <BaseButton variant="ghost" icon="material-symbols:tune" @click="showManageModal = true">
-              Kelola Jenis & Departemen
+              Kelola Jenis Cuti
             </BaseButton>
           </div>
         </div>
@@ -752,19 +746,14 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 
       </div>
 
-      <!-- Modal Kelola Jenis Cuti & Departemen -->
+      <!-- Modal Kelola Jenis Cuti -->
       <div v-if="showManageModal" class="modal-overlay" @click.self="showManageModal = false">
         <div class="modal">
           <div class="modal-header">
-            <h2>Kelola Jenis Cuti & Departemen</h2>
+            <h2>Kelola Jenis Cuti</h2>
             <button class="icon-btn-plain" @click="showManageModal = false"><Icon icon="material-symbols:close" width="18" /></button>
           </div>
-          <div class="modal-tabs">
-            <button class="modal-tab" :class="{ 'modal-tab-active': manageTab === 'leaveTypes' }" @click="manageTab = 'leaveTypes'">Jenis Cuti</button>
-            <button class="modal-tab" :class="{ 'modal-tab-active': manageTab === 'departments' }" @click="manageTab = 'departments'">Departemen</button>
-          </div>
-          
-          <div v-if="manageTab === 'leaveTypes'" class="modal-body">
+          <div class="modal-body">
             <div v-for="lt in leaveTypes" :key="lt.id" class="manage-row">
               <span class="badge" :style="{ background: lt.bg, color: lt.text }">{{ lt.name }}</span>
               <input v-model="lt.name" class="manage-input" @change="persistSettings" />
@@ -776,17 +765,6 @@ onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
             <div class="manage-add-row">
               <input v-model="newLeaveTypeName" placeholder="Nama jenis cuti baru" class="manage-input" @keydown.enter.prevent="addLeaveType" />
               <BaseButton variant="primary" @click="addLeaveType">Tambah</BaseButton>
-            </div>
-          </div>
-          
-          <div v-else class="modal-body">
-            <div v-for="d in departments" :key="d.id" class="manage-row">
-              <input v-model="d.name" class="manage-input" @change="persistSettings" />
-              <button class="icon-btn-plain" @click="removeDepartment(d.id)"><Icon icon="material-symbols:delete-outline" width="18" /></button>
-            </div>
-            <div class="manage-add-row">
-              <input v-model="newDepartmentName" placeholder="Nama departemen baru" class="manage-input" @keydown.enter.prevent="addDepartment" />
-              <BaseButton variant="primary" @click="addDepartment">Tambah</BaseButton>
             </div>
           </div>
         </div>
