@@ -601,7 +601,7 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <button class="icon-btn-solid" @click="openAddModal" title="Tambah Karyawan">
+        <button v-if="selectedCompany" class="icon-btn-solid" @click="openAddModal" title="Tambah Karyawan">
           <Icon icon="material-symbols:add-rounded" width="20" height="20" />
         </button>
       </div>
