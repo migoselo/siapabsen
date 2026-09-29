@@ -6,7 +6,7 @@ import api from '../api'
 // Import Komponen Dialog
 import GlobalConfirm from '../components/GlobalConfirm.vue'
 import { useConfirm } from '../composables/UseConfirm'
-import BaseActionBtn from '../components/BaseActionBtn.vue'
+import TableActions from '../components/TableActions.vue'
 
 const confirmDialog = useConfirm()
 
@@ -580,8 +580,12 @@ async function deleteData(id) {
                   </td>
                   <td>
                     <div class="actions">
-                      <BaseActionBtn variant="edit" @click="openModal('edit', shift)" />
-                      <BaseActionBtn variant="delete" @click="deleteData(shift.id)" />
+                      <TableActions
+                        show-edit
+                        show-delete
+                        @edit="openModal('edit', shift)"
+                        @delete="deleteData(shift.id)"
+                      />
                     </div>
                   </td>
                 </tr>
@@ -601,8 +605,12 @@ async function deleteData(id) {
                   </td>
                   <td>
                     <div class="actions">
-                      <BaseActionBtn variant="edit" @click="openModal('edit', div)" />
-                      <BaseActionBtn variant="delete" @click="deleteData(div.id)" />
+                      <TableActions
+                        show-edit
+                        show-delete
+                        @edit="openModal('edit', div)"
+                        @delete="deleteData(div.id)"
+                      />
                     </div>
                   </td>
                 </tr>

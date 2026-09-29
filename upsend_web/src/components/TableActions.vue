@@ -41,7 +41,7 @@ defineEmits(['edit', 'delete', 'view', 'approve', 'reject', 'toggleStatus'])
       <Icon :icon="isActive ? 'material-symbols:pause-circle-outline' : 'material-symbols:play-circle-outline'" width="19" />
     </button>
 
-    <button v-if="showDelete" class="icon-btn icon-btn-danger" title="Hapus" @click="$emit('delete')">
+    <button v-if="showDelete" class="icon-btn-danger" title="Hapus" @click="$emit('delete')">
       <Icon icon="material-symbols:delete-outline" width="16" />
     </button>
   </div>
@@ -57,6 +57,11 @@ defineEmits(['edit', 'delete', 'view', 'approve', 'reject', 'toggleStatus'])
 .icon-btn {
   width: 30px; height: 30px; border-radius: 6px; border: none;
   background: transparent; color: #667085; display: grid; place-items: center;
+  cursor: pointer; transition: all 0.2s;
+}
+.icon-btn-danger {
+  width: 30px; height: 30px; border-radius: 6px; border: none;
+  background: transparent; color: #f80000; display: grid; place-items: center;
   cursor: pointer; transition: all 0.2s;
 }
 .icon-btn:hover { background: #f4f5f8; color: #1c1c19; }

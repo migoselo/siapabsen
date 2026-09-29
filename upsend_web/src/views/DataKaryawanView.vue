@@ -6,7 +6,8 @@ import api from '../api'
 
 // Import Base Components & Composables
 import BaseButton from '../components/BaseButton.vue'
-import BaseActionBtn from '../components/BaseActionBtn.vue'
+import TableActions from '../components/TableActions.vue'
+import BaseSelect from '../components/BaseSelect.vue'
 import BaseToast from '../components/BaseToast.vue'
 import GlobalConfirm from '../components/GlobalConfirm.vue'
 import { useConfirm } from '../composables/UseConfirm'
@@ -577,7 +578,7 @@ onBeforeUnmount(() => {
       </table>
 
       <!-- TABEL DAFTAR KARYAWAN -->
-      <table v-else>
+      <table v-else class="employee-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -625,11 +626,7 @@ onBeforeUnmount(() => {
                   @click="goToEmployeeDetail(emp)"
                 />
 
-                <BaseActionBtn
-                  variant="delete"
-                  title="Hapus Karyawan"
-                  @click="deleteEmployee(emp)"
-                />
+                <TableActions show-delete @delete="deleteEmployee(emp)" />
               </div>
             </td>
           </tr>
@@ -654,12 +651,19 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="per-page-select">
-            <select v-model="perPage" @change="changePerPage" :disabled="loading">
-              <option :value="10">10 baris</option>
-              <option :value="20">20 baris</option>
-              <option :value="50">50 baris</option>
-              <option :value="100">100 baris</option>
-            </select>
+            <BaseSelect
+              v-model="perPage"
+              :options="[
+                { label: '10 baris', value: 10 },
+                { label: '20 baris', value: 20 },
+                { label: '50 baris', value: 50 },
+                { label: '100 baris', value: 100 },
+              ]"
+              placeholder="Pilih jumlah baris"
+              @change="changePerPage"
+              :aria-disabled="loading"
+              :style="{ pointerEvents: loading ? 'none' : undefined, opacity: loading ? 0.6 : 1 }"
+            />
           </div>
 
           <span class="total-records-info">{{ totalEmployees }} karyawan</span>
@@ -694,43 +698,65 @@ onBeforeUnmount(() => {
             <div class="field-row">
               <div class="field">
                 <label class="required">Perusahaan</label>
-                <select v-model="form.tenant_id" @change="onFormTenantChange" required>
-                  <option value="" disabled>Pilih perusahaan</option>
-                  <option v-for="tenant in tenants" :key="tenant.id" :value="tenant.id">{{ tenant.name }}</option>
-                </select>
+                <BaseSelect
+                  v-model="form.tenant_id"
+                  :options="tenants.map((tenant) => ({ label: tenant.name, value: tenant.id }))"
+                  placeholder="Pilih perusahaan"
+                  @change="onFormTenantChange"
+                />
               </div>
               <div class="field">
                 <label class="required">Cabang</label>
-                <select v-model="form.home_location_id" :disabled="loadingFormOptions || !formLocations.length" required>
-                  <option value="" disabled>{{ !form.tenant_id ? 'Pilih perusahaan dahulu' : loadingFormOptions ? 'Memuat cabang...' : formLocations.length ? 'Pilih cabang' : 'Tidak ada cabang tersedia' }}</option>
-                  <option v-for="location in formLocations" :key="location.id" :value="location.id">{{ location.name }}</option>
-                </select>
+                <BaseSelect
+                  v-model="form.home_location_id"
+                  :options="formLocations.map((location) => ({ label: location.name, value: location.id }))"
+                  :placeholder="!form.tenant_id ? 'Pilih perusahaan dahulu' : loadingFormOptions ? 'Memuat cabang...' : formLocations.length ? 'Pilih cabang' : 'Tidak ada cabang tersedia'"
+                  :aria-disabled="loadingFormOptions || !formLocations.length"
+                  :style="{ pointerEvents: loadingFormOptions || !formLocations.length ? 'none' : undefined, opacity: loadingFormOptions || !formLocations.length ? 0.6 : 1 }"
+                />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
                 <label>Divisi</label>
-                <select v-model="form.division_id" :disabled="loadingFormOptions || !form.tenant_id">
-                  <option value="">Tanpa divisi</option>
-                  <option v-for="division in formDivisions" :key="division.id" :value="division.id">{{ division.name }}</option>
-                </select>
+                <BaseSelect
+                  v-model="form.division_id"
+                  :options="[
+                    { label: 'Tanpa divisi', value: '' },
+                    ...formDivisions.map((division) => ({ label: division.name, value: division.id })),
+                  ]"
+                  placeholder="Pilih divisi"
+                  :aria-disabled="loadingFormOptions || !form.tenant_id"
+                  :style="{ pointerEvents: loadingFormOptions || !form.tenant_id ? 'none' : undefined, opacity: loadingFormOptions || !form.tenant_id ? 0.6 : 1 }"
+                />
               </div>
               <div class="field">
                 <label>Jam Kerja / Shift</label>
-                <select v-model="form.shift_id" :disabled="loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length">
-                  <option value="">{{ form.division_id ? 'Pilih shift' : 'Pilih divisi dahulu' }}</option>
-                  <option v-for="shift in availableFormShifts" :key="shift.id" :value="shift.id">
-                    {{ shift.name }} ({{ shift.work_start_time.slice(0, 5) }} - {{ shift.work_end_time.slice(0, 5) }})
-                  </option>
-                </select>
+                <BaseSelect
+                  v-model="form.shift_id"
+                  :options="[
+                    { label: form.division_id ? 'Pilih shift' : 'Pilih divisi dahulu', value: '' },
+                    ...availableFormShifts.map((shift) => ({
+                      label: `${shift.name} (${shift.work_start_time.slice(0, 5)} - ${shift.work_end_time.slice(0, 5)})`,
+                      value: shift.id,
+                    })),
+                  ]"
+                  :placeholder="form.division_id ? 'Pilih shift' : 'Pilih divisi dahulu'"
+                  :aria-disabled="loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length"
+                  :style="{ pointerEvents: loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length ? 'none' : undefined, opacity: loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length ? 0.6 : 1 }"
+                />
               </div>
             </div>
             <div class="field">
               <label class="required">Peran</label>
-              <select v-model="form.role">
-                <option value="karyawan">Karyawan</option>
-                <option value="admin">Admin</option>
-              </select>
+              <BaseSelect
+                v-model="form.role"
+                :options="[
+                  { label: 'Karyawan', value: 'karyawan' },
+                  { label: 'Admin', value: 'admin' },
+                ]"
+                placeholder="Pilih peran"
+              />
             </div>
           </div>
 
@@ -887,6 +913,7 @@ onBeforeUnmount(() => {
   background: transparent;
 }
 .icon-btn-solid {
+  border-radius: 10px;
   width: 40px;
   height: 40px;
   background: var(--blue-900);
@@ -966,6 +993,12 @@ tbody tr:last-child td {
   gap: 8px;
   flex-wrap: nowrap;
   white-space: nowrap;
+}
+.employee-table .action-cell {
+  text-align: right;
+}
+.employee-table .action-actions {
+  justify-content: flex-end;
 }
 
 .status-badge {
