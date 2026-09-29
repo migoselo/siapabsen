@@ -382,7 +382,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
   <div class="salary-page">
     
     <!-- Section Summary / Dashboard (BaseSummaryCard) -->
-    <section v-if="selectedBranch" class="summary-grid">
+    <section v-if="isShowingPayroll" class="summary-grid">
       <BaseSummaryCard 
         tag="ANGGARAN"
         title="Total Anggaran Bulanan"
@@ -425,7 +425,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
               <p>Pilih perusahaan untuk melihat daftar cabang.</p>
             </div>
             <div v-else class="selected-office-heading">
-              <span>{{ selectedBranch ? selectedCompany.name : 'Pilih cabang' }}</span>
+              <span>{{ selectedBranch ? selectedCompany.name : isShowingPayroll ? 'Semua cabang' : 'Pilih cabang' }}</span>
               <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
             </div>
           </div>
@@ -433,7 +433,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
 
         <!-- Baris Filter Dropdown & Aksi -->
         <div class="filter-controls">
-          <div v-if="selectedBranch" class="filters">
+          <div v-if="isShowingPayroll" class="filters">
             <!-- Custom Month Picker -->
             <div class="month-picker-wrap" @click.stop="toggleMonthMenu">
               <Icon icon="material-symbols:calendar-month-outline-rounded" width="18" height="18" class="icon-left" />
@@ -466,7 +466,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
 
           <div class="actions-group">
             <BaseButton
-              v-if="selectedBranch"
+              v-if="isShowingPayroll"
               variant="primary"
               icon="material-symbols:add-rounded"
               @click="handleCreateNewSalary"
@@ -474,7 +474,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
               Gaji Baru
             </BaseButton>
             <BaseButton
-              v-if="selectedBranch"
+              v-if="isShowingPayroll"
               variant="ghost"
               icon="material-symbols:download-rounded"
               @click="handleExport"
@@ -483,7 +483,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
             </BaseButton>
           </div>
 
-          <div v-if="selectedBranch" class="search-wrap">
+          <div v-if="isShowingPayroll" class="search-wrap">
             <BaseSearch
               v-model="search"
               @update:modelValue="resetPage"
@@ -515,20 +515,26 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
       </BaseTable>
 
       <!-- Level 2: pilih cabang -->
-      <BaseTable
-        v-else-if="!selectedBranch"
+      <div v-else-if="!isShowingPayroll">
+        <div v-if="officeLocations.length" class="company-payroll-action">
+          <button type="button" class="detail-link-btn" @click="goToAllCompanyUsers">
+            Lihat Gaji Semua Cabang
+          </button>
+        </div>
+        <BaseTable
         :columns="companyColumns"
         :data="officeLocations"
         :loading="loadingLocations"
         has-actions
         empty-text="Belum ada cabang di perusahaan ini."
-      >
-        <template #cell-name="{ item }"><strong>{{ item.name }}</strong></template>
-        <template #cell-address="{ item }">{{ item.address || '-' }}</template>
-        <template #actions="{ item }">
-          <button type="button" class="detail-link-btn" @click="goToBranch(item)">Pilih Cabang</button>
-        </template>
-      </BaseTable>
+        >
+          <template #cell-name="{ item }"><strong>{{ item.name }}</strong></template>
+          <template #cell-address="{ item }">{{ item.address || '-' }}</template>
+          <template #actions="{ item }">
+            <button type="button" class="detail-link-btn" @click="goToBranch(item)">Pilih Cabang</button>
+          </template>
+        </BaseTable>
+      </div>
 
       <!-- Level 3: payroll hanya setelah cabang dipilih -->
       <BaseTable
@@ -667,6 +673,11 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.company-payroll-action {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px 0;
 }
 
 /* Drill-Down Header Styles (Sesuai DataKaryawanView_3) */

@@ -82,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/shifts/{shift}', [ShiftDivisionController::class, 'destroyShift'])->middleware('permission:structure.manage');
 
         Route::get('/users', [UserController::class, 'index'])->middleware('permission:employees.view');
+        Route::get('/users/email-availability', [UserController::class, 'checkEmailAvailability'])->middleware('permission:employees.create');
         Route::post('/users', [UserController::class, 'store'])->middleware('permission:employees.create');
         Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:employees.view');
         Route::put('/users/{user}', [UserController::class, 'update'])->middleware('permission:employees.update');
