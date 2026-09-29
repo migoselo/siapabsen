@@ -41,7 +41,11 @@ const selectedCompany = ref(null)
 const selectedBranch = ref(null)
 const showPassword = ref(false)
 const loadingFormOptions = ref(false)
+const emailAvailable = ref(null)
+const checkingEmail = ref(false)
 let formOptionsRequest = 0
+let emailCheckTimer = null
+let emailCheckRequest = 0
 
 const form = ref({
   name: '',
@@ -53,6 +57,28 @@ const form = ref({
   home_location_id: '',
   division_id: '',
   shift_id: '',
+})
+
+watch(() => form.value.email, (value) => {
+  clearTimeout(emailCheckTimer)
+  const requestId = ++emailCheckRequest
+  emailAvailable.value = null
+  checkingEmail.value = false
+
+  const email = String(value || '').trim().toLowerCase()
+  if (!showModal.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return
+
+  checkingEmail.value = true
+  emailCheckTimer = setTimeout(async () => {
+    try {
+      const response = await api.get('/users/email-availability', { params: { email } })
+      if (requestId === emailCheckRequest) emailAvailable.value = Boolean(response.data?.available)
+    } catch {
+      if (requestId === emailCheckRequest) emailAvailable.value = null
+    } finally {
+      if (requestId === emailCheckRequest) checkingEmail.value = false
+    }
+  }, 350)
 })
 
 const availableFormShifts = computed(() =>
@@ -307,6 +333,10 @@ async function deleteEmployee(emp) {
 }
 
 async function openAddModal() {
+  clearTimeout(emailCheckTimer)
+  emailCheckRequest++
+  emailAvailable.value = null
+  checkingEmail.value = false
   form.value = {
     name: '',
     email: '',
@@ -395,6 +425,9 @@ async function onFormTenantChange() {
 
 function closeModal(force = false) {
   if (saving.value && !force) return
+  clearTimeout(emailCheckTimer)
+  emailCheckRequest++
+  checkingEmail.value = false
   showModal.value = false
 }
 
@@ -413,6 +446,11 @@ async function submitEmployeeForm() {
   }
   if (!email || !emailRegex.test(email) || email.length > 254) {
     showToast('Format email tidak valid.', 'error')
+    return
+  }
+  if (checkingEmail.value) return
+  if (emailAvailable.value === false) {
+    showToast('Email sudah terdaftar. Gunakan email lain.', 'error')
     return
   }
   if (no_hp && !phoneRegex.test(no_hp)) {
@@ -684,7 +722,10 @@ onBeforeUnmount(() => {
             </div>
             <div class="field">
               <label class="required">Email</label>
-              <input type="email" v-model="form.email" maxlength="254" placeholder="Email" />
+              <input type="email" v-model="form.email" maxlength="254" placeholder="Email" :aria-invalid="emailAvailable === false" />
+              <small v-if="checkingEmail" class="email-check-message">Memeriksa email...</small>
+              <small v-else-if="emailAvailable === false" class="email-check-message email-check-error">Email sudah terdaftar. Gunakan email lain.</small>
+              <small v-else-if="emailAvailable === true" class="email-check-message email-check-success">Email tersedia.</small>
             </div>
             <p class="activation-note">Link aktivasi untuk membuat password akan dikirim ke email karyawan.</p>
             <div class="field">
@@ -736,7 +777,7 @@ onBeforeUnmount(() => {
 
           <div class="modal-footer">
             <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
-            <BaseButton variant="primary" icon="material-symbols:save-outline" @click="submitEmployeeForm" :disabled="saving">
+            <BaseButton variant="primary" icon="material-symbols:save-outline" @click="submitEmployeeForm" :disabled="saving || checkingEmail || emailAvailable === false">
               {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
             </BaseButton>
           </div>
@@ -1174,6 +1215,16 @@ label.required::after {
   color: var(--ink);
   outline: none;
   background: #fff;
+}
+.email-check-message {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.email-check-error {
+  color: #b42318;
+}
+.email-check-success {
+  color: #16704a;
 }
 .field-row {
   display: flex;

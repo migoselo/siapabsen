@@ -64,10 +64,13 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $tenantId = $this->currentTenantId($request);
+        $request->merge([
+            'email' => Str::lower(trim((string) $request->input('email'))),
+        ]);
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email', 'max:254', Rule::unique('users', 'email')],
             'password' => 'nullable|string|min:6',
             'no_hp' => 'nullable|string|max:255',
             'role' => 'required|in:admin,karyawan',
@@ -97,6 +100,8 @@ class UserController extends Controller
                 }),
             ],
             ...$this->biodataRules(),
+        ], [
+            'email.unique' => 'Email tersebut sudah terdaftar.',
         ]);
 
         // pastikan client tidak bisa menulis tenant_id langsung (kami set via middleware/trait)
@@ -104,48 +109,34 @@ class UserController extends Controller
             unset($data['tenant_id']);
         }
 
-        $existingUser = User::where('tenant_id', $tenantId)
-            ->where('email', $data['email'])
-            ->first();
-
-        if ($existingUser) {
-            if ($existingUser->is_active) {
-                return response()->json([
-                    'message' => 'Email tersebut sudah terdaftar pada akun aktif.',
-                ], 422);
-            }
-
-            $invitationToken = Str::random(64);
-            $existingUser->update([
-                'name' => $data['name'],
-                'no_hp' => $data['no_hp'] ?? null,
-                'home_location_id' => $data['home_location_id'] ?? null,
-                'division_id' => $data['division_id'] ?? null,
-                'shift_id' => $data['shift_id'] ?? null,
-                'role' => $data['role'],
-                'invitation_token' => hash('sha256', $invitationToken),
-                'invitation_expires_at' => now()->addHours(48),
-                'invited_at' => now(),
-            ]);
-
-            $activationUrl = rtrim((string) config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173')), '/')
-                . '/aktivasi-akun?token=' . urlencode($invitationToken);
-            app(\App\Services\EmailDeliveryService::class)->send(
-                $existingUser->email,
-                'Undangan Aktivasi Akun Upsend',
-                "Halo {$existingUser->name},\n\nBerikut link aktivasi akun Anda:\n{$activationUrl}\n\nLink berlaku 48 jam.",
-            );
-
+        if (User::whereRaw('LOWER(email) = ?', [$data['email']])->exists()) {
             return response()->json([
-                'message' => 'Akun belum aktif. Undangan aktivasi telah dikirim ulang ke email karyawan.',
-                'user' => $existingUser->load(['homeLocation', 'division', 'shift']),
-            ]);
+                'message' => 'Email tersebut sudah terdaftar.',
+            ], 422);
         }
+
+        return $this->createInvitedUser($data, (int) $tenantId);
+    }
+
+    public function checkEmailAvailability(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:254'],
+        ]);
+        $email = Str::lower(trim($data['email']));
+
+        return response()->json([
+            'available' => ! User::whereRaw('LOWER(email) = ?', [$email])->exists(),
+        ]);
+    }
+
+    private function createInvitedUser(array $data, int $tenantId)
+    {
 
         $invitationToken = Str::random(64);
         $data['password'] = Hash::make(Str::random(40));
-        $data['tenant_id'] = (int) $tenantId;
-        $data['employee_id'] = User::generateEmployeeId((int) $tenantId);
+        $data['tenant_id'] = $tenantId;
+        $data['employee_id'] = User::generateEmployeeId($tenantId);
         $data['is_active'] = false;
         $data['invitation_token'] = hash('sha256', $invitationToken);
         $data['invitation_expires_at'] = now()->addHours(48);

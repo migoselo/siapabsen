@@ -137,21 +137,8 @@ function changePerPage() {
 async function fetchCompanies() {
   loading.value = true
   try {
-    const [locationResponse, userResponse] = await Promise.all([
-      api.get('/locations'),
-      api.get('/users', { params: { per_page: 1000 } }),
-    ])
-    const locations = Array.isArray(locationResponse.data) ? locationResponse.data : []
-    const users = Array.isArray(userResponse.data?.data) ? userResponse.data.data : []
-
-    companies.value = locations.map((location) => ({
-      id: location.tenant_id || location.id,
-      location_id: location.id,
-      name: location.name,
-      address: location.address,
-      users_count: users.filter((user) => Number(user.home_location_id) === Number(location.id))
-        .length,
-    }))
+    const response = await api.get('/tenants')
+    companies.value = Array.isArray(response.data) ? response.data : []
   } catch (error) {
     showToast(error.response?.data?.message || 'Daftar perusahaan gagal dimuat.', 'error')
   } finally {
@@ -389,7 +376,7 @@ async function deleteData(id) {
         <thead>
           <tr>
             <th>Nama Perusahaan</th>
-            <th>Alamat</th>
+            <th>Jumlah Cabang</th>
             <th>Jumlah Karyawan</th>
             <th class="action-column">Aksi</th>
           </tr>
@@ -401,12 +388,12 @@ async function deleteData(id) {
           <tr v-else-if="filteredCompanies.length === 0">
             <td colspan="4" class="empty-cell">Data perusahaan tidak ditemukan.</td>
           </tr>
-          <tr v-for="company in filteredCompanies" :key="`${company.id}-${company.location_id}`">
+          <tr v-for="company in filteredCompanies" :key="company.id">
             <td>
               <strong class="text-dark">{{ company.name }}</strong>
             </td>
             <td>
-              <span class="text-soft">{{ company.address || '-' }}</span>
+              <span class="text-soft">{{ company.locations_count || 0 }} cabang</span>
             </td>
             <td>
               <span class="badge badge-divisi">{{ company.users_count || 0 }} Orang</span>
