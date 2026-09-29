@@ -7,7 +7,7 @@ import api from '../api'
 
 // Import Base Components & Composables
 import BaseButton from '../components/BaseButton.vue'
-import BaseActionBtn from '../components/BaseActionBtn.vue'
+import TableActions from '../components/TableActions.vue'
 import GlobalConfirm from '../components/GlobalConfirm.vue'
 import { useConfirm } from '../composables/UseConfirm'
 
@@ -514,11 +514,11 @@ onBeforeUnmount(() => {
             </td>
             <td class="action-cell">
               <div class="action-actions">
-                <BaseActionBtn variant="edit" @click="openEditModal(loc)" />
-                <BaseActionBtn
-                  variant="delete"
-                  @click="deleteLocation(loc)"
-                  :disabled="deletingId === loc.id"
+                <TableActions
+                  show-edit
+                  :show-delete="deletingId !== loc.id"
+                  @edit="openEditModal(loc)"
+                  @delete="deleteLocation(loc)"
                 />
               </div>
             </td>
