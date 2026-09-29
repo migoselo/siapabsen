@@ -17,19 +17,24 @@ class PayrollController extends Controller
         $month = Carbon::createFromFormat('Y-m', $monthValue);
         $periodStart = $month->copy()->startOfMonth();
         $periodEnd = $month->copy()->endOfMonth();
+        $user = $request->user();
+        $isSuperAdmin = in_array($user?->role, ['super_admin', 'superadmin'], true);
+        $tenantId = $isSuperAdmin && $request->filled('tenant_id')
+            ? $request->integer('tenant_id')
+            : ($user->tenant_id ?? 1);
 
-        $users = User::with(['homeLocation', 'tenant'])
-            ->where('tenant_id', $request->user()->tenant_id ?? 1)
-            ->orderBy('name')
-            ->paginate($request->integer('per_page', 20));
+        $query = User::with(['homeLocation', 'tenant'])
+            ->where('tenant_id', $tenantId);
+
+        if ($request->filled('location_id')) {
+            $query->where('home_location_id', $request->integer('location_id'));
+        }
 
         if ($request->filled('user_id')) {
-            $users = User::with(['homeLocation', 'tenant'])
-                ->where('tenant_id', $request->user()->tenant_id ?? 1)
-                ->whereKey($request->integer('user_id'))
-                ->orderBy('name')
-                ->paginate($request->integer('per_page', 20));
+            $query->whereKey($request->integer('user_id'));
         }
+
+        $users = $query->orderBy('name')->paginate($request->integer('per_page', 20));
 
         $payrolls = Payroll::whereIn('user_id', $users->getCollection()->pluck('id'))
             ->whereBetween('payroll_period', [$periodStart->toDateString(), $periodEnd->toDateString()])

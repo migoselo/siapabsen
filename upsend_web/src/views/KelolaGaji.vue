@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import api from '../api'
 
@@ -13,9 +13,13 @@ import BaseTable from '../components/BaseTable.vue'
 import TableActions from '../components/TableActions.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const employees = ref([])
+const companies = ref([])
 const officeLocations = ref([])
+const loadingCompanies = ref(false)
+const loadingLocations = ref(false)
 const loading = ref(false)
 const search = ref('')
 
@@ -29,8 +33,15 @@ const perPage = ref(20)
 const pageInput = ref(1)
 
 // Drill-Down States
-const selectedCompany = ref(null)
-const selectedBranch = ref(null)
+const companyId = computed(() => String(route.query.company_id || '').trim())
+const locationId = computed(() => String(route.query.location_id || '').trim())
+const showAllLocations = computed(() => route.query.all_locations === '1')
+const selectedCompany = computed(() =>
+  companies.value.find((company) => String(company.id) === companyId.value) || null,
+)
+const selectedBranch = computed(() =>
+  officeLocations.value.find((location) => String(location.id) === locationId.value) || null,
+)
 
 /* ------------------------------------------------------------------ */
 /* Konfigurasi Tabel BaseComponent                                     */
@@ -38,8 +49,6 @@ const selectedBranch = ref(null)
 const companyColumns = [
   { key: 'name', label: 'Nama Perusahaan/Cabang' },
   { key: 'address', label: 'Alamat' },
-  { key: 'count', label: 'Karyawan Bergaji' },
-  { key: 'budget', label: 'Total Anggaran Gaji' }
 ]
 
 const payrollColumns = [
@@ -170,112 +179,14 @@ const filtered = computed(() =>
   }),
 )
 
-/* ------------------------------------------------------------------ */
-/* Logika Hierarchy Drill-Down (Tree Perusahaan)                       */
-/* ------------------------------------------------------------------ */
-function resetDrillDown() {
-  selectedCompany.value = null
-  selectedBranch.value = null
-}
-
-function goToCompany(node) {
-  selectedCompany.value = node
-  selectedBranch.value = null
-}
-
-function goToBranch(node) {
-  selectedBranch.value = node
-}
-
-function goBackToCompanies() {
-  resetDrillDown()
-}
-
-function goBackToCompany() {
-  selectedBranch.value = null
-}
-
-function splitHierarchyLabel(label) {
-  const value = String(label || '').trim()
-  if (!value) return []
-  const separators = [' / ', ' > ', ' - ', ' | ']
-  for (const separator of separators) {
-    if (value.includes(separator)) {
-      return value.split(separator).map((part) => part.trim()).filter(Boolean)
-    }
-  }
-  return [value]
-}
-
-const companyTree = computed(() => {
-  const roots = []
-  const nodes = new Map()
-
-  const addNode = (path, address = '-') => {
-    let parent = null
-    path.forEach((segment, index) => {
-      const key = path.slice(0, index + 1).join(' / ')
-      if (!nodes.has(key)) {
-        const node = { id: key, name: segment, address, children: [], employees: [], count: 0, budget: 0 }
-        if (parent) parent.children.push(node)
-        else roots.push(node)
-        nodes.set(key, node)
-      }
-      parent = nodes.get(key)
-    })
-    return parent
-  }
-
-  (officeLocations.value || []).forEach((company) => {
-    const name = String(company?.name || '').trim()
-    const address = String(company?.address || company?.alamat || '-').trim()
-    if (!name) return
-    const path = splitHierarchyLabel(name)
-    addNode(path, address)
-  })
-
-  filtered.value.forEach((emp) => {
-    const companyName = emp.lokasiKerja || 'Tanpa Perusahaan'
-    const path = splitHierarchyLabel(companyName)
-    const exactKey = path.join(' / ')
-    const target = nodes.get(exactKey) || nodes.get(path[path.length - 1]) || addNode(path)
-    
-    if (target) {
-      target.employees.push(emp)
-    }
-  })
-
-  const assignStats = (node) => {
-    node.count = node.employees.length
-    node.budget = node.employees.reduce((sum, e) => sum + e.netSalary, 0)
-    node.children.forEach((child) => {
-      assignStats(child)
-      node.count += child.count || 0
-      node.budget += child.budget || 0
-    })
-  }
-
-  roots.forEach(assignStats)
-  return roots
-})
-
-const currentCompanyChildren = computed(() => {
-  if (!selectedCompany.value) return companyTree.value
-  return selectedCompany.value.children || []
-})
-
 const currentPayrolls = computed(() => {
-  if (selectedBranch.value) return selectedBranch.value.employees || []
-  if (selectedCompany.value) {
-    if ((selectedCompany.value.children || []).length) return []
-    return selectedCompany.value.employees || []
-  }
-  return []
+  return isShowingPayroll.value ? filtered.value : []
 })
 
-const isShowingPayroll = computed(() => {
-  return selectedBranch.value != null || (selectedCompany.value != null && currentCompanyChildren.value.length === 0)
-})
+const isShowingPayroll = computed(() =>
+  Boolean(selectedCompany.value) &&
+  (Boolean(selectedBranch.value) || showAllLocations.value || (!loadingLocations.value && officeLocations.value.length === 0)),
+)
 
 /* Dashboard Stats Dinamis berdasarkan View saat ini */
 const viewStats = computed(() => {
@@ -283,11 +194,9 @@ const viewStats = computed(() => {
     const total = currentPayrolls.value.reduce((s, e) => s + e.netSalary, 0)
     return { budget: total, count: currentPayrolls.value.length }
   } else if (selectedCompany.value && !selectedBranch.value) {
-    return { budget: selectedCompany.value.budget, count: selectedCompany.value.count }
+    return { budget: 0, count: 0 }
   } else {
-    const totalBudget = companyTree.value.reduce((s, c) => s + (c.budget || 0), 0)
-    const totalCount = companyTree.value.reduce((s, c) => s + (c.count || 0), 0)
-    return { budget: totalBudget, count: totalCount }
+    return { budget: 0, count: 0 }
   }
 })
 
@@ -302,32 +211,117 @@ const pageItems = computed(() => {
 /* ------------------------------------------------------------------ */
 /* Fetch Data                                                          */
 /* ------------------------------------------------------------------ */
-async function fetchPayrolls() {
+let selectionRequest = 0
+
+async function fetchPayrolls(tenantId, selectedLocationId = null, requestId = selectionRequest) {
+  if (!tenantId) {
+    employees.value = []
+    return
+  }
+
   loading.value = true
   try {
+    const params = {
+      month: selectedMonth.value,
+      payroll_period: `${selectedMonth.value}-01`,
+      tenant_id: tenantId,
+      per_page: 1000,
+    }
+    if (selectedLocationId) params.location_id = selectedLocationId
+
     const res = await api.get('/payrolls', {
-      params: { month: selectedMonth.value, payroll_period: `${selectedMonth.value}-01` },
+      params,
     })
     const list = Array.isArray(res.data?.data) ? res.data.data : []
-    employees.value = list.map(normalizeEmployee)
-    page.value = 1
-    pageInput.value = 1
+    if (requestId === selectionRequest) {
+      employees.value = list.map(normalizeEmployee)
+      resetPage()
+    }
   } catch (error) {
     console.error('Gagal mengambil data payroll:', error)
-    employees.value = []
+    if (requestId === selectionRequest) employees.value = []
   } finally {
-    loading.value = false
+    if (requestId === selectionRequest) loading.value = false
   }
 }
 
-async function fetchLocations() {
+async function fetchCompanies() {
+  loadingCompanies.value = true
   try {
-    const res = await api.get('/locations')
-    officeLocations.value = Array.isArray(res.data) ? res.data : []
+    const res = await api.get('/tenants')
+    companies.value = Array.isArray(res.data) ? res.data : []
   } catch (error) {
-    console.error('Gagal mengambil data lokasi kerja:', error)
-    officeLocations.value = []
+    console.error('Gagal mengambil data perusahaan:', error)
+    companies.value = []
+  } finally {
+    loadingCompanies.value = false
   }
+}
+
+async function fetchLocations(tenantId, requestId) {
+  loadingLocations.value = true
+  try {
+    const res = await api.get('/locations', { params: { tenant_id: tenantId } })
+    if (requestId === selectionRequest) {
+      officeLocations.value = Array.isArray(res.data) ? res.data : []
+    }
+  } catch (error) {
+    console.error('Gagal mengambil data cabang:', error)
+    if (requestId === selectionRequest) officeLocations.value = []
+  } finally {
+    if (requestId === selectionRequest) loadingLocations.value = false
+  }
+}
+
+async function syncSelection() {
+  const requestId = ++selectionRequest
+  employees.value = []
+  officeLocations.value = []
+  loading.value = false
+  resetPage()
+
+  if (!selectedCompany.value) return
+
+  const tenantId = selectedCompany.value.id
+  await fetchLocations(tenantId, requestId)
+  if (requestId !== selectionRequest) return
+
+  const location = officeLocations.value.find((item) => String(item.id) === locationId.value)
+  if (location) {
+    await fetchPayrolls(tenantId, location.id, requestId)
+  } else if (showAllLocations.value || officeLocations.value.length === 0) {
+    await fetchPayrolls(tenantId, null, requestId)
+  }
+}
+
+function goToCompany(company) {
+  router.push({ query: { company_id: String(company.id) } })
+}
+
+function goToBranch(location) {
+  router.push({
+    query: {
+      company_id: companyId.value,
+      location_id: String(location.id),
+    },
+  })
+}
+
+function goToAllCompanyUsers() {
+  router.push({
+    query: {
+      company_id: companyId.value,
+      all_locations: '1',
+    },
+  })
+}
+
+function goBackToCompanies() {
+  router.push({ query: {} })
+}
+
+function goBackToCompany() {
+  router.push({ query: { company_id: companyId.value } })
 }
 
 function resetPage() {
@@ -337,7 +331,9 @@ function resetPage() {
 
 function applyMonthFilter() {
   resetPage()
-  fetchPayrolls()
+  if (isShowingPayroll.value && selectedCompany.value) {
+    fetchPayrolls(selectedCompany.value.id, selectedBranch.value?.id || null)
+  }
 }
 
 function prevPage() {
@@ -372,9 +368,11 @@ function handleExport() { window.alert('Fitur ekspor gaji belum tersedia.') }
 function handleCreateNewSalary() { router.push({ name: 'GajiForm' }) }
 function handleEditSalary(employeeId) { router.push({ name: 'GajiForm', params: { employeeId } }) }
 
-onMounted(() => {
-  fetchPayrolls()
-  fetchLocations()
+watch([companyId, locationId, showAllLocations], syncSelection)
+
+onMounted(async () => {
+  await fetchCompanies()
+  await syncSelection()
   document.addEventListener('click', handleOutsideClick)
 })
 onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick) })
@@ -384,7 +382,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
   <div class="salary-page">
     
     <!-- Section Summary / Dashboard (BaseSummaryCard) -->
-    <section v-if="selectedCompany" class="summary-grid">
+    <section v-if="selectedBranch" class="summary-grid">
       <BaseSummaryCard 
         tag="ANGGARAN"
         title="Total Anggaran Bulanan"
@@ -423,11 +421,11 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
               <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
             </button>
             <div v-if="!selectedCompany" class="table-heading">
-              <h2>Pilih Kantor</h2>
-              <p>Pilih kantor terlebih dahulu untuk mengelola gaji.</p>
+              <h2>Pilih Perusahaan</h2>
+              <p>Pilih perusahaan untuk melihat daftar cabang.</p>
             </div>
             <div v-else class="selected-office-heading">
-              <span>Kantor terpilih</span>
+              <span>{{ selectedBranch ? selectedCompany.name : 'Pilih cabang' }}</span>
               <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
             </div>
           </div>
@@ -435,7 +433,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
 
         <!-- Baris Filter Dropdown & Aksi -->
         <div class="filter-controls">
-          <div class="filters">
+          <div v-if="selectedBranch" class="filters">
             <!-- Custom Month Picker -->
             <div class="month-picker-wrap" @click.stop="toggleMonthMenu">
               <Icon icon="material-symbols:calendar-month-outline-rounded" width="18" height="18" class="icon-left" />
@@ -468,7 +466,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
 
           <div class="actions-group">
             <BaseButton
-              v-if="selectedCompany"
+              v-if="selectedBranch"
               variant="primary"
               icon="material-symbols:add-rounded"
               @click="handleCreateNewSalary"
@@ -476,7 +474,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
               Gaji Baru
             </BaseButton>
             <BaseButton
-              v-if="selectedCompany"
+              v-if="selectedBranch"
               variant="ghost"
               icon="material-symbols:download-rounded"
               @click="handleExport"
@@ -485,7 +483,7 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
             </BaseButton>
           </div>
 
-          <div class="search-wrap">
+          <div v-if="selectedBranch" class="search-wrap">
             <BaseSearch
               v-model="search"
               @update:modelValue="resetPage"
@@ -496,38 +494,48 @@ onBeforeUnmount(() => { document.removeEventListener('click', handleOutsideClick
         </div>
       </div>
 
-      <!-- TABEL DAFTAR PERUSAHAAN / CABANG (Level 1 & 2) -->
-      <BaseTable 
-        v-if="!isShowingPayroll"
-        :columns="companyColumns" 
-        :data="!selectedCompany ? companyTree : currentCompanyChildren" 
-        has-actions 
-        empty-text="Kantor atau lokasi tidak ditemukan."
+      <!-- Level 1: pilih perusahaan -->
+      <BaseTable
+        v-if="!selectedCompany"
+        :columns="companyColumns"
+        :data="companies"
+        :loading="loadingCompanies"
+        has-actions
+        empty-text="Belum ada perusahaan."
       >
         <template #cell-name="{ item }">
           <strong>{{ item.name }}</strong>
         </template>
-        
-        <template #cell-count="{ item }">
-          <span class="count-badge">{{ item.count || 0 }} Orang</span>
+        <template #cell-address="{ item }">
+          <span>{{ item.address || '-' }}</span>
         </template>
-        
-        <template #cell-budget="{ item }">
-          <strong>{{ rupiah(item.budget) }}</strong>
-        </template>
-        
         <template #actions="{ item }">
-          <button type="button" class="detail-link-btn" @click="!selectedCompany ? goToCompany(item) : goToBranch(item)">
-            Lihat Gaji
-          </button>
+          <button type="button" class="detail-link-btn" @click="goToCompany(item)">Pilih Perusahaan</button>
         </template>
       </BaseTable>
 
-      <!-- TABEL DAFTAR KARYAWAN & GAJI (Level 3 - Payroll) -->
-      <BaseTable 
+      <!-- Level 2: pilih cabang -->
+      <BaseTable
+        v-else-if="!selectedBranch"
+        :columns="companyColumns"
+        :data="officeLocations"
+        :loading="loadingLocations"
+        has-actions
+        empty-text="Belum ada cabang di perusahaan ini."
+      >
+        <template #cell-name="{ item }"><strong>{{ item.name }}</strong></template>
+        <template #cell-address="{ item }">{{ item.address || '-' }}</template>
+        <template #actions="{ item }">
+          <button type="button" class="detail-link-btn" @click="goToBranch(item)">Pilih Cabang</button>
+        </template>
+      </BaseTable>
+
+      <!-- Level 3: payroll hanya setelah cabang dipilih -->
+      <BaseTable
         v-else
         :columns="payrollColumns" 
         :data="pageItems" 
+        :loading="loading"
         has-actions 
         empty-text="Belum ada data gaji di lokasi ini."
       >
