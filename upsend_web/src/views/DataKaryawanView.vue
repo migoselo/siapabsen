@@ -16,6 +16,11 @@ const router = useRouter()
 const route = useRoute()
 const confirmDialog = useConfirm()
 
+// Role admin (satu perusahaan) langsung dibuka di daftar cabang, tanpa layar
+// "Daftar Perusahaan". Role super_admin tetap melihat daftar perusahaan dulu.
+const authUser = JSON.parse(localStorage.getItem('auth_user') || 'null')
+const isSuperAdmin = ['super_admin', 'superadmin'].includes(authUser?.role)
+
 const employees = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
@@ -123,6 +128,16 @@ const visibleBranches = computed(() => {
 const hasMultipleBranches = computed(() => (selectedCompany.value?.locations?.length || 0) > 1)
 const showBranchList = computed(() => hasMultipleBranches.value && !selectedBranch.value)
 
+// Tombol kembali: untuk super_admin selalu tampil selama ada perusahaan terpilih.
+// Untuk admin (satu perusahaan), daftar cabang adalah layar paling awal, jadi
+// tombol kembali hanya muncul saat sedang melihat daftar karyawan di satu cabang
+// (kembali ke daftar cabang), bukan di daftar cabang itu sendiri.
+const canGoBack = computed(() => {
+  if (!selectedCompany.value) return false
+  if (isSuperAdmin) return true
+  return hasMultipleBranches.value && Boolean(selectedBranch.value)
+})
+
 // === PERBAIKAN: Update URL agar status terpilih tersimpan di riwayat browser ===
 function resetDrillDown() {
   selectedCompany.value = null
@@ -160,6 +175,20 @@ function goBackToCompany() {
   const query = { ...route.query, tenant_id: String(selectedCompany.value.id) }
   delete query.location_id
   router.replace({ query })
+}
+
+// Tombol panah kembali: untuk admin selalu kembali ke daftar cabang (root-nya
+// sendiri), untuk super_admin ikuti logika lama (bisa naik ke daftar perusahaan).
+function goBack() {
+  if (!isSuperAdmin) {
+    goBackToCompany()
+    return
+  }
+  if (hasMultipleBranches.value && selectedBranch.value) {
+    goBackToCompany()
+  } else {
+    goBackToCompanies()
+  }
 }
 // ==============================================================================
 
@@ -522,6 +551,15 @@ async function fetchCompanies() {
 
 onMounted(async () => {
   await fetchCompanies()
+
+  // Admin (bukan super_admin) hanya punya satu perusahaan: langsung buka
+  // perusahaan itu (daftar cabang / karyawan), tanpa layar "Daftar Perusahaan".
+  // Super_admin tetap melihat daftar perusahaan terlebih dahulu.
+  if (!isSuperAdmin && !route.query.tenant_id && tenants.value.length) {
+    goToCompany(tenants.value[0])
+    return
+  }
+
   restoreSelectedOffice()
 })
 
@@ -541,7 +579,7 @@ onBeforeUnmount(() => {
     <section class="panel table-panel">
       <div class="filter-bar">
         <div class="breadcrumb-wrap">
-          <button v-if="selectedCompany" type="button" class="back-btn" @click="hasMultipleBranches && selectedBranch ? goBackToCompany() : goBackToCompanies()" title="Kembali">
+          <button v-if="canGoBack" type="button" class="back-btn" @click="goBack" title="Kembali">
             <Icon icon="material-symbols:arrow-back-rounded" width="22" height="22" />
           </button>
           <div v-if="!selectedCompany" class="table-heading">
@@ -549,14 +587,18 @@ onBeforeUnmount(() => {
             <p>Pilih perusahaan untuk melihat cabang atau karyawannya.</p>
           </div>
           <div v-else class="selected-office-heading">
-            <span>{{ selectedBranch ? `Cabang · ${selectedCompany.name}` : 'Perusahaan terpilih' }}</span>
+            <span v-if="isSuperAdmin || selectedBranch">{{ selectedBranch ? `Cabang · ${selectedCompany.name}` : 'Perusahaan terpilih' }}</span>
             <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
           </div>
         </div>
 
         <div class="search">
           <Icon icon="material-symbols:search-rounded" width="18" height="18" />
-          <input type="text" v-model="searchQuery" :placeholder="showBranchList ? 'Cari cabang...' : 'Cari perusahaan...'" />
+          <input
+            type="text"
+            v-model="searchQuery"
+            :placeholder="!selectedCompany ? 'Cari perusahaan...' : showBranchList ? 'Cari cabang...' : 'Cari karyawan...'"
+          />
         </div>
 
         <button class="icon-btn-solid" @click="openAddModal" title="Tambah Karyawan">
