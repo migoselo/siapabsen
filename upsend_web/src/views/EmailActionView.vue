@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 
@@ -11,12 +11,40 @@ const passwordConfirmation = ref('')
 const loading = ref(false)
 const message = ref('')
 const error = ref('')
+const checkingActivation = ref(false)
+const activationTokenValid = ref(false)
+const activationExpired = ref(false)
+const resendLoading = ref(false)
+const resendMessage = ref('')
+
+async function checkActivationToken() {
+  if (isReset.value) return
+  if (!token) {
+    error.value = 'Link tidak memiliki token yang valid.'
+    return
+  }
+
+  checkingActivation.value = true
+  try {
+    const response = await api.get('/activate-account/validate', { params: { token } })
+    activationTokenValid.value = Boolean(response.data?.valid)
+    activationExpired.value = Boolean(response.data?.expired)
+  } catch (requestError) {
+    error.value = requestError.response?.data?.message || 'Link aktivasi tidak valid.'
+  } finally {
+    checkingActivation.value = false
+  }
+}
 
 async function submit() {
   error.value = ''
   message.value = ''
   if (!token) {
     error.value = 'Link tidak memiliki token yang valid.'
+    return
+  }
+  if (!isReset.value && !activationTokenValid.value) {
+    error.value = 'Link aktivasi tidak valid atau sudah kedaluwarsa.'
     return
   }
   if (password.value.length < 8 || password.value !== passwordConfirmation.value) {
@@ -37,10 +65,33 @@ async function submit() {
       : 'Akun berhasil diaktifkan. Silakan login.'
   } catch (requestError) {
     error.value = requestError.response?.data?.message || 'Link tidak valid atau sudah kedaluwarsa.'
+    if (!isReset.value && requestError.response?.status === 422) {
+      activationTokenValid.value = false
+      activationExpired.value = true
+    }
   } finally {
     loading.value = false
   }
 }
+
+async function resendActivation() {
+  error.value = ''
+  resendMessage.value = ''
+  resendLoading.value = true
+
+  try {
+    const response = await api.post('/activate-account/resend', {
+      token,
+    })
+    resendMessage.value = response.data?.message || 'Jika link aktivasi sudah kedaluwarsa, link baru akan dikirim ke email akun.'
+  } catch (requestError) {
+    error.value = requestError.response?.data?.message || 'Gagal mengirim ulang tautan. Coba lagi nanti.'
+  } finally {
+    resendLoading.value = false
+  }
+}
+
+onMounted(checkActivationToken)
 </script>
 
 <template>
@@ -48,7 +99,8 @@ async function submit() {
     <section class="email-action-card">
       <h1>{{ isReset ? 'Buat Password Baru' : 'Aktivasi Akun' }}</h1>
       <p>{{ isReset ? 'Masukkan password baru untuk akun Anda.' : 'Buat password untuk mengaktifkan akun Anda.' }}</p>
-      <form v-if="!message" @submit.prevent="submit">
+      <p v-if="!isReset && checkingActivation">Memeriksa link aktivasi...</p>
+      <form v-if="!message && (isReset || activationTokenValid)" @submit.prevent="submit">
         <label>Password baru</label>
         <input v-model="password" type="password" minlength="8" autocomplete="new-password" required />
         <label>Ulangi password</label>
@@ -57,6 +109,13 @@ async function submit() {
       </form>
       <p v-if="message" class="success">{{ message }}</p>
       <p v-if="error" class="error">{{ error }}</p>
+      <section v-if="!isReset && activationExpired" class="resend-section">
+        <p>Link aktivasi sudah kedaluwarsa.</p>
+        <button class="resend-link" type="button" :disabled="resendLoading" @click="resendActivation">
+          {{ resendLoading ? 'Mengirim link...' : 'Kirim ulang link aktivasi' }}
+        </button>
+        <p v-if="resendMessage" class="success">{{ resendMessage }}</p>
+      </section>
     </section>
   </main>
 </template>
@@ -71,6 +130,7 @@ label { color: #344054; font-size: 13px; font-weight: 700; }
 input { padding: 12px; border: 1px solid #d0d5dd; border-radius: 8px; font: inherit; }
 button { padding: 12px; border: 0; border-radius: 8px; background: #2f3b69; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; }
+.resend-link { padding: 0; border: 0; background: transparent; color: #1769aa; text-align: left; text-decoration: underline; font-weight: 600; }
 .success { color: #16804b; font-weight: 700; }
 .error { color: #c53030; font-weight: 600; }
 </style>
