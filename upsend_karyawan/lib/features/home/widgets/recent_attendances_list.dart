@@ -22,12 +22,14 @@ class RecentAttendanceList extends StatelessWidget {
   final List<AttendanceModel> history;
   final VoidCallback? onLihatSemua;
   final int maxItems;
+  final bool isLoading;
 
   const RecentAttendanceList({
     super.key,
     required this.history,
     this.onLihatSemua,
     this.maxItems = 3,
+    this.isLoading = false,
   });
 
   List<_HistoryEntry> _buildEntries() {
@@ -84,7 +86,7 @@ class RecentAttendanceList extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        if (entries.isEmpty)
+        if (entries.isEmpty && !isLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Text(
