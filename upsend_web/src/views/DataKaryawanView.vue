@@ -11,6 +11,7 @@ import BaseSelect from '../components/BaseSelect.vue'
 import BaseToast from '../components/BaseToast.vue'
 import GlobalConfirm from '../components/GlobalConfirm.vue'
 import { useConfirm } from '../composables/UseConfirm'
+import BasePagination from '../components/BasePagination.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -28,14 +29,9 @@ const currentPage = ref(1)
 const lastPage = ref(1)
 const totalEmployees = ref(0)
 const perPage = ref(20)
-const pageInput = ref(1)
 const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
 const resendingInvitationId = ref(null)
-
-watch(currentPage, (newPage) => {
-  pageInput.value = newPage
-})
 
 const showModal = ref(false)
 const saving = ref(false)
@@ -65,27 +61,33 @@ const form = ref({
   shift_id: '',
 })
 
-watch(() => form.value.email, (value) => {
-  clearTimeout(emailCheckTimer)
-  const requestId = ++emailCheckRequest
-  emailAvailable.value = null
-  checkingEmail.value = false
+watch(
+  () => form.value.email,
+  (value) => {
+    clearTimeout(emailCheckTimer)
+    const requestId = ++emailCheckRequest
+    emailAvailable.value = null
+    checkingEmail.value = false
 
-  const email = String(value || '').trim().toLowerCase()
-  if (!showModal.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return
+    const email = String(value || '')
+      .trim()
+      .toLowerCase()
+    if (!showModal.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return
 
-  checkingEmail.value = true
-  emailCheckTimer = setTimeout(async () => {
-    try {
-      const response = await api.get('/users/email-availability', { params: { email } })
-      if (requestId === emailCheckRequest) emailAvailable.value = Boolean(response.data?.available)
-    } catch {
-      if (requestId === emailCheckRequest) emailAvailable.value = null
-    } finally {
-      if (requestId === emailCheckRequest) checkingEmail.value = false
-    }
-  }, 350)
-})
+    checkingEmail.value = true
+    emailCheckTimer = setTimeout(async () => {
+      try {
+        const response = await api.get('/users/email-availability', { params: { email } })
+        if (requestId === emailCheckRequest)
+          emailAvailable.value = Boolean(response.data?.available)
+      } catch {
+        if (requestId === emailCheckRequest) emailAvailable.value = null
+      } finally {
+        if (requestId === emailCheckRequest) checkingEmail.value = false
+      }
+    }, 350)
+  },
+)
 
 const availableFormShifts = computed(() =>
   formShifts.value.filter((shift) =>
@@ -113,7 +115,11 @@ const filteredEmployees = computed(() => {
 const visibleCompanies = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   if (!query) return tenants.value
-  return tenants.value.filter((tenant) => String(tenant.name || '').toLowerCase().includes(query))
+  return tenants.value.filter((tenant) =>
+    String(tenant.name || '')
+      .toLowerCase()
+      .includes(query),
+  )
 })
 
 const visibleBranches = computed(() => {
@@ -127,6 +133,53 @@ const visibleBranches = computed(() => {
 
 const hasMultipleBranches = computed(() => (selectedCompany.value?.locations?.length || 0) > 1)
 const showBranchList = computed(() => hasMultipleBranches.value && !selectedBranch.value)
+
+// Pagination untuk daftar perusahaan & daftar cabang (client-side, karena
+// datanya sudah dimuat semua lewat fetchCompanies()). Sama polanya dengan
+// BasePagination di halaman Role dan Akses.
+const companyPage = ref(1)
+const companyPerPage = ref(20)
+const branchPage = ref(1)
+const branchPerPage = ref(20)
+
+const companyLastPage = computed(() =>
+  Math.max(1, Math.ceil(visibleCompanies.value.length / companyPerPage.value)),
+)
+const paginatedCompanies = computed(() => {
+  const start = (companyPage.value - 1) * companyPerPage.value
+  return visibleCompanies.value.slice(start, start + companyPerPage.value)
+})
+function onCompanyPageChange(page) {
+  companyPage.value = page
+}
+function onCompanyPerPageChange(value) {
+  companyPerPage.value = Number(value)
+  companyPage.value = 1
+}
+
+const branchLastPage = computed(() =>
+  Math.max(1, Math.ceil(visibleBranches.value.length / branchPerPage.value)),
+)
+const paginatedBranches = computed(() => {
+  const start = (branchPage.value - 1) * branchPerPage.value
+  return visibleBranches.value.slice(start, start + branchPerPage.value)
+})
+function onBranchPageChange(page) {
+  branchPage.value = page
+}
+function onBranchPerPageChange(value) {
+  branchPerPage.value = Number(value)
+  branchPage.value = 1
+}
+
+// Kembali ke halaman 1 setiap kali pencarian berubah atau pindah perusahaan
+watch(searchQuery, () => {
+  companyPage.value = 1
+  branchPage.value = 1
+})
+watch(selectedCompany, () => {
+  branchPage.value = 1
+})
 
 // Tombol kembali: untuk super_admin selalu tampil selama ada perusahaan terpilih.
 // Untuk admin (satu perusahaan), daftar cabang adalah layar paling awal, jadi
@@ -162,7 +215,13 @@ function goToCompany(company) {
 function goToBranch(branch) {
   selectedBranch.value = branch
   searchQuery.value = ''
-  router.replace({ query: { ...route.query, tenant_id: String(selectedCompany.value.id), location_id: String(branch.id) } })
+  router.replace({
+    query: {
+      ...route.query,
+      tenant_id: String(selectedCompany.value.id),
+      location_id: String(branch.id),
+    },
+  })
   fetchEmployees(1, selectedCompany.value.id, branch.id)
 }
 
@@ -244,7 +303,11 @@ function restoreSelectedOffice() {
   fetchEmployees(1, company.id, selectedBranch.value?.id)
 }
 
-async function fetchEmployees(page = 1, tenantId = selectedCompany.value?.id, locationId = selectedBranch.value?.id) {
+async function fetchEmployees(
+  page = 1,
+  tenantId = selectedCompany.value?.id,
+  locationId = selectedBranch.value?.id,
+) {
   loading.value = true
   try {
     const params = { page, per_page: perPage.value }
@@ -265,25 +328,8 @@ async function fetchEmployees(page = 1, tenantId = selectedCompany.value?.id, lo
 
 function onSearchInput() {}
 
-function prevPage() {
-  if (currentPage.value > 1) fetchEmployees(currentPage.value - 1)
-}
-
-function nextPage() {
-  if (currentPage.value < lastPage.value) fetchEmployees(currentPage.value + 1)
-}
-
-function goToInputPage() {
-  let page = Number(pageInput.value)
-  if (isNaN(page) || page < 1) page = 1
-  if (page > lastPage.value) page = lastPage.value
-  pageInput.value = page
-  if (page !== currentPage.value) {
-    fetchEmployees(page)
-  }
-}
-
-function changePerPage() {
+function onPerPageChange(value) {
+  perPage.value = Number(value)
   fetchEmployees(1)
 }
 
@@ -397,14 +443,17 @@ async function openAddModal() {
       (location) => Number(location.id) === Number(preferredLocationId),
     )
     if (preferredLocationExists) form.value.home_location_id = preferredLocationId
-    else if (formLocations.value.length === 1) form.value.home_location_id = formLocations.value[0].id
+    else if (formLocations.value.length === 1)
+      form.value.home_location_id = formLocations.value[0].id
   }
 }
 
 async function fetchTenants() {
   try {
     const response = await api.get('/tenants')
-    const existingLocations = new Map(tenants.value.map((tenant) => [String(tenant.id), tenant.locations]))
+    const existingLocations = new Map(
+      tenants.value.map((tenant) => [String(tenant.id), tenant.locations]),
+    )
     tenants.value = (Array.isArray(response.data) ? response.data : []).map((tenant) => ({
       ...tenant,
       locations: existingLocations.get(String(tenant.id)) || [],
@@ -587,7 +636,9 @@ onBeforeUnmount(() => {
             <p>Pilih perusahaan untuk melihat cabang atau karyawannya.</p>
           </div>
           <div v-else class="selected-office-heading">
-            <span v-if="isSuperAdmin || selectedBranch">{{ selectedBranch ? `Cabang · ${selectedCompany.name}` : 'Perusahaan terpilih' }}</span>
+            <span v-if="isSuperAdmin || selectedBranch">{{
+              selectedBranch ? `Cabang · ${selectedCompany.name}` : 'Perusahaan terpilih'
+            }}</span>
             <h2>{{ selectedBranch?.name || selectedCompany.name }}</h2>
           </div>
         </div>
@@ -597,17 +648,29 @@ onBeforeUnmount(() => {
           <input
             type="text"
             v-model="searchQuery"
-            :placeholder="!selectedCompany ? 'Cari perusahaan...' : showBranchList ? 'Cari cabang...' : 'Cari karyawan...'"
+            :placeholder="
+              !selectedCompany
+                ? 'Cari perusahaan...'
+                : showBranchList
+                  ? 'Cari cabang...'
+                  : 'Cari karyawan...'
+            "
           />
         </div>
 
-        <button v-if="selectedCompany" class="icon-btn-solid" @click="openAddModal" title="Tambah Karyawan">
+        <button
+          v-if="selectedCompany"
+          class="icon-btn-solid"
+          @click="openAddModal"
+          title="Tambah Karyawan"
+        >
           <Icon icon="material-symbols:add-rounded" width="20" height="20" />
         </button>
       </div>
 
       <!-- TABEL DAFTAR PERUSAHAAN / CABANG -->
-      <table v-if="!selectedCompany || showBranchList">
+      <template v-if="!selectedCompany || showBranchList">
+      <table>
         <thead>
           <tr>
             <th>{{ selectedCompany ? 'Nama Cabang' : 'Nama Perusahaan' }}</th>
@@ -627,12 +690,14 @@ onBeforeUnmount(() => {
             <td colspan="4" class="empty-cell">Cabang tidak ditemukan.</td>
           </tr>
           <template v-if="!selectedCompany">
-            <tr v-for="company in visibleCompanies" :key="company.id">
+            <tr v-for="company in paginatedCompanies" :key="company.id">
               <td>
                 <strong>{{ company.name }}</strong>
               </td>
               <td>{{ company.locations?.length || 0 }} cabang</td>
-              <td><span class="count-badge">{{ company.users_count || 0 }} Orang</span></td>
+              <td>
+                <span class="count-badge">{{ company.users_count || 0 }} Orang</span>
+              </td>
               <td class="action-cell">
                 <button type="button" class="detail-link-btn" @click="goToCompany(company)">
                   {{ company.locations?.length > 1 ? 'Lihat Cabang' : 'Lihat Karyawan' }}
@@ -641,12 +706,18 @@ onBeforeUnmount(() => {
             </tr>
           </template>
           <template v-else>
-            <tr v-for="branch in visibleBranches" :key="branch.id">
+            <tr v-for="branch in paginatedBranches" :key="branch.id">
               <td>
                 <strong>{{ branch.name }}</strong>
               </td>
               <td>{{ branch.address || '-' }}</td>
-              <td>{{ branch.latitude && branch.longitude ? `${branch.latitude}, ${branch.longitude}` : '-' }}</td>
+              <td>
+                {{
+                  branch.latitude && branch.longitude
+                    ? `${branch.latitude}, ${branch.longitude}`
+                    : '-'
+                }}
+              </td>
               <td class="action-cell">
                 <button type="button" class="detail-link-btn" @click="goToBranch(branch)">
                   Lihat Karyawan
@@ -657,8 +728,34 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
 
+      <!-- Pagination daftar perusahaan -->
+      <BasePagination
+        v-if="!selectedCompany"
+        :current-page="companyPage"
+        :last-page="companyLastPage"
+        :total="visibleCompanies.length"
+        :per-page="companyPerPage"
+        :loading="loading"
+        @page-change="onCompanyPageChange"
+        @per-page-change="onCompanyPerPageChange"
+      />
+
+      <!-- Pagination daftar cabang -->
+      <BasePagination
+        v-if="showBranchList"
+        :current-page="branchPage"
+        :last-page="branchLastPage"
+        :total="visibleBranches.length"
+        :per-page="branchPerPage"
+        :loading="loading"
+        @page-change="onBranchPageChange"
+        @per-page-change="onBranchPerPageChange"
+      />
+      </template>
+
       <!-- TABEL DAFTAR KARYAWAN -->
-      <table v-else class="employee-table">
+      <template v-else>
+      <table class="employee-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -693,12 +790,20 @@ onBeforeUnmount(() => {
                 <BaseButton
                   v-if="!emp.isActive"
                   variant="ghost"
-                  :icon="resendingInvitationId === emp.id ? 'line-md:loading-twotone-loop' : 'material-symbols:mail-outline-rounded'"
-                  :title="emp.statusClass === 'expired' ? 'Minta kirim ulang link aktivasi' : 'Kirim ulang link aktivasi'"
+                  :icon="
+                    resendingInvitationId === emp.id
+                      ? 'line-md:loading-twotone-loop'
+                      : 'material-symbols:mail-outline-rounded'
+                  "
+                  :title="
+                    emp.statusClass === 'expired'
+                      ? 'Minta kirim ulang link aktivasi'
+                      : 'Kirim ulang link aktivasi'
+                  "
                   :disabled="resendingInvitationId === emp.id"
                   @click="resendInvitation(emp)"
                 />
-                
+
                 <BaseButton
                   variant="ghost"
                   icon="material-symbols:visibility-outline-rounded"
@@ -713,42 +818,17 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
 
-      <!-- Table Footer -->
-      <div v-if="selectedCompany && !showBranchList" class="table-footer">
-        <div class="table-footer-content">
-          <div class="pager">
-            <button type="button" class="pager-btn" :disabled="currentPage === 1 || loading" @click="prevPage">
-              <Icon icon="material-symbols:chevron-left-rounded" width="18" height="18" />
-            </button>
-            <div class="page-input-wrapper">
-              <span>Halaman</span>
-              <input type="number" v-model.number="pageInput" @keydown.enter="goToInputPage" @blur="goToInputPage" min="1" :max="lastPage" class="page-input" />
-              <span>dari {{ lastPage }}</span>
-            </div>
-            <button type="button" class="pager-btn" :disabled="currentPage === lastPage || loading" @click="nextPage">
-              <Icon icon="material-symbols:chevron-right-rounded" width="18" height="18" />
-            </button>
-          </div>
-
-          <div class="per-page-select">
-            <BaseSelect
-              v-model="perPage"
-              :options="[
-                { label: '10 baris', value: 10 },
-                { label: '20 baris', value: 20 },
-                { label: '50 baris', value: 50 },
-                { label: '100 baris', value: 100 },
-              ]"
-              placeholder="Pilih jumlah baris"
-              @change="changePerPage"
-              :aria-disabled="loading"
-              :style="{ pointerEvents: loading ? 'none' : undefined, opacity: loading ? 0.6 : 1 }"
-            />
-          </div>
-
-          <span class="total-records-info">{{ totalEmployees }} karyawan</span>
-        </div>
-      </div>
+      <!-- Pagination daftar karyawan -->
+      <BasePagination
+        :current-page="currentPage"
+        :last-page="lastPage"
+        :total="totalEmployees"
+        :per-page="perPage"
+        :loading="loading"
+        @page-change="fetchEmployees"
+        @per-page-change="onPerPageChange"
+      />
+      </template>
     </section>
 
     <Teleport to="body">
@@ -768,15 +848,38 @@ onBeforeUnmount(() => {
             </div>
             <div class="field">
               <label class="required">Email</label>
-              <input type="email" v-model="form.email" maxlength="254" placeholder="Email" :aria-invalid="emailAvailable === false" />
+              <input
+                type="email"
+                v-model="form.email"
+                maxlength="254"
+                placeholder="Email"
+                :aria-invalid="emailAvailable === false"
+              />
               <small v-if="checkingEmail" class="email-check-message">Memeriksa email...</small>
-              <small v-else-if="emailAvailable === false" class="email-check-message email-check-error">Email sudah terdaftar. Gunakan email lain.</small>
-              <small v-else-if="emailAvailable === true" class="email-check-message email-check-success">Email tersedia.</small>
+              <small
+                v-else-if="emailAvailable === false"
+                class="email-check-message email-check-error"
+                >Email sudah terdaftar. Gunakan email lain.</small
+              >
+              <small
+                v-else-if="emailAvailable === true"
+                class="email-check-message email-check-success"
+                >Email tersedia.</small
+              >
             </div>
-            <p class="activation-note">Link aktivasi untuk membuat password akan dikirim ke email karyawan.</p>
+            <p class="activation-note">
+              Link aktivasi untuk membuat password akan dikirim ke email karyawan.
+            </p>
             <div class="field">
               <label class="required">Nomor HP</label>
-              <input type="text" inputmode="numeric" v-model="form.no_hp" maxlength="15" @input="form.no_hp = form.no_hp.replace(/\D/g, '')" placeholder="Contoh: 081234567890" />
+              <input
+                type="text"
+                inputmode="numeric"
+                v-model="form.no_hp"
+                maxlength="15"
+                @input="form.no_hp = form.no_hp.replace(/\D/g, '')"
+                placeholder="Contoh: 081234567890"
+              />
             </div>
             <div class="field-row">
               <div class="field">
@@ -792,10 +895,23 @@ onBeforeUnmount(() => {
                 <label class="required">Cabang</label>
                 <BaseSelect
                   v-model="form.home_location_id"
-                  :options="formLocations.map((location) => ({ label: location.name, value: location.id }))"
-                  :placeholder="!form.tenant_id ? 'Pilih perusahaan dahulu' : loadingFormOptions ? 'Memuat cabang...' : formLocations.length ? 'Pilih cabang' : 'Tidak ada cabang tersedia'"
+                  :options="
+                    formLocations.map((location) => ({ label: location.name, value: location.id }))
+                  "
+                  :placeholder="
+                    !form.tenant_id
+                      ? 'Pilih perusahaan dahulu'
+                      : loadingFormOptions
+                        ? 'Memuat cabang...'
+                        : formLocations.length
+                          ? 'Pilih cabang'
+                          : 'Tidak ada cabang tersedia'
+                  "
                   :aria-disabled="loadingFormOptions || !formLocations.length"
-                  :style="{ pointerEvents: loadingFormOptions || !formLocations.length ? 'none' : undefined, opacity: loadingFormOptions || !formLocations.length ? 0.6 : 1 }"
+                  :style="{
+                    pointerEvents: loadingFormOptions || !formLocations.length ? 'none' : undefined,
+                    opacity: loadingFormOptions || !formLocations.length ? 0.6 : 1,
+                  }"
                 />
               </div>
             </div>
@@ -806,11 +922,17 @@ onBeforeUnmount(() => {
                   v-model="form.division_id"
                   :options="[
                     { label: 'Tanpa divisi', value: '' },
-                    ...formDivisions.map((division) => ({ label: division.name, value: division.id })),
+                    ...formDivisions.map((division) => ({
+                      label: division.name,
+                      value: division.id,
+                    })),
                   ]"
                   placeholder="Pilih divisi"
                   :aria-disabled="loadingFormOptions || !form.tenant_id"
-                  :style="{ pointerEvents: loadingFormOptions || !form.tenant_id ? 'none' : undefined, opacity: loadingFormOptions || !form.tenant_id ? 0.6 : 1 }"
+                  :style="{
+                    pointerEvents: loadingFormOptions || !form.tenant_id ? 'none' : undefined,
+                    opacity: loadingFormOptions || !form.tenant_id ? 0.6 : 1,
+                  }"
                 />
               </div>
               <div class="field">
@@ -825,8 +947,28 @@ onBeforeUnmount(() => {
                     })),
                   ]"
                   :placeholder="form.division_id ? 'Pilih shift' : 'Pilih divisi dahulu'"
-                  :aria-disabled="loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length"
-                  :style="{ pointerEvents: loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length ? 'none' : undefined, opacity: loadingFormOptions || !form.tenant_id || !form.division_id || !availableFormShifts.length ? 0.6 : 1 }"
+                  :aria-disabled="
+                    loadingFormOptions ||
+                    !form.tenant_id ||
+                    !form.division_id ||
+                    !availableFormShifts.length
+                  "
+                  :style="{
+                    pointerEvents:
+                      loadingFormOptions ||
+                      !form.tenant_id ||
+                      !form.division_id ||
+                      !availableFormShifts.length
+                        ? 'none'
+                        : undefined,
+                    opacity:
+                      loadingFormOptions ||
+                      !form.tenant_id ||
+                      !form.division_id ||
+                      !availableFormShifts.length
+                        ? 0.6
+                        : 1,
+                  }"
                 />
               </div>
             </div>
@@ -844,8 +986,15 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="modal-footer">
-            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">Batal</button>
-            <BaseButton variant="primary" icon="material-symbols:save-outline" @click="submitEmployeeForm" :disabled="saving || checkingEmail || emailAvailable === false">
+            <button class="btn-cancel" type="button" @click="closeModal" :disabled="saving">
+              Batal
+            </button>
+            <BaseButton
+              variant="primary"
+              icon="material-symbols:save-outline"
+              @click="submitEmployeeForm"
+              :disabled="saving || checkingEmail || emailAvailable === false"
+            >
               {{ saving ? 'Menyimpan...' : 'Simpan Karyawan' }}
             </BaseButton>
           </div>
@@ -1122,89 +1271,6 @@ tbody tr:last-child td {
   text-decoration: underline;
 }
 
-/* Footer Pagination */
-.table-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 12px 20px;
-  font-size: 13px;
-  color: var(--ink-soft);
-  border-top: 1px solid var(--line);
-  background: var(--bg);
-  border-radius: 0 0 15px 15px;
-}
-.table-footer-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.pager {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.pager-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--ink-soft);
-}
-.pager-btn:hover:not(:disabled) {
-  background: #fff;
-  border-color: var(--blue-900);
-  color: var(--blue-900);
-}
-.pager-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.page-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
-.page-input {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  width: 44px;
-  height: 32px;
-  text-align: center;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--card);
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 13px;
-  outline: none;
-}
-.per-page-select select {
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--card);
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  outline: none;
-}
-.total-records-info {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
 .required {
   color: #d92d20;
   margin-left: 2px;
@@ -1327,8 +1393,15 @@ label.required::after {
   cursor: pointer;
 }
 @media (max-width: 700px) {
-  .filter-bar { padding: 14px; }
-  .search { width: 100%; margin-left: 0; }
-  table { min-width: 700px; }
+  .filter-bar {
+    padding: 14px;
+  }
+  .search {
+    width: 100%;
+    margin-left: 0;
+  }
+  table {
+    min-width: 700px;
+  }
 }
 </style>
