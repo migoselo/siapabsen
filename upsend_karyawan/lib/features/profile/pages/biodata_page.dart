@@ -136,6 +136,8 @@ class BiodataPage extends StatelessWidget {
                       ('ID Karyawan', user.employeeCode),
                       ('Nama Lengkap', user.name),
                       ('Departemen', user.biodataValue('department')),
+                      ('Divisi', user.divisionName ?? '-'),
+                      ('Jam Kerja / Shift', user.shiftDisplayName),
                       ('Jabatan', user.role.isNotEmpty ? user.role : '-'),
                       ('Golongan', user.biodataValue('grade')),
                       ('Cabang (Branch)', user.homeLocationName ?? '-'),

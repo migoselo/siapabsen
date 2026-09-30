@@ -73,7 +73,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user->load('homeLocation'),
+            'user' => $user->load(['homeLocation', 'division', 'shift']),
             'token' => $token,
         ]);
     }
@@ -106,7 +106,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user->load('homeLocation'),
+            'user' => $user->load(['homeLocation', 'division', 'shift']),
             'token' => $token,
         ]);
     }
@@ -217,6 +217,6 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('homeLocation'));
+        return response()->json($request->user()->load(['homeLocation', 'division', 'shift']));
     }
 }

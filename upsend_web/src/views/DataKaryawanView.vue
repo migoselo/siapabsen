@@ -63,6 +63,32 @@ const form = ref({
   home_location_id: '',
   division_id: '',
   shift_id: '',
+  department: '',
+  grade: '',
+  employee_type: '',
+  joined_at: '',
+  nik: '',
+  birth_place: '',
+  birth_date: '',
+  gender: '',
+  religion: '',
+  blood_type: '',
+  marital_status: '',
+  address: '',
+  emergency_contact: '',
+  bank_name: '',
+  bank_account_number: '',
+  bank_account_name: '',
+  tax_number: '',
+  bpjs_employment: '',
+  bpjs_health: '',
+  last_education: '',
+  education_institution: '',
+  certification: '',
+  spouse_name: '',
+  father_name: '',
+  mother_name: '',
+  children_count: '',
 })
 
 watch(() => form.value.email, (value) => {
@@ -302,7 +328,11 @@ function handleMissingBackendFeature(action) {
 
 function goToEmployeeDetail(employee) {
   if (!employee?.id) return
-  router.push(`/dashboard/karyawan/${employee.id}`)
+  router.push({
+    name: 'BiodataKaryawan',
+    params: { id: employee.id },
+    query: { ...route.query },
+  })
 }
 
 async function resendInvitation(employee) {
@@ -377,6 +407,32 @@ async function openAddModal() {
     home_location_id: '',
     division_id: '',
     shift_id: '',
+    department: '',
+    grade: '',
+    employee_type: '',
+    joined_at: '',
+    nik: '',
+    birth_place: '',
+    birth_date: '',
+    gender: '',
+    religion: '',
+    blood_type: '',
+    marital_status: '',
+    address: '',
+    emergency_contact: '',
+    bank_name: '',
+    bank_account_number: '',
+    bank_account_name: '',
+    tax_number: '',
+    bpjs_employment: '',
+    bpjs_health: '',
+    last_education: '',
+    education_institution: '',
+    certification: '',
+    spouse_name: '',
+    father_name: '',
+    mother_name: '',
+    children_count: '',
   }
   showPassword.value = false
   await fetchTenants()
@@ -503,6 +559,32 @@ async function submitEmployeeForm() {
       home_location_id: Number(form.value.home_location_id),
       ...(form.value.division_id ? { division_id: Number(form.value.division_id) } : {}),
       ...(form.value.shift_id ? { shift_id: Number(form.value.shift_id) } : {}),
+      department: form.value.department || null,
+      grade: form.value.grade || null,
+      employee_type: form.value.employee_type || null,
+      joined_at: form.value.joined_at || null,
+      nik: form.value.nik || null,
+      birth_place: form.value.birth_place || null,
+      birth_date: form.value.birth_date || null,
+      gender: form.value.gender || null,
+      religion: form.value.religion || null,
+      blood_type: form.value.blood_type || null,
+      marital_status: form.value.marital_status || null,
+      address: form.value.address || null,
+      emergency_contact: form.value.emergency_contact || null,
+      bank_name: form.value.bank_name || null,
+      bank_account_number: form.value.bank_account_number || null,
+      bank_account_name: form.value.bank_account_name || null,
+      tax_number: form.value.tax_number || null,
+      bpjs_employment: form.value.bpjs_employment || null,
+      bpjs_health: form.value.bpjs_health || null,
+      last_education: form.value.last_education || null,
+      education_institution: form.value.education_institution || null,
+      certification: form.value.certification || null,
+      spouse_name: form.value.spouse_name || null,
+      father_name: form.value.father_name || null,
+      mother_name: form.value.mother_name || null,
+      children_count: form.value.children_count === '' ? null : Number(form.value.children_count),
     }
 
     const response = await api.post('/users', payload)
@@ -762,8 +844,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="modal-body">
+            <h4 class="form-section-title">Informasi Pekerjaan</h4>
             <div class="field">
-              <label class="required">Nama</label>
+              <label class="required">Nama Lengkap</label>
               <input type="text" v-model="form.name" maxlength="100" placeholder="Nama lengkap" />
             </div>
             <div class="field">
@@ -774,9 +857,15 @@ onBeforeUnmount(() => {
               <small v-else-if="emailAvailable === true" class="email-check-message email-check-success">Email tersedia.</small>
             </div>
             <p class="activation-note">Link aktivasi untuk membuat password akan dikirim ke email karyawan.</p>
-            <div class="field">
-              <label class="required">Nomor HP</label>
-              <input type="text" inputmode="numeric" v-model="form.no_hp" maxlength="15" @input="form.no_hp = form.no_hp.replace(/\D/g, '')" placeholder="Contoh: 081234567890" />
+            <div class="field-row">
+              <div class="field">
+                <label class="required">Nomor HP</label>
+                <input type="text" inputmode="numeric" v-model="form.no_hp" maxlength="15" @input="form.no_hp = form.no_hp.replace(/\D/g, '')" placeholder="Contoh: 081234567890" />
+              </div>
+              <div class="field">
+                <label>Departemen</label>
+                <input type="text" v-model="form.department" maxlength="255" />
+              </div>
             </div>
             <div class="field-row">
               <div class="field">
@@ -830,16 +919,157 @@ onBeforeUnmount(() => {
                 />
               </div>
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Golongan</label>
+                <input type="text" v-model="form.grade" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>Tipe Karyawan</label>
+                <input type="text" v-model="form.employee_type" maxlength="255" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Tanggal Bergabung</label>
+                <input type="date" v-model="form.joined_at" />
+              </div>
+              <div class="field">
+                <label class="required">Peran</label>
+                <BaseSelect
+                  v-model="form.role"
+                  :options="[
+                    { label: 'Karyawan', value: 'karyawan' },
+                    { label: 'Admin', value: 'admin' },
+                  ]"
+                  placeholder="Pilih peran"
+                />
+              </div>
+            </div>
+
+            <h4 class="form-section-title">Data Pribadi</h4>
+            <div class="field-row">
+              <div class="field">
+                <label>NIK</label>
+                <input type="text" v-model="form.nik" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>Tempat Lahir</label>
+                <input type="text" v-model="form.birth_place" maxlength="255" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Tanggal Lahir</label>
+                <input type="date" v-model="form.birth_date" />
+              </div>
+              <div class="field">
+                <label>Jenis Kelamin</label>
+                <BaseSelect
+                  v-model="form.gender"
+                  :options="[
+                    { label: 'Laki-laki', value: 'Laki-laki' },
+                    { label: 'Perempuan', value: 'Perempuan' },
+                  ]"
+                  placeholder="Pilih jenis kelamin"
+                />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Agama</label>
+                <input type="text" v-model="form.religion" maxlength="100" />
+              </div>
+              <div class="field">
+                <label>Golongan Darah</label>
+                <BaseSelect
+                  v-model="form.blood_type"
+                  :options="['A', 'B', 'AB', 'O']"
+                  placeholder="Pilih golongan darah"
+                />
+              </div>
+            </div>
             <div class="field">
-              <label class="required">Peran</label>
-              <BaseSelect
-                v-model="form.role"
-                :options="[
-                  { label: 'Karyawan', value: 'karyawan' },
-                  { label: 'Admin', value: 'admin' },
-                ]"
-                placeholder="Pilih peran"
-              />
+              <label>Status Pernikahan</label>
+              <input type="text" v-model="form.marital_status" maxlength="100" />
+            </div>
+
+            <h4 class="form-section-title">Kontak & Alamat</h4>
+            <div class="field">
+              <label>Alamat Lengkap</label>
+              <textarea v-model="form.address" rows="3" />
+            </div>
+            <div class="field">
+              <label>Kontak Darurat</label>
+              <input type="text" v-model="form.emergency_contact" maxlength="255" placeholder="Nama dan nomor telepon" />
+            </div>
+
+            <h4 class="form-section-title">Rekening & BPJS</h4>
+            <div class="field-row">
+              <div class="field">
+                <label>Nama Bank</label>
+                <input type="text" v-model="form.bank_name" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>Nomor Rekening</label>
+                <input type="text" v-model="form.bank_account_number" maxlength="255" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Atas Nama Rekening</label>
+                <input type="text" v-model="form.bank_account_name" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>Kode PTKP / NPWP</label>
+                <input type="text" v-model="form.tax_number" maxlength="255" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>BPJS Ketenagakerjaan</label>
+                <input type="text" v-model="form.bpjs_employment" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>BPJS Kesehatan</label>
+                <input type="text" v-model="form.bpjs_health" maxlength="255" />
+              </div>
+            </div>
+
+            <h4 class="form-section-title">Pendidikan & Keluarga</h4>
+            <div class="field-row">
+              <div class="field">
+                <label>Pendidikan Terakhir</label>
+                <input type="text" v-model="form.last_education" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>Institusi / Sekolah</label>
+                <input type="text" v-model="form.education_institution" maxlength="255" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Sertifikasi</label>
+              <textarea v-model="form.certification" rows="2" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Nama Pasangan</label>
+                <input type="text" v-model="form.spouse_name" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>Jumlah Anak</label>
+                <input type="number" v-model="form.children_count" min="0" max="255" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Nama Ayah</label>
+                <input type="text" v-model="form.father_name" maxlength="255" />
+              </div>
+              <div class="field">
+                <label>Nama Ibu</label>
+                <input type="text" v-model="form.mother_name" maxlength="255" />
+              </div>
             </div>
           </div>
 
@@ -1227,7 +1457,7 @@ label.required::after {
 }
 .modal {
   width: 100%;
-  max-width: 620px;
+  max-width: 780px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -1281,7 +1511,8 @@ label.required::after {
   color: var(--ink-soft);
 }
 .field input,
-.field select {
+.field select,
+.field textarea {
   border: 1.5px solid #cbd5e1;
   border-radius: 10px;
   padding: 12px 14px;
@@ -1290,6 +1521,23 @@ label.required::after {
   color: var(--ink);
   outline: none;
   background: #fff;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 76px;
+}
+.form-section-title {
+  margin: 8px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--blue-900);
+  font-size: 14px;
+  font-weight: 700;
+}
+.form-section-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 .email-check-message {
   font-size: 12px;
@@ -1304,6 +1552,9 @@ label.required::after {
 .field-row {
   display: flex;
   gap: 16px;
+}
+.field-row > .field {
+  min-width: 0;
 }
 .modal-footer {
   display: flex;
@@ -1330,5 +1581,10 @@ label.required::after {
   .filter-bar { padding: 14px; }
   .search { width: 100%; margin-left: 0; }
   table { min-width: 700px; }
+  .modal-overlay { padding: 12px; }
+  .modal-head,
+  .modal-body,
+  .modal-footer { padding-left: 16px; padding-right: 16px; }
+  .field-row { flex-direction: column; gap: 14px; }
 }
 </style>

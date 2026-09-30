@@ -158,9 +158,9 @@ class UserController extends Controller
         ], 201);
     }
 
-    public function show(User $user)
+    public function show(Request $request, User $user)
     {
-        $this->ensureSameTenant($user);
+        $this->ensureSameTenant($user, $request);
 
         return response()->json($user->load(['homeLocation', 'division', 'shift']));
     }
@@ -203,6 +203,15 @@ class UserController extends Controller
             : Rule::unique('users')->ignore($user->id);
 
         $data = $request->validate([
+            'employee_id' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('users', 'employee_id')
+                    ->where(fn ($query) => $query->where('tenant_id', $tenantId))
+                    ->ignore($user->id),
+            ],
             'name' => 'sometimes|required|string|max:255',
             'email' => ['sometimes', 'required', 'email', $emailRule],
             'no_hp' => 'nullable|string|max:255',
