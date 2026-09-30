@@ -114,6 +114,10 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(height: 20),
                       const RealtimeClockCard(),
+                      if (state.status == HomeStatus.loading) ...[
+                        const SizedBox(height: 16),
+                        const _HomeLoadingIndicator(),
+                      ],
                       const SizedBox(height: 16),
                       AttendanceInfoBoxes(
                         checkInTime: state.checkInTime,
@@ -142,6 +146,7 @@ class _HomePageState extends State<HomePage> {
                       ],
                       RecentAttendanceList(
                         history: state.history,
+                        isLoading: state.status == HomeStatus.loading,
                         onLihatSemua: () {
                           setState(() => _activeNavIndex = 3);
                         },
@@ -158,6 +163,37 @@ class _HomePageState extends State<HomePage> {
           const ProfilePage(showBottomNav: false, showBackButton: true),
         ],
       ),
+    );
+  }
+}
+
+class _HomeLoadingIndicator extends StatelessWidget {
+  const _HomeLoadingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFF2B3A67),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          'Memuat data presensi...',
+          style: TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.blueGrey.shade600,
+          ),
+        ),
+      ],
     );
   }
 }
