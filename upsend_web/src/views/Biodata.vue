@@ -19,10 +19,12 @@ const toast = ref({ show: false, type: 'success', message: '' })
 let toastTimer = null
 const loading = ref(true)
 const deleting = ref(false)
+const savingSection = ref(null)
 
 // State untuk menyimpan data dari KelolaDivisiShift
 const divisions = ref([]) 
 const shifts = ref([])
+const locations = ref([])
 
 // Format opsi agar kompatibel dengan BaseSelect (array of objects {label, value})
 const divisionOptions = computed(() => {
@@ -40,6 +42,11 @@ const shiftOptions = computed(() => {
     return { label: `${s.name}${timeLabel}`, value: s.id }
   })
 })
+
+const locationOptions = computed(() => locations.value.map((location) => ({
+  label: location.name,
+  value: Number(location.id),
+})))
 
 function showToast(message, type = 'success') {
   toast.value = { show: true, type, message }
@@ -68,12 +75,15 @@ const employee = reactive({
     shift_id: '',
     golongan: '-',
     cabang: '-',
+    cabang_id: '',
     tipe_karyawan: '-',
     tanggal_bergabung: '-',
   },
   pribadi: {
     nik: '-',
     tempat_tanggal_lahir: '-',
+    tempat_lahir: '',
+    tanggal_lahir: '',
     jenis_kelamin: '-',
     agama: '-',
     golongan_darah: '-',
@@ -138,51 +148,89 @@ function cancelEdit(section) {
 }
 
 async function saveEdit(section) {
-  // Simpan ke state lokal untuk tampilan instan
-  Object.assign(employee[section], tempForm[section])
-  
-  if (section === 'pekerjaan') {
-    employee.name = employee.pekerjaan.nama_panggilan || employee.name
-    employee.jabatan_header = employee.pekerjaan.jabatan || employee.jabatan_header
-    
-    // Perbarui label Divisi berdasarkan opsi dropdown yang dipilih
-     if (tempForm.pekerjaan.divisi_id) {
-       const selectedDiv = divisions.value.find((division) => String(division.id) === String(tempForm.pekerjaan.divisi_id))
-       if (selectedDiv) {
-         employee.pekerjaan.divisi = selectedDiv.name
-       }
-    }
-    
-    // Perbarui label Shift berdasarkan opsi dropdown yang dipilih
-    if (tempForm.pekerjaan.shift_id) {
-       const selectedShift = shifts.value.find(s => String(s.id) === String(tempForm.pekerjaan.shift_id))
-       if (selectedShift) {
-         const start = selectedShift.work_start_time ? String(selectedShift.work_start_time).slice(0, 5) : ''
-         const end = selectedShift.work_end_time ? String(selectedShift.work_end_time).slice(0, 5) : ''
-         employee.pekerjaan.shift = `${selectedShift.name} (${start} - ${end})`
-       }
-      
-    }
-  }
+  if (savingSection.value) return
+  savingSection.value = section
 
-  // Integrasi penyimpanan ke backend (Jika endpoint PUT /users/:id tersedia)
   try {
-    let payload = { ...tempForm[section] }
-    // Normalisasi ID agar tersimpan ke backend
-    if (section === 'pekerjaan') {
-      payload.division_id = tempForm.pekerjaan.divisi_id
-        ? Number(tempForm.pekerjaan.divisi_id)
-        : null
-      payload.shift_id = tempForm.pekerjaan.shift_id || null
-    }
-    await api.put(`/users/${employee.id}`, payload)
-  } catch (err) {
-    console.warn('Penyimpanan API diabaikan, belum ada endpoint update.', err)
-  }
+    const valueOrNull = (value) => value === '-' || value === '' || value == null ? null : value
+    let payload
 
-  isEditing[section] = false
-  delete tempForm[section]
-  showToast('Perubahan data berhasil disimpan.')
+    if (section === 'pekerjaan') {
+      const form = tempForm.pekerjaan
+      payload = {
+        employee_id: valueOrNull(form.id_karyawan),
+        name: valueOrNull(form.nama_panggilan),
+        department: valueOrNull(form.departemen),
+        division_id: form.divisi_id ? Number(form.divisi_id) : null,
+        shift_id: form.shift_id ? Number(form.shift_id) : null,
+        role: String(form.jabatan || '').trim().toLowerCase(),
+        grade: valueOrNull(form.golongan),
+        home_location_id: form.cabang_id ? Number(form.cabang_id) : null,
+        employee_type: valueOrNull(form.tipe_karyawan),
+        joined_at: valueOrNull(form.tanggal_bergabung),
+      }
+    } else if (section === 'pribadi') {
+      const form = tempForm.pribadi
+      payload = {
+        nik: valueOrNull(form.nik),
+        birth_place: valueOrNull(form.tempat_lahir),
+        birth_date: valueOrNull(form.tanggal_lahir),
+        gender: valueOrNull(form.jenis_kelamin),
+        religion: valueOrNull(form.agama),
+        blood_type: valueOrNull(form.golongan_darah),
+        marital_status: valueOrNull(form.status_pernikahan),
+      }
+    } else if (section === 'kontak') {
+      const form = tempForm.kontak
+      payload = {
+        no_hp: valueOrNull(form.no_hp),
+        email: valueOrNull(form.email),
+        address: valueOrNull(form.alamat_lengkap),
+        emergency_contact: valueOrNull(form.kontak_darurat),
+      }
+    } else if (section === 'rekening') {
+      const form = tempForm.rekening
+      payload = {
+        bank_name: valueOrNull(form.nama_bank),
+        bank_account_number: valueOrNull(form.no_rekening),
+        bank_account_name: valueOrNull(form.atas_nama),
+        tax_number: valueOrNull(form.kode_ptkp),
+        bpjs_employment: valueOrNull(form.bpjs_tk),
+        bpjs_health: valueOrNull(form.bpjs_kes),
+      }
+    } else {
+      const form = tempForm.pendidikan
+      payload = {
+        last_education: valueOrNull(form.pendidikan_terakhir),
+        education_institution: valueOrNull(form.institusi),
+        certification: valueOrNull(form.sertifikasi),
+        spouse_name: valueOrNull(form.nama_pasangan),
+        father_name: valueOrNull(form.nama_ayah),
+        mother_name: valueOrNull(form.nama_ibu),
+        children_count: form.jumlah_anak === '-' || form.jumlah_anak === ''
+          ? null
+          : Number(form.jumlah_anak),
+      }
+    }
+
+    const config = route.query.tenant_id
+      ? { params: { tenant_id: route.query.tenant_id } }
+      : undefined
+    const response = await api.put(`/users/${employee.id}`, payload, config)
+    mapEmployee(response.data)
+    isEditing[section] = false
+    delete tempForm[section]
+    showToast('Perubahan data berhasil disimpan.')
+  } catch (err) {
+    console.error('Gagal menyimpan biodata karyawan:', err)
+    const validationErrors = Object.values(err.response?.data?.errors || {}).flat()
+    showToast(
+      validationErrors.join(' ') || err.response?.data?.message || 'Perubahan biodata gagal disimpan.',
+      'error',
+    )
+  } finally {
+    savingSection.value = null
+  }
 }
 
 function goBack() {
@@ -255,12 +303,14 @@ function initials(name) {
 async function fetchDivisionsAndShifts(tenantId = null) {
   try {
     const config = tenantId ? { params: { tenant_id: tenantId } } : {}
-    const [divRes, shiftRes] = await Promise.all([
+    const [divRes, shiftRes, locationRes] = await Promise.all([
       api.get('/divisions', config),
-      api.get('/shifts', config)
+      api.get('/shifts', config),
+      api.get('/locations', config),
     ])
     divisions.value = Array.isArray(divRes.data) ? divRes.data : []
     shifts.value = Array.isArray(shiftRes.data) ? shiftRes.data : []
+    locations.value = Array.isArray(locationRes.data) ? locationRes.data : []
   } catch (err) {
     console.error('Gagal mengambil opsi divisi dan shift:', err)
   }
@@ -304,12 +354,15 @@ function mapEmployee(data) {
       jabatan: role,
       golongan: displayValue(data.grade),
       cabang: displayValue(locationName),
+      cabang_id: locationId ?? '',
       tipe_karyawan: displayValue(data.employee_type),
       tanggal_bergabung: displayValue(data.joined_at),
     },
     pribadi: {
       nik: displayValue(data.nik),
       tempat_tanggal_lahir: birthInfo(data),
+      tempat_lahir: data.birth_place || '',
+      tanggal_lahir: data.birth_date || '',
       jenis_kelamin: displayValue(data.gender),
       agama: displayValue(data.religion),
       golongan_darah: displayValue(data.blood_type),
@@ -348,12 +401,20 @@ async function fetchEmployee() {
   loading.value = true
   try {
     try {
-      const res = await api.get(`/users/${route.params.id}`)
+      const params = route.query.tenant_id
+        ? { tenant_id: route.query.tenant_id }
+        : undefined
+      const res = await api.get(`/users/${route.params.id}`, { params })
       mapEmployee(res.data)
     } catch (err) {
       if (err.response?.status !== 404) throw err
 
-      const listRes = await api.get('/users', { params: { per_page: 100 } })
+      const listRes = await api.get('/users', {
+        params: {
+          per_page: 100,
+          ...(route.query.tenant_id ? { tenant_id: route.query.tenant_id } : {}),
+        },
+      })
       const users = Array.isArray(listRes.data?.data) ? listRes.data.data : []
       const found = users.find(
         (item) =>
@@ -431,7 +492,9 @@ onMounted(fetchEmployee)
           <div class="section-actions" @click.stop>
             <template v-if="isEditing.pekerjaan">
               <button class="btn-sec-cancel" @click="cancelEdit('pekerjaan')">Batal</button>
-              <button class="btn-sec-save" @click="saveEdit('pekerjaan')">Simpan</button>
+              <button class="btn-sec-save" :disabled="Boolean(savingSection)" @click="saveEdit('pekerjaan')">
+                {{ savingSection === 'pekerjaan' ? 'Menyimpan...' : 'Simpan' }}
+              </button>
             </template>
             <template v-else>
               <button class="btn-sec-edit" @click="startEdit('pekerjaan')">
@@ -455,7 +518,7 @@ onMounted(fetchEmployee)
             </div>
 
             <div class="detail-row">
-              <span class="label">Nama Panggilan</span>
+              <span class="label">Nama Lengkap</span>
               <span class="separator">:</span>
               <input v-if="isEditing.pekerjaan" v-model="tempForm.pekerjaan.nama_panggilan" class="edit-input" />
               <span v-else class="value">{{ employee.pekerjaan.nama_panggilan }}</span>
@@ -513,7 +576,16 @@ onMounted(fetchEmployee)
             <div class="detail-row">
               <span class="label">Cabang (Branch)</span>
               <span class="separator">:</span>
-              <input v-if="isEditing.pekerjaan" v-model="tempForm.pekerjaan.cabang" class="edit-input" />
+              <div v-if="isEditing.pekerjaan" class="edit-input-wrapper">
+                <BaseSelect
+                  v-model="tempForm.pekerjaan.cabang_id"
+                  :options="[
+                    { label: 'Tanpa cabang', value: '' },
+                    ...locationOptions,
+                  ]"
+                  placeholder="Pilih cabang"
+                />
+              </div>
               <span v-else class="value">{{ employee.pekerjaan.cabang }}</span>
             </div>
 
@@ -543,7 +615,9 @@ onMounted(fetchEmployee)
           <div class="section-actions" @click.stop>
             <template v-if="isEditing.pribadi">
               <button class="btn-sec-cancel" @click="cancelEdit('pribadi')">Batal</button>
-              <button class="btn-sec-save" @click="saveEdit('pribadi')">Simpan</button>
+              <button class="btn-sec-save" :disabled="Boolean(savingSection)" @click="saveEdit('pribadi')">
+                {{ savingSection === 'pribadi' ? 'Menyimpan...' : 'Simpan' }}
+              </button>
             </template>
             <template v-else>
               <button class="btn-sec-edit" @click="startEdit('pribadi')">
@@ -566,11 +640,22 @@ onMounted(fetchEmployee)
               <span v-else class="value">{{ employee.pribadi.nik }}</span>
             </div>
 
-            <div class="detail-row">
+            <template v-if="isEditing.pribadi">
+              <div class="detail-row">
+                <span class="label">Tempat Lahir</span>
+                <span class="separator">:</span>
+                <input v-model="tempForm.pribadi.tempat_lahir" class="edit-input" />
+              </div>
+              <div class="detail-row">
+                <span class="label">Tanggal Lahir</span>
+                <span class="separator">:</span>
+                <input type="date" v-model="tempForm.pribadi.tanggal_lahir" class="edit-input" />
+              </div>
+            </template>
+            <div v-else class="detail-row">
               <span class="label">Tempat, Tanggal Lahir</span>
               <span class="separator">:</span>
-              <input v-if="isEditing.pribadi" v-model="tempForm.pribadi.tempat_tanggal_lahir" class="edit-input" />
-              <span v-else class="value">{{ employee.pribadi.tempat_tanggal_lahir }}</span>
+              <span class="value">{{ employee.pribadi.tempat_tanggal_lahir }}</span>
             </div>
 
             <div class="detail-row">
@@ -619,7 +704,9 @@ onMounted(fetchEmployee)
           <div class="section-actions" @click.stop>
             <template v-if="isEditing.kontak">
               <button class="btn-sec-cancel" @click="cancelEdit('kontak')">Batal</button>
-              <button class="btn-sec-save" @click="saveEdit('kontak')">Simpan</button>
+              <button class="btn-sec-save" :disabled="Boolean(savingSection)" @click="saveEdit('kontak')">
+                {{ savingSection === 'kontak' ? 'Menyimpan...' : 'Simpan' }}
+              </button>
             </template>
             <template v-else>
               <button class="btn-sec-edit" @click="startEdit('kontak')">
@@ -675,7 +762,9 @@ onMounted(fetchEmployee)
           <div class="section-actions" @click.stop>
             <template v-if="isEditing.rekening">
               <button class="btn-sec-cancel" @click="cancelEdit('rekening')">Batal</button>
-              <button class="btn-sec-save" @click="saveEdit('rekening')">Simpan</button>
+              <button class="btn-sec-save" :disabled="Boolean(savingSection)" @click="saveEdit('rekening')">
+                {{ savingSection === 'rekening' ? 'Menyimpan...' : 'Simpan' }}
+              </button>
             </template>
             <template v-else>
               <button class="btn-sec-edit" @click="startEdit('rekening')">
@@ -745,7 +834,9 @@ onMounted(fetchEmployee)
           <div class="section-actions" @click.stop>
             <template v-if="isEditing.pendidikan">
               <button class="btn-sec-cancel" @click="cancelEdit('pendidikan')">Batal</button>
-              <button class="btn-sec-save" @click="saveEdit('pendidikan')">Simpan</button>
+              <button class="btn-sec-save" :disabled="Boolean(savingSection)" @click="saveEdit('pendidikan')">
+                {{ savingSection === 'pendidikan' ? 'Menyimpan...' : 'Simpan' }}
+              </button>
             </template>
             <template v-else>
               <button class="btn-sec-edit" @click="startEdit('pendidikan')">
