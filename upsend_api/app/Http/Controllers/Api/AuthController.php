@@ -161,6 +161,70 @@ class AuthController extends Controller
         return response()->json(['message' => 'Akun berhasil diaktifkan. Silakan login.']);
     }
 
+    public function validateActivation(Request $request)
+    {
+        $data = $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        $user = User::where('invitation_token', hash('sha256', $data['token']))
+            ->where('is_active', false)
+            ->first();
+
+        if (! $user) {
+            return response()->json([
+                'valid' => false,
+                'expired' => false,
+                'message' => 'Link aktivasi tidak valid.',
+            ], 422);
+        }
+
+        $expired = ! $user->invitation_expires_at
+            || strtotime((string) $user->invitation_expires_at) <= now()->timestamp;
+
+        return response()->json([
+            'valid' => ! $expired,
+            'expired' => $expired,
+        ]);
+    }
+
+    public function resendActivation(Request $request)
+    {
+        $data = $request->validate([
+            'token' => 'required|string',
+        ]);
+        $user = User::where('invitation_token', hash('sha256', $data['token']))
+            ->where('is_active', false)
+            ->first();
+        $expired = $user && (
+            ! $user->invitation_expires_at
+            || strtotime((string) $user->invitation_expires_at) <= now()->timestamp
+        );
+
+        if ($user && $expired) {
+            $token = Str::random(64);
+            $user->update([
+                'invitation_token' => hash('sha256', $token),
+                'invitation_expires_at' => now()->addHours(48),
+                'invited_at' => now(),
+            ]);
+
+            $activationUrl = rtrim(
+                (string) config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:5173')),
+                '/',
+            ) . '/aktivasi-akun?token=' . urlencode($token);
+            app(\App\Services\EmailDeliveryService::class)->send(
+                $user->email,
+                'Aktivasi Akun Upsend',
+                "Halo {$user->name},\n\nBerikut tautan aktivasi akun Anda:\n{$activationUrl}\n\nLink berlaku 48 jam.",
+            );
+        }
+
+        return response()->json([
+            'message' => 'Jika link aktivasi sudah kedaluwarsa dan terkait dengan akun yang belum aktif, link baru akan dikirim ke email akun.',
+        ]);
+    }
+
     public function requestPasswordReset(Request $request)
     {
         $data = $request->validate(['email' => 'required|email']);

@@ -20,6 +20,10 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/login-web', [AuthController::class, 'loginWeb']);  // BARU, dipakai dashboard web (email)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/activate-account', [AuthController::class, 'activateAccount']);
+Route::get('/activate-account/validate', [AuthController::class, 'validateActivation'])
+    ->middleware('throttle:10,1');
+Route::post('/activate-account/resend', [AuthController::class, 'resendActivation'])
+    ->middleware('throttle:3,1');
 Route::post('/password/forgot', [AuthController::class, 'requestPasswordReset']);
 Route::post('/password/reset', [AuthController::class, 'resetPassword']);
 
